@@ -1,6 +1,9 @@
 package daemon
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 
@@ -45,5 +48,52 @@ func TestWriteReadRemove(t *testing.T) {
 	}
 	if _, err := Read(); err == nil {
 		t.Fatal("Read after Remove should fail")
+	}
+}
+
+func TestEnsureAttachesIfHealthy(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := config.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	started := false
+	startFn = func() error {
+		started = true
+		return nil
+	}
+	t.Cleanup(func() { startFn = start })
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/health" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer secret" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(ts.Close)
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := State{PID: 99, Addr: u.Host, URL: ts.URL, Token: "secret"}
+	if err := Write(want); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Ensure(u.Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("Ensure() = %+v, want %+v", got, want)
+	}
+	if started {
+		t.Fatal("Ensure started a process for a healthy instance")
 	}
 }
