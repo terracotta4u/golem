@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/google/uuid"
 
 	"github.com/terracotta4u/golem/store"
 )
@@ -49,7 +50,7 @@ func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
 			return
 		}
 
-		t := &turn{ID: newID(), Status: "pending"}
+		t := &turn{ID: uuid.NewString(), Status: "pending"}
 		s.mu.Lock()
 		s.turns[t.ID] = t
 		s.mu.Unlock()
@@ -137,14 +138,4 @@ func (s *Server) lockFor(id string) *sync.Mutex {
 		s.locks[id] = l
 	}
 	return l
-}
-
-func newID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		panic(err)
-	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
