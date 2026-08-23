@@ -12,14 +12,17 @@ import (
 	"github.com/terracotta4u/golem/store"
 )
 
+// client import still needed for Send
+
 func runChat() error {
-	if _, _, err := setup(); err != nil {
+	cfg, _, err := setup()
+	if err != nil {
 		return err
 	}
 
-	state, err := daemon.Read()
-	if err != nil || client.New(state.URL, state.Token).Health() != nil {
-		return fmt.Errorf("golem is not running; start it with golem serve")
+	state, err := daemon.Ensure(cfg.Listen)
+	if err != nil {
+		return err
 	}
 
 	conv := store.New("cli")

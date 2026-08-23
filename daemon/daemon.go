@@ -85,7 +85,8 @@ func Listening(addr string) bool {
 	return true
 }
 
-var startFn = start
+// StartFn starts golem serve. Tests replace it so they do not spawn a process.
+var StartFn = start
 
 func Ensure(listen string) (State, error) {
 	if Listening(listen) {
@@ -99,7 +100,7 @@ func Ensure(listen string) (State, error) {
 		return st, nil
 	}
 
-	if err := startFn(); err != nil {
+	if err := StartFn(); err != nil {
 		return State{}, fmt.Errorf("start golem: %w", err)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 
@@ -37,6 +38,11 @@ func TestChatSendsWhenRunning(t *testing.T) {
 	}).Handler())
 	defer ts.Close()
 
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeListen(t, u.Host)
 	if err := daemon.Write(daemon.State{URL: ts.URL, Token: "secret"}); err != nil {
 		t.Fatal(err)
 	}

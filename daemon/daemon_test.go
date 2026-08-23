@@ -58,11 +58,12 @@ func TestEnsureAttachesIfHealthy(t *testing.T) {
 	}
 
 	started := false
-	startFn = func() error {
+	origStart := StartFn
+	StartFn = func() error {
 		started = true
 		return nil
 	}
-	t.Cleanup(func() { startFn = start })
+	t.Cleanup(func() { StartFn = origStart })
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/health" {
