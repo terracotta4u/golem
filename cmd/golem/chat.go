@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/terracotta4u/golem/client"
+	"github.com/terracotta4u/golem/daemon"
 	"github.com/terracotta4u/golem/store"
 )
 
@@ -16,7 +17,7 @@ func runChat() error {
 		return err
 	}
 
-	state, err := readState()
+	state, err := daemon.Read()
 	if err != nil || client.New(state.URL, state.Token).Health() != nil {
 		return fmt.Errorf("golem is not running; start it with golem serve")
 	}

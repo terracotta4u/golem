@@ -1,4 +1,4 @@
-package main
+package daemon
 
 import (
 	"encoding/json"
@@ -9,15 +9,15 @@ import (
 	"github.com/terracotta4u/golem/config"
 )
 
-type instanceState struct {
+type State struct {
 	PID   int    `json:"pid"`
 	Addr  string `json:"addr"`
 	URL   string `json:"url"`
 	Token string `json:"token"`
 }
 
-func newState(listen, token string) instanceState {
-	return instanceState{
+func NewState(listen, token string) State {
+	return State{
 		PID:   os.Getpid(),
 		Addr:  listen,
 		URL:   urlFromListen(listen),
@@ -36,7 +36,7 @@ func urlFromListen(listen string) string {
 	return "http://" + net.JoinHostPort(host, port)
 }
 
-func writeState(st instanceState) error {
+func Write(st State) error {
 	path, err := config.DaemonPath()
 	if err != nil {
 		return err
@@ -49,23 +49,23 @@ func writeState(st instanceState) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-func readState() (instanceState, error) {
+func Read() (State, error) {
 	path, err := config.DaemonPath()
 	if err != nil {
-		return instanceState{}, err
+		return State{}, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return instanceState{}, err
+		return State{}, err
 	}
-	var st instanceState
+	var st State
 	if err := json.Unmarshal(data, &st); err != nil {
-		return instanceState{}, fmt.Errorf("parse instance state: %w", err)
+		return State{}, fmt.Errorf("parse daemon state: %w", err)
 	}
 	return st, nil
 }
 
-func removeState() {
+func Remove() {
 	path, err := config.DaemonPath()
 	if err != nil {
 		return

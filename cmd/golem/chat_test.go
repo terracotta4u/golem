@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/daemon"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/server"
 	"github.com/terracotta4u/golem/store"
@@ -37,15 +37,7 @@ func TestChatSendsWhenRunning(t *testing.T) {
 	}).Handler())
 	defer ts.Close()
 
-	path, err := config.DaemonPath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := json.Marshal(instanceState{URL: ts.URL, Token: "secret"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+	if err := daemon.Write(daemon.State{URL: ts.URL, Token: "secret"}); err != nil {
 		t.Fatal(err)
 	}
 

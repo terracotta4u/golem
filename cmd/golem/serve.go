@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/terracotta4u/golem/daemon"
 	"github.com/terracotta4u/golem/server"
 )
 
@@ -40,14 +41,14 @@ func runServe(args []string) error {
 		Addr:  listen,
 		Token: token,
 	}).Listen(ctx, func() {
-		if err := writeState(newState(listen, token)); err != nil {
+		if err := daemon.Write(daemon.NewState(listen, token)); err != nil {
 			fmt.Fprintf(os.Stderr, "instance state: %v\n", err)
 		} else {
 			wroteState = true
 		}
 	})
 	if wroteState {
-		removeState()
+		daemon.Remove()
 	}
 	return err
 }
