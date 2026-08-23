@@ -7,12 +7,11 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/terracotta4u/golem/daemon"
 	"github.com/terracotta4u/golem/server"
 )
 
 func runServe(args []string) error {
-	fs := flag.NewFlagSet("golem serve", flag.ContinueOnError)
+	fs := flag.NewFlagSet("golem", flag.ContinueOnError)
 	addr := fs.String("addr", "", "listen address (default from config)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -34,21 +33,10 @@ func runServe(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	wroteState := false
-	err = server.New(server.Options{
+	return server.New(server.Options{
 		Agent: app.agent,
 		Store: app.store,
 		Addr:  listen,
 		Token: token,
-	}).Listen(ctx, func() {
-		if err := daemon.Write(daemon.NewState(listen, token)); err != nil {
-			fmt.Fprintf(os.Stderr, "instance state: %v\n", err)
-		} else {
-			wroteState = true
-		}
-	})
-	if wroteState {
-		daemon.Remove()
-	}
-	return err
+	}).Listen(ctx, nil)
 }

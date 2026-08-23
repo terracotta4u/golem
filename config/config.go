@@ -53,22 +53,6 @@ func ChannelsDir() (string, error) {
 	return filepath.Join(dir, "channels"), nil
 }
 
-func DaemonPath() (string, error) {
-	dir, err := Dir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "daemon.json"), nil
-}
-
-func LogPath() (string, error) {
-	dir, err := Dir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "golem.log"), nil
-}
-
 // Load creates ~/.golem and a default config on first run, then reads the config.
 // created is true when the config file did not already exist.
 func Load() (cfg Config, created bool, err error) {
