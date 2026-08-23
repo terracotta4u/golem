@@ -8,6 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
+)
+
+const (
+	minBackoff   = time.Second
+	maxBackoff   = 30 * time.Second
+	healthyAfter = time.Minute
 )
 
 type Channel struct {
@@ -38,13 +45,47 @@ func (s *Supervisor) Start(ctx context.Context) {
 		s.wg.Add(1)
 		go func(ch Channel) {
 			defer s.wg.Done()
-			_ = s.runOnce(ctx, ch)
+			s.keepAlive(ctx, ch)
 		}(ch)
 	}
 }
 
 func (s *Supervisor) Wait() {
 	s.wg.Wait()
+}
+
+func (s *Supervisor) keepAlive(ctx context.Context, ch Channel) {
+	backoff := minBackoff
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		started := time.Now()
+		err := s.runOnce(ctx, ch)
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "channel %s: %v\n", ch.Name, err)
+		} else {
+			fmt.Fprintf(os.Stderr, "channel %s: exited\n", ch.Name)
+		}
+
+		if time.Since(started) > healthyAfter {
+			backoff = minBackoff
+		}
+		fmt.Fprintf(os.Stderr, "channel %s: restart in %s\n", ch.Name, backoff)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
 }
 
 func (s *Supervisor) runOnce(ctx context.Context, ch Channel) error {

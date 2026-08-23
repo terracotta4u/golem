@@ -44,6 +44,17 @@ func TestStartInjectsEnv(t *testing.T) {
 	defer cancel()
 
 	s.Start(ctx)
+	deadline := time.Now().Add(time.Second)
+	for {
+		if _, err := os.Stat(out); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("child did not write env")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
 	s.Wait()
 
 	data, err := os.ReadFile(out)
@@ -54,4 +65,34 @@ func TestStartInjectsEnv(t *testing.T) {
 	if got != "http://127.0.0.1:8743 secret" {
 		t.Fatalf("child env = %q, want GOLEM_URL and GOLEM_TOKEN", got)
 	}
+}
+
+func TestStartRestartsExitedChild(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "runs")
+	s := New(Options{
+		Channels: []Channel{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "echo x >> " + strconv.Quote(out)},
+		}},
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.Start(ctx)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		data, _ := os.ReadFile(out)
+		if strings.Count(string(data), "x") >= 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("child was not restarted after it exited")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	cancel()
+	s.Wait()
 }
