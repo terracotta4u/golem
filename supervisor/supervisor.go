@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,6 +39,17 @@ type Supervisor struct {
 
 func New(opts Options) *Supervisor {
 	return &Supervisor{opts: opts}
+}
+
+func URLFromListen(listen string) string {
+	host, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return "http://" + listen
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 func (s *Supervisor) Start(ctx context.Context) {
