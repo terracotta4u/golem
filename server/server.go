@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -41,8 +43,20 @@ func New(opts Options) *Server {
 	}
 }
 
-func (s *Server) handler() http.Handler {
+func NewToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
+
+func (s *Server) Handler() http.Handler {
 	return s.handlerWith(context.Background())
+}
+
+func (s *Server) handler() http.Handler {
+	return s.Handler()
 }
 
 func (s *Server) handlerWith(runCtx context.Context) http.Handler {
