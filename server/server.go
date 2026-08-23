@@ -9,25 +9,46 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/store"
 )
 
+const maxBody = 1 << 20
+
 type Options struct {
+	Agent *agent.Agent
+	Store store.Store
 	Addr  string
 	Token string
 }
 
 type Server struct {
 	opts Options
+
+	mu    sync.Mutex
+	locks map[string]*sync.Mutex
+	turns map[string]*turn
 }
 
 func New(opts Options) *Server {
-	return &Server{opts: opts}
+	return &Server{
+		opts:  opts,
+		locks: make(map[string]*sync.Mutex),
+		turns: make(map[string]*turn),
+	}
 }
 
 func (s *Server) handler() http.Handler {
+	return s.handlerWith(context.Background())
+}
+
+func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
+	s.mountChat(mux, runCtx)
 	return mux
 }
 
@@ -38,7 +59,7 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 	}
 
 	httpSrv := &http.Server{
-		Handler:           s.handler(),
+		Handler:           s.handlerWith(ctx),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
