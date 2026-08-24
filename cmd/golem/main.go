@@ -15,6 +15,7 @@ func main() {
 }
 
 func run(args []string) error {
+	// TODO: Add stop command
 	if len(args) > 0 && args[0] == "serve" {
 		args = args[1:]
 	}
