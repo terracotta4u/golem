@@ -25,16 +25,8 @@ func NewSkill(skills []skill.Skill) Skill {
 	return Skill{skills: skills, byName: byName}
 }
 
-func (s Skill) ExtraPrompt() string {
-	if len(s.skills) == 0 {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("When a listed skill applies, load it with the skill tool before following it.\n\nSkills:\n")
-	for _, sk := range s.skills {
-		fmt.Fprintf(&b, "- %s: %s\n", sk.Name, sk.Description)
-	}
-	return strings.TrimSuffix(b.String(), "\n")
+func (s Skill) Skills() []skill.Skill {
+	return s.skills
 }
 
 func (Skill) Spec() Spec {

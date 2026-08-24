@@ -51,22 +51,6 @@ func TestSkillLoadsBodyDirAndFiles(t *testing.T) {
 	}
 }
 
-func TestSkillPromptCatalog(t *testing.T) {
-	got := NewSkill([]skill.Skill{{
-		Name:        "commit",
-		Description: "Write commit messages.",
-	}}).ExtraPrompt()
-	if !strings.Contains(got, "- commit: Write commit messages.") {
-		t.Errorf("missing catalog line in %q", got)
-	}
-	if !strings.Contains(got, "skill tool") {
-		t.Errorf("missing skill tool instruction in %q", got)
-	}
-	if NewSkill(nil).ExtraPrompt() != "" {
-		t.Errorf("empty skills should not add prompt text")
-	}
-}
-
 func TestSkillUnknownName(t *testing.T) {
 	_, err := NewSkill(nil).Call(context.Background(), mustJSON(t, map[string]any{"name": "missing"}))
 	if err == nil {
