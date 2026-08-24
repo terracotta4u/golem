@@ -21,7 +21,7 @@ func TestPostTurnDone(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := New(Options{
-		Agent: agent.New(&replyProvider{text: "hello back"}, nil),
+		Agent: agent.New(&replyProvider{text: "hello back"}),
 		Store: st,
 		Token: "secret",
 	})

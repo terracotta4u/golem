@@ -13,6 +13,7 @@ import (
 )
 
 type Skill struct {
+	skills []skill.Skill
 	byName map[string]skill.Skill
 }
 
@@ -21,7 +22,19 @@ func NewSkill(skills []skill.Skill) Skill {
 	for _, s := range skills {
 		byName[s.Name] = s
 	}
-	return Skill{byName: byName}
+	return Skill{skills: skills, byName: byName}
+}
+
+func (s Skill) ExtraPrompt() string {
+	if len(s.skills) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("When a listed skill applies, load it with the skill tool before following it.\n\nSkills:\n")
+	for _, sk := range s.skills {
+		fmt.Fprintf(&b, "- %s: %s\n", sk.Name, sk.Description)
+	}
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 func (Skill) Spec() Spec {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
@@ -22,10 +21,7 @@ type Agent struct {
 	prompt   string
 }
 
-func New(p provider.Provider, skills []skill.Skill, tools ...tool.Tool) *Agent {
-	if len(skills) > 0 {
-		tools = append([]tool.Tool{tool.NewSkill(skills)}, tools...)
-	}
+func New(p provider.Provider, tools ...tool.Tool) *Agent {
 	byName := make(map[string]tool.Tool, len(tools))
 	defs := make([]provider.ToolDef, 0, len(tools))
 	for _, t := range tools {
@@ -37,7 +33,7 @@ func New(p provider.Provider, skills []skill.Skill, tools ...tool.Tool) *Agent {
 			Parameters:  spec.Parameters,
 		})
 	}
-	return &Agent{provider: p, tools: byName, defs: defs, prompt: systemPrompt(skills)}
+	return &Agent{provider: p, tools: byName, defs: defs, prompt: systemPrompt(tools...)}
 }
 
 type Session struct {

@@ -35,7 +35,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, nil, echo).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, echo).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	for i, req := range p.got {
-		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt(nil) {
+		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt() {
 			t.Errorf("chat %d first message = %+v, want system prompt", i, req.Messages[0])
 		}
 	}
@@ -90,7 +90,7 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, nil).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, []skill.Skill{sk}).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}

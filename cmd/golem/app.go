@@ -65,14 +65,17 @@ func loadApp() (*app, error) {
 		return nil, err
 	}
 
-	a := agent.New(
-		openrouter.New(apiKey, model),
-		skills,
+	tools := []tool.Tool{
 		tool.NewRead(),
 		tool.NewWrite(),
 		tool.NewEdit(),
 		tool.NewShell(),
-	)
+	}
+	if len(skills) > 0 {
+		tools = append(tools, tool.NewSkill(skills))
+	}
+
+	a := agent.New(openrouter.New(apiKey, model), tools...)
 	return &app{cfg: cfg, store: st, agent: a}, nil
 }
 
