@@ -53,6 +53,15 @@ func ChannelsDir() (string, error) {
 	return filepath.Join(dir, "channels"), nil
 }
 
+// SkillsDir is ~/.golem/skills.
+func SkillsDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "skills"), nil
+}
+
 // Load creates ~/.golem and a default config on first run, then reads the config.
 // created is true when the config file did not already exist.
 func Load() (cfg Config, created bool, err error) {

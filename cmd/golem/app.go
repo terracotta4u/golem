@@ -7,6 +7,7 @@ import (
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/provider/openrouter"
+	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
@@ -59,13 +60,29 @@ func loadApp() (*app, error) {
 		model = "openai/gpt-4o-mini"
 	}
 
+	skills, err := loadSkills()
+	if err != nil {
+		return nil, err
+	}
+
 	a := agent.New(
 		openrouter.New(apiKey, model),
-		nil,
+		skills,
 		tool.NewRead(),
 		tool.NewWrite(),
 		tool.NewEdit(),
 		tool.NewShell(),
 	)
 	return &app{cfg: cfg, store: st, agent: a}, nil
+}
+
+func loadSkills() ([]skill.Skill, error) {
+	dir, err := config.SkillsDir()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("create %s: %w", dir, err)
+	}
+	return skill.LoadDir(dir)
 }

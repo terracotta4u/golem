@@ -39,3 +39,18 @@ func TestLoadCreatesConfig(t *testing.T) {
 		t.Errorf("cfg2 = %+v", cfg2)
 	}
 }
+
+func TestSkillsDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := SkillsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "skills") {
+		t.Errorf("SkillsDir = %q, want %s/skills", got, dir)
+	}
+}
