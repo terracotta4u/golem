@@ -42,6 +42,14 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 	if len(echo.calls) != 1 || echo.calls[0] != `{"text":"hi"}` {
 		t.Errorf("tool calls = %v", echo.calls)
 	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	for i, req := range p.got {
+		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt {
+			t.Errorf("chat %d first message = %+v, want system prompt", i, req.Messages[0])
+		}
+	}
 
 	saved, err := st.Load(conv.ID)
 	if err != nil {
@@ -113,10 +121,12 @@ func (s *stubTool) Call(_ context.Context, args json.RawMessage) (string, error)
 
 type scriptedProvider struct {
 	replies []provider.Message
+	got     []provider.ChatRequest
 	i       int
 }
 
-func (p *scriptedProvider) Chat(_ context.Context, _ provider.ChatRequest) (provider.Message, error) {
+func (p *scriptedProvider) Chat(_ context.Context, req provider.ChatRequest) (provider.Message, error) {
+	p.got = append(p.got, req)
 	if p.i >= len(p.replies) {
 		return provider.Message{}, errUnexpectedChat
 	}

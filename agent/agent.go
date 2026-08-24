@@ -54,7 +54,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 
 	for range maxToolRounds {
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
-			Messages: s.conv.Messages,
+			Messages: withSystemPrompt(s.conv.Messages),
 			Tools:    s.agent.defs,
 		})
 		if err != nil {
@@ -85,6 +85,12 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 	}
 
 	return "", fmt.Errorf("exceeded %d tool rounds", maxToolRounds)
+}
+
+func withSystemPrompt(msgs []provider.Message) []provider.Message {
+	out := make([]provider.Message, 0, 1+len(msgs))
+	out = append(out, provider.Message{Role: "system", Content: systemPrompt})
+	return append(out, msgs...)
 }
 
 func (s *Session) persist() error {
