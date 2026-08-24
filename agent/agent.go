@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
@@ -18,9 +19,13 @@ type Agent struct {
 	provider provider.Provider
 	tools    map[string]tool.Tool
 	defs     []provider.ToolDef
+	prompt   string
 }
 
-func New(p provider.Provider, tools ...tool.Tool) *Agent {
+func New(p provider.Provider, skills []skill.Skill, tools ...tool.Tool) *Agent {
+	if len(skills) > 0 {
+		tools = append([]tool.Tool{tool.NewSkill(skills)}, tools...)
+	}
 	byName := make(map[string]tool.Tool, len(tools))
 	defs := make([]provider.ToolDef, 0, len(tools))
 	for _, t := range tools {
@@ -32,7 +37,7 @@ func New(p provider.Provider, tools ...tool.Tool) *Agent {
 			Parameters:  spec.Parameters,
 		})
 	}
-	return &Agent{provider: p, tools: byName, defs: defs}
+	return &Agent{provider: p, tools: byName, defs: defs, prompt: systemPrompt(skills)}
 }
 
 type Session struct {
@@ -54,7 +59,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 
 	for range maxToolRounds {
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
-			Messages: withSystemPrompt(s.conv.Messages),
+			Messages: withSystemPrompt(s.agent.prompt, s.conv.Messages),
 			Tools:    s.agent.defs,
 		})
 		if err != nil {
@@ -87,9 +92,9 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 	return "", fmt.Errorf("exceeded %d tool rounds", maxToolRounds)
 }
 
-func withSystemPrompt(msgs []provider.Message) []provider.Message {
+func withSystemPrompt(prompt string, msgs []provider.Message) []provider.Message {
 	out := make([]provider.Message, 0, 1+len(msgs))
-	out = append(out, provider.Message{Role: "system", Content: systemPrompt})
+	out = append(out, provider.Message{Role: "system", Content: prompt})
 	return append(out, msgs...)
 }
 

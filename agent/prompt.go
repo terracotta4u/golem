@@ -1,9 +1,29 @@
 package agent
 
-const systemPrompt = `You are Golem, a personal AI assistant. 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/terracotta4u/golem/skill"
+)
+
+const basePrompt = `You are Golem, a personal AI assistant. 
 
 At your disposal you have four core tools to complete tasks:
 1. Read - Read the contents of a file.
 2. Write - Create a new file and write to it.
 3. Edit - Update the contents of a file.
 4. Shell - Execute a shell command.`
+
+func systemPrompt(skills []skill.Skill) string {
+	if len(skills) == 0 {
+		return basePrompt
+	}
+	var b strings.Builder
+	b.WriteString(basePrompt)
+	b.WriteString("\n\nWhen a listed skill applies, load it with the skill tool before following it.\n\nSkills:\n")
+	for _, s := range skills {
+		fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Description)
+	}
+	return strings.TrimSuffix(b.String(), "\n")
+}

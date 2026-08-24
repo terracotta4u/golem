@@ -61,6 +61,7 @@ func loadApp() (*app, error) {
 
 	a := agent.New(
 		openrouter.New(apiKey, model),
+		nil,
 		tool.NewRead(),
 		tool.NewWrite(),
 		tool.NewEdit(),

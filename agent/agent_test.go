@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"strings"
+
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
@@ -32,7 +35,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, echo).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, nil, echo).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +49,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	for i, req := range p.got {
-		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt {
+		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt(nil) {
 			t.Errorf("chat %d first message = %+v, want system prompt", i, req.Messages[0])
 		}
 	}
@@ -87,7 +90,7 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, nil).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,6 +104,70 @@ func TestUnknownToolIsMessage(t *testing.T) {
 	}
 	if len(saved.Messages) < 3 || saved.Messages[2].Content != "unknown tool: missing" {
 		t.Errorf("tool result = %+v, want unknown tool: missing", saved.Messages)
+	}
+}
+
+func TestSendLoadsSkillIntoPrompt(t *testing.T) {
+	dir := t.TempDir()
+	sk := skill.Skill{
+		Name:        "commit",
+		Description: "Write commit messages.",
+		Body:        "Follow the commit format.",
+		Dir:         dir,
+	}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "skill",
+					Arguments: `{"name":"commit"}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "done"},
+	}}
+
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conv := store.New("cli")
+	reply, err := New(p, []skill.Skill{sk}).Session(st, conv).Send(context.Background(), "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "done" {
+		t.Errorf("reply = %q, want done", reply)
+	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	for i, req := range p.got {
+		sys := req.Messages[0].Content
+		if !strings.Contains(sys, "- commit: Write commit messages.") {
+			t.Errorf("chat %d system = %q, want skill catalog", i, sys)
+		}
+		found := false
+		for _, def := range req.Tools {
+			if def.Name == "skill" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("chat %d tools = %v, want skill", i, req.Tools)
+		}
+	}
+
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Messages) < 3 || !strings.Contains(saved.Messages[2].Content, "Follow the commit format.") {
+		t.Errorf("skill result = %+v, want body", saved.Messages)
 	}
 }
 
