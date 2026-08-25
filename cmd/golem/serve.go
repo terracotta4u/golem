@@ -39,18 +39,13 @@ func serve(ctx context.Context, app *app, listen string) error {
 	token := server.NewToken()
 	fmt.Fprintf(os.Stderr, "token: %s\n", token)
 
-	channelsDir, err := config.ChannelsDir()
-	if err != nil {
-		return err
-	}
 	sup := supervisor.New(supervisor.Options{
-		URL:         supervisor.URLFromListen(listen),
-		Token:       token,
-		ChannelsDir: channelsDir,
-		Channels:    channelList(app.cfg),
+		URL:      supervisor.URLFromListen(listen),
+		Token:    token,
+		Channels: channelList(app.cfg),
 	})
 
-	err = server.New(server.Options{
+	err := server.New(server.Options{
 		Agent: app.agent,
 		Store: app.store,
 		Addr:  listen,

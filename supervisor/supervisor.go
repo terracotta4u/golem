@@ -23,13 +23,13 @@ type Channel struct {
 	Command string
 	Args    []string
 	Env     map[string]string
+	Dir     string
 }
 
 type Options struct {
-	URL         string
-	Token       string
-	ChannelsDir string
-	Channels    []Channel
+	URL      string
+	Token    string
+	Channels []Channel
 }
 
 type Supervisor struct {
@@ -110,6 +110,9 @@ func (s *Supervisor) runOnce(ctx context.Context, ch Channel) error {
 	cmd.Env = childEnv(s.opts.URL, s.opts.Token, ch.Env)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
+	if ch.Dir != "" {
+		cmd.Dir = ch.Dir
+	}
 	return cmd.Run()
 }
 
@@ -118,18 +121,24 @@ func (s *Supervisor) resolve(ch Channel) (string, error) {
 	if command == "" {
 		command = ch.Name
 	}
-	if filepath.IsAbs(command) || strings.ContainsRune(command, filepath.Separator) {
+	if filepath.IsAbs(command) {
 		return command, nil
 	}
-	if s.opts.ChannelsDir != "" {
-		local := filepath.Join(s.opts.ChannelsDir, command)
+	if ch.Dir != "" {
+		local := filepath.Join(ch.Dir, command)
 		if _, err := os.Stat(local); err == nil {
 			return local, nil
+		}
+		if strings.ContainsRune(command, filepath.Separator) {
+			return "", fmt.Errorf("command %q not found in %s", command, ch.Dir)
 		}
 	}
 	path, err := exec.LookPath(command)
 	if err != nil {
-		return "", fmt.Errorf("command %q not found in %s or PATH", command, s.opts.ChannelsDir)
+		if ch.Dir != "" {
+			return "", fmt.Errorf("command %q not found in %s or PATH", command, ch.Dir)
+		}
+		return "", fmt.Errorf("command %q not found in PATH", command)
 	}
 	return path, nil
 }

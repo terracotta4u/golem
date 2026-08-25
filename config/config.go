@@ -46,13 +46,13 @@ func Dir() (string, error) {
 	return filepath.Join(home, dirName), nil
 }
 
-// ChannelsDir is ~/.golem/channels.
-func ChannelsDir() (string, error) {
+// ExtensionsDir is ~/.golem/extensions.
+func ExtensionsDir() (string, error) {
 	dir, err := Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "channels"), nil
+	return filepath.Join(dir, "extensions"), nil
 }
 
 // SkillsDir is ~/.golem/skills.

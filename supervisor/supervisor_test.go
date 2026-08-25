@@ -96,3 +96,103 @@ func TestStartRestartsExitedChild(t *testing.T) {
 	cancel()
 	s.Wait()
 }
+
+func TestStartResolvesRelativeCommandAgainstDir(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "from")
+	ext := t.TempDir()
+	cwd := t.TempDir()
+	writeScript(t, ext, "run", "printf from-ext > "+strconv.Quote(out))
+	writeScript(t, cwd, "run", "printf from-cwd > "+strconv.Quote(out))
+	t.Chdir(cwd)
+
+	s := New(Options{
+		Channels: []Channel{{
+			Name:    "bot",
+			Command: "./run",
+			Dir:     ext,
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	if got != "from-ext" {
+		t.Fatalf("ran %q, want command resolved against Dir not cwd", got)
+	}
+}
+
+func TestStartSetsChildCwdToDir(t *testing.T) {
+	dir := t.TempDir()
+	writeScript(t, dir, "run", "printf ok > marker")
+
+	s := New(Options{
+		Channels: []Channel{{
+			Name:    "bot",
+			Command: "./run",
+			Dir:     dir,
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+	got := waitFile(t, filepath.Join(dir, "marker"), time.Second)
+	cancel()
+	s.Wait()
+
+	if got != "ok" {
+		t.Fatalf("marker = %q, want child cwd to be Dir", got)
+	}
+}
+
+func TestStartBareNamePrefersDir(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "from")
+	ext := t.TempDir()
+	writeScript(t, ext, "run", "printf from-dir > "+strconv.Quote(out))
+
+	s := New(Options{
+		Channels: []Channel{{
+			Name:    "bot",
+			Command: "run",
+			Dir:     ext,
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	if got != "from-dir" {
+		t.Fatalf("ran %q, want bare name found in Dir", got)
+	}
+}
+
+func writeScript(t *testing.T, dir, name, body string) {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func waitFile(t *testing.T, path string, d time.Duration) string {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for {
+		data, err := os.ReadFile(path)
+		if err == nil && len(data) > 0 {
+			return strings.TrimSpace(string(data))
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s: %v", path, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}

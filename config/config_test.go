@@ -114,3 +114,18 @@ func TestSkillsDir(t *testing.T) {
 		t.Errorf("SkillsDir = %q, want %s/skills", got, dir)
 	}
 }
+
+func TestExtensionsDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "extensions") {
+		t.Errorf("ExtensionsDir = %q, want %s/extensions", got, dir)
+	}
+}
