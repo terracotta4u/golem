@@ -2,6 +2,8 @@ package agent
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/terracotta4u/golem/skill"
@@ -20,18 +22,40 @@ const skillsPrompt = `When a listed skill applies, load it with the skill tool b
 
 Skills:\n`
 
-func systemPrompt(tools ...tool.Tool) string {
-	skills := skillList(tools)
-	if len(skills) == 0 {
-		return basePrompt
-	}
+const soulPrompt = `SOUL.md is where you store information about yourself.
+
+SOUL.md:\n`
+
+const userPrompt = `USER.md contains information about the user.
+
+USER.md:\n`
+
+func systemPrompt(dir string, tools ...tool.Tool) string {
 	var b strings.Builder
 	b.WriteString(basePrompt)
-	b.WriteString(skillsPrompt)
-	for _, s := range skills {
-		fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Description)
+	if skills := skillList(tools); len(skills) > 0 {
+		b.WriteString(skillsPrompt)
+		for _, s := range skills {
+			fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Description)
+		}
+	}
+	if dir != "" {
+		b.WriteString(soulPrompt)
+		b.WriteString(workspaceFile(filepath.Join(dir, "SOUL.md")))
+		b.WriteByte('\n')
+		b.WriteString(userPrompt)
+		b.WriteString(workspaceFile(filepath.Join(dir, "USER.md")))
+		b.WriteByte('\n')
 	}
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+func workspaceFile(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Sprintf("(could not read: %v)", err)
+	}
+	return string(data)
 }
 
 func skillList(tools []tool.Tool) []skill.Skill {

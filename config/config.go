@@ -10,6 +10,8 @@ import (
 const (
 	dirName       = ".golem"
 	fileName      = "config.json"
+	SoulFile      = "SOUL.md"
+	UserFile      = "USER.md"
 	DefaultListen = "127.0.0.1:8743"
 )
 
@@ -62,8 +64,8 @@ func SkillsDir() (string, error) {
 	return filepath.Join(dir, "skills"), nil
 }
 
-// Load creates ~/.golem and a default config on first run, then reads the config.
-// created is true when the config file did not already exist.
+// Load creates ~/.golem, SOUL.md, USER.md, and a default config on first run,
+// then reads the config. created is true when the config file did not already exist.
 func Load() (cfg Config, created bool, err error) {
 	dir, err := Dir()
 	if err != nil {
@@ -71,6 +73,12 @@ func Load() (cfg Config, created bool, err error) {
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Config{}, false, fmt.Errorf("create %s: %w", dir, err)
+	}
+	if err := ensureFile(filepath.Join(dir, SoulFile), ""); err != nil {
+		return Config{}, false, err
+	}
+	if err := ensureFile(filepath.Join(dir, UserFile), ""); err != nil {
+		return Config{}, false, err
 	}
 
 	path := filepath.Join(dir, fileName)
@@ -96,6 +104,20 @@ func Load() (cfg Config, created bool, err error) {
 		cfg.Listen = DefaultListen
 	}
 	return cfg, false, nil
+}
+
+func ensureFile(path, contents string) error {
+	_, err := os.Stat(path)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", path, err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
 }
 
 func write(path string, cfg Config) error {

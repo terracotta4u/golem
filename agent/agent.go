@@ -15,13 +15,14 @@ import (
 const maxToolRounds = 20
 
 type Agent struct {
-	provider provider.Provider
-	tools    map[string]tool.Tool
-	defs     []provider.ToolDef
-	prompt   string
+	provider  provider.Provider
+	tools     map[string]tool.Tool
+	list      []tool.Tool
+	defs      []provider.ToolDef
+	workspace string
 }
 
-func New(p provider.Provider, tools ...tool.Tool) *Agent {
+func New(p provider.Provider, dir string, tools ...tool.Tool) *Agent {
 	byName := make(map[string]tool.Tool, len(tools))
 	defs := make([]provider.ToolDef, 0, len(tools))
 	for _, t := range tools {
@@ -33,7 +34,7 @@ func New(p provider.Provider, tools ...tool.Tool) *Agent {
 			Parameters:  spec.Parameters,
 		})
 	}
-	return &Agent{provider: p, tools: byName, defs: defs, prompt: systemPrompt(tools...)}
+	return &Agent{provider: p, tools: byName, list: tools, defs: defs, workspace: dir}
 }
 
 type Session struct {
@@ -55,7 +56,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 
 	for range maxToolRounds {
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
-			Messages: withSystemPrompt(s.agent.prompt, s.conv.Messages),
+			Messages: withSystemPrompt(systemPrompt(s.agent.workspace, s.agent.list...), s.conv.Messages),
 			Tools:    s.agent.defs,
 		})
 		if err != nil {

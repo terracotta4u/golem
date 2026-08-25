@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"strings"
@@ -35,7 +37,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, echo).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, "", echo).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +51,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	for i, req := range p.got {
-		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt() {
+		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt("") {
 			t.Errorf("chat %d first message = %+v, want system prompt", i, req.Messages[0])
 		}
 	}
@@ -66,6 +68,77 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 	}
 	if saved.Messages[2].Role != "tool" || saved.Messages[2].Content != "pong" || saved.Messages[2].ToolCallID != "call_1" {
 		t.Errorf("tool message = %+v", saved.Messages[2])
+	}
+}
+
+func TestSendIncludesIdentityFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a test golem."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "USER.md"), []byte("The user is Nawaz."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "hi"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := New(p, dir).Session(st, store.New("cli")).Send(context.Background(), "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "hi" {
+		t.Errorf("reply = %q, want hi", reply)
+	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	sys := p.got[0].Messages[0].Content
+	if !strings.Contains(sys, "I am a test golem.") {
+		t.Errorf("system missing SOUL.md: %q", sys)
+	}
+	if !strings.Contains(sys, "The user is Nawaz.") {
+		t.Errorf("system missing USER.md: %q", sys)
+	}
+}
+
+func TestSendRereadsIdentityFiles(t *testing.T) {
+	dir := t.TempDir()
+	soul := filepath.Join(dir, "SOUL.md")
+	if err := os.WriteFile(soul, []byte("version one"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "USER.md"), []byte("user"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "one"},
+		{Role: "assistant", Content: "two"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := New(p, dir).Session(st, store.New("cli"))
+	if _, err := sess.Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(soul, []byte("version two"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.Send(context.Background(), "again"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.got) != 2 {
+		t.Fatalf("Chat calls = %d, want 2", len(p.got))
+	}
+	if !strings.Contains(p.got[1].Messages[0].Content, "version two") {
+		t.Errorf("second system = %q, want updated SOUL.md", p.got[1].Messages[0].Content)
 	}
 }
 
@@ -90,7 +163,7 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, "").Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +208,7 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, "", tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
