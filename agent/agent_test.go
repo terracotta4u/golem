@@ -36,8 +36,9 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	dir := workspace(t)
 	conv := store.New("cli")
-	reply, err := New(p, "", echo).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, dir, echo).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +52,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	for i, req := range p.got {
-		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt("") {
+		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt(dir) {
 			t.Errorf("chat %d first message = %+v, want system prompt", i, req.Messages[0])
 		}
 	}
@@ -72,7 +73,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 }
 
 func TestSendIncludesIdentityFiles(t *testing.T) {
-	dir := t.TempDir()
+	dir := workspace(t)
 	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a test golem."), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +108,7 @@ func TestSendIncludesIdentityFiles(t *testing.T) {
 }
 
 func TestSendRereadsIdentityFiles(t *testing.T) {
-	dir := t.TempDir()
+	dir := workspace(t)
 	soul := filepath.Join(dir, "SOUL.md")
 	if err := os.WriteFile(soul, []byte("version one"), 0o600); err != nil {
 		t.Fatal(err)
@@ -163,7 +164,7 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, "").Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, workspace(t)).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +209,7 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := store.New("cli")
-	reply, err := New(p, "", tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, workspace(t), tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}

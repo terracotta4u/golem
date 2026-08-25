@@ -11,20 +11,14 @@ import (
 )
 
 func TestSystemPromptOmitsCatalogWhenEmpty(t *testing.T) {
-	got := systemPrompt("")
+	got := systemPrompt(workspace(t))
 	if strings.Contains(got, "Skills:") || strings.Contains(got, "skill tool") {
 		t.Errorf("empty catalog should omit skills, got %q", got)
-	}
-	if strings.Contains(got, "SOUL.md") || strings.Contains(got, "USER.md") {
-		t.Errorf("empty workspace should omit identity, got %q", got)
-	}
-	if got != basePrompt {
-		t.Errorf("got %q, want base prompt", got)
 	}
 }
 
 func TestSystemPromptIncludesIdentityFiles(t *testing.T) {
-	dir := t.TempDir()
+	dir := workspace(t)
 	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a test golem.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +44,7 @@ func TestSystemPromptIncludesIdentityFiles(t *testing.T) {
 }
 
 func TestSystemPromptListsSkills(t *testing.T) {
-	got := systemPrompt("", tool.NewSkill([]skill.Skill{{
+	got := systemPrompt(workspace(t), tool.NewSkill([]skill.Skill{{
 		Name:        "commit",
 		Description: "Write commit messages.",
 	}}))
@@ -60,4 +54,15 @@ func TestSystemPromptListsSkills(t *testing.T) {
 	if !strings.Contains(got, "skill tool") {
 		t.Errorf("missing skill tool instruction in %q", got)
 	}
+}
+
+func workspace(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, name := range []string{"SOUL.md", "USER.md"} {
+		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
 }

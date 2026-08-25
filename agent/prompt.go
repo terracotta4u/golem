@@ -39,16 +39,14 @@ func systemPrompt(dir string, tools ...tool.Tool) string {
 			fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Description)
 		}
 	}
-	if dir != "" {
-		soulPath := filepath.Join(dir, "SOUL.md")
-		userPath := filepath.Join(dir, "USER.md")
-		fmt.Fprintf(&b, soulPrompt, soulPath)
-		b.WriteString(workspaceFile(soulPath))
-		b.WriteByte('\n')
-		fmt.Fprintf(&b, userPrompt, userPath)
-		b.WriteString(workspaceFile(userPath))
-		b.WriteByte('\n')
-	}
+	soulPath := filepath.Join(dir, "SOUL.md")
+	userPath := filepath.Join(dir, "USER.md")
+	fmt.Fprintf(&b, soulPrompt, soulPath)
+	b.WriteString(workspaceFile(soulPath))
+	b.WriteByte('\n')
+	fmt.Fprintf(&b, userPrompt, userPath)
+	b.WriteString(workspaceFile(userPath))
+	b.WriteByte('\n')
 	return strings.TrimSuffix(b.String(), "\n")
 }
 
