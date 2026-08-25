@@ -1,0 +1,99 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/terracotta4u/golem/config"
+)
+
+func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := config.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "echo", "run")); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, _, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch, ok := cfg.Channels["echo"]
+	if !ok {
+		t.Fatal("missing echo channel")
+	}
+	if v, ok := ch.Env["ECHO_TOKEN"]; !ok || v != "" {
+		t.Errorf("ECHO_TOKEN = %q present=%v, want empty stub", v, ok)
+	}
+}
+
+func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+	err := run([]string{"extension", "add", src})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--force") {
+		t.Errorf("error = %v, want --force", err)
+	}
+}
+
+func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := config.Load(); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, config.Config{
+		Model: "openai/gpt-4o-mini",
+		Channels: map[string]config.Channel{
+			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
+		},
+	})
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := config.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "echo"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"extension", "add", "--force", src}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, _, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Channels["echo"].Env["ECHO_TOKEN"] != "secret" {
+		t.Errorf("wiped secret: %+v", cfg.Channels["echo"])
+	}
+}

@@ -131,3 +131,35 @@ func write(path string, cfg Config) error {
 	}
 	return nil
 }
+
+func Save(cfg Config) error {
+	dir, err := Dir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
+	}
+	return write(filepath.Join(dir, fileName), cfg)
+}
+
+func ScaffoldChannel(cfg *Config, name string, envNames []string) {
+	if cfg.Channels == nil {
+		cfg.Channels = make(map[string]Channel)
+	}
+	ch := cfg.Channels[name]
+	if len(envNames) > 0 {
+		if ch.Env == nil {
+			ch.Env = make(map[string]string)
+		}
+		for _, k := range envNames {
+			if k == "" {
+				continue
+			}
+			if _, ok := ch.Env[k]; !ok {
+				ch.Env[k] = ""
+			}
+		}
+	}
+	cfg.Channels[name] = ch
+}

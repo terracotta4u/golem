@@ -129,3 +129,52 @@ func TestExtensionsDir(t *testing.T) {
 		t.Errorf("ExtensionsDir = %q, want %s/extensions", got, dir)
 	}
 }
+
+func TestScaffoldChannelAddsStub(t *testing.T) {
+	cfg := Config{}
+	ScaffoldChannel(&cfg, "echo", []string{"ECHO_TOKEN"})
+	ch, ok := cfg.Channels["echo"]
+	if !ok {
+		t.Fatal("missing echo channel")
+	}
+	if v, ok := ch.Env["ECHO_TOKEN"]; !ok || v != "" {
+		t.Errorf("Env = %v, want empty ECHO_TOKEN stub", ch.Env)
+	}
+}
+
+func TestScaffoldChannelKeepsExistingEnv(t *testing.T) {
+	cfg := Config{
+		Channels: map[string]Channel{
+			"telegram": {Env: map[string]string{"TELEGRAM_BOT_TOKEN": "secret"}},
+		},
+	}
+	ScaffoldChannel(&cfg, "telegram", []string{"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"})
+	ch := cfg.Channels["telegram"]
+	if ch.Env["TELEGRAM_BOT_TOKEN"] != "secret" {
+		t.Errorf("wiped TELEGRAM_BOT_TOKEN: %v", ch.Env)
+	}
+	if ch.Env["TELEGRAM_CHAT_ID"] != "" {
+		t.Errorf("Env = %v, want empty TELEGRAM_CHAT_ID", ch.Env)
+	}
+}
+
+func TestSaveRoundTrip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{Model: "test-model", Channels: map[string]Channel{"echo": {}}}
+	if err := Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, created, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created {
+		t.Fatal("Save should not look like first-run create")
+	}
+	if got.Model != "test-model" || got.Channels["echo"].Command != "" {
+		t.Errorf("got = %+v", got)
+	}
+}
