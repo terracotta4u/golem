@@ -22,11 +22,11 @@ const skillsPrompt = `When a listed skill applies, load it with the skill tool b
 
 Skills:\n`
 
-const soulPrompt = `SOUL.md is where you store information about yourself.
+const soulPrompt = `SOUL.md is where you store information about yourself. If you learn something lasting about yourself, edit %s with the edit tool. Skip one-off details. Do not overwrite the whole file.
 
 SOUL.md:\n`
 
-const userPrompt = `USER.md contains information about the user.
+const userPrompt = `USER.md contains information about the user. If you learn something lasting about the user, edit %s with the edit tool. Skip one-off details. Do not overwrite the whole file.
 
 USER.md:\n`
 
@@ -40,11 +40,13 @@ func systemPrompt(dir string, tools ...tool.Tool) string {
 		}
 	}
 	if dir != "" {
-		b.WriteString(soulPrompt)
-		b.WriteString(workspaceFile(filepath.Join(dir, "SOUL.md")))
+		soulPath := filepath.Join(dir, "SOUL.md")
+		userPath := filepath.Join(dir, "USER.md")
+		fmt.Fprintf(&b, soulPrompt, soulPath)
+		b.WriteString(workspaceFile(soulPath))
 		b.WriteByte('\n')
-		b.WriteString(userPrompt)
-		b.WriteString(workspaceFile(filepath.Join(dir, "USER.md")))
+		fmt.Fprintf(&b, userPrompt, userPath)
+		b.WriteString(workspaceFile(userPath))
 		b.WriteByte('\n')
 	}
 	return strings.TrimSuffix(b.String(), "\n")
