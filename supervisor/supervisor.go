@@ -18,7 +18,7 @@ const (
 	healthyAfter = time.Minute
 )
 
-type Channel struct {
+type Extension struct {
 	Name    string
 	Command string
 	Args    []string
@@ -27,9 +27,9 @@ type Channel struct {
 }
 
 type Options struct {
-	URL      string
-	Token    string
-	Channels []Channel
+	URL        string
+	Token      string
+	Extensions []Extension
 }
 
 type Supervisor struct {
@@ -53,12 +53,12 @@ func URLFromListen(listen string) string {
 }
 
 func (s *Supervisor) Start(ctx context.Context) {
-	for _, ch := range s.opts.Channels {
+	for _, ext := range s.opts.Extensions {
 		s.wg.Add(1)
-		go func(ch Channel) {
+		go func(ext Extension) {
 			defer s.wg.Done()
-			s.keepAlive(ctx, ch)
-		}(ch)
+			s.keepAlive(ctx, ext)
+		}(ext)
 	}
 }
 
@@ -66,7 +66,7 @@ func (s *Supervisor) Wait() {
 	s.wg.Wait()
 }
 
-func (s *Supervisor) keepAlive(ctx context.Context, ch Channel) {
+func (s *Supervisor) keepAlive(ctx context.Context, ext Extension) {
 	backoff := minBackoff
 	for {
 		if ctx.Err() != nil {
@@ -74,20 +74,20 @@ func (s *Supervisor) keepAlive(ctx context.Context, ch Channel) {
 		}
 
 		started := time.Now()
-		err := s.runOnce(ctx, ch)
+		err := s.runOnce(ctx, ext)
 		if ctx.Err() != nil {
 			return
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "channel %s: %v\n", ch.Name, err)
+			fmt.Fprintf(os.Stderr, "extension %s: %v\n", ext.Name, err)
 		} else {
-			fmt.Fprintf(os.Stderr, "channel %s: exited\n", ch.Name)
+			fmt.Fprintf(os.Stderr, "extension %s: exited\n", ext.Name)
 		}
 
 		if time.Since(started) > healthyAfter {
 			backoff = minBackoff
 		}
-		fmt.Fprintf(os.Stderr, "channel %s: restart in %s\n", ch.Name, backoff)
+		fmt.Fprintf(os.Stderr, "extension %s: restart in %s\n", ext.Name, backoff)
 		select {
 		case <-ctx.Done():
 			return
@@ -100,43 +100,43 @@ func (s *Supervisor) keepAlive(ctx context.Context, ch Channel) {
 	}
 }
 
-func (s *Supervisor) runOnce(ctx context.Context, ch Channel) error {
-	bin, err := s.resolve(ch)
+func (s *Supervisor) runOnce(ctx context.Context, ext Extension) error {
+	bin, err := s.resolve(ext)
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, bin, ch.Args...)
-	cmd.Env = childEnv(s.opts.URL, s.opts.Token, ch.Env)
+	cmd := exec.CommandContext(ctx, bin, ext.Args...)
+	cmd.Env = childEnv(s.opts.URL, s.opts.Token, ext.Env)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-	if ch.Dir != "" {
-		cmd.Dir = ch.Dir
+	if ext.Dir != "" {
+		cmd.Dir = ext.Dir
 	}
 	return cmd.Run()
 }
 
-func (s *Supervisor) resolve(ch Channel) (string, error) {
-	command := strings.TrimSpace(ch.Command)
+func (s *Supervisor) resolve(ext Extension) (string, error) {
+	command := strings.TrimSpace(ext.Command)
 	if command == "" {
-		command = ch.Name
+		command = ext.Name
 	}
 	if filepath.IsAbs(command) {
 		return command, nil
 	}
-	if ch.Dir != "" {
-		local := filepath.Join(ch.Dir, command)
+	if ext.Dir != "" {
+		local := filepath.Join(ext.Dir, command)
 		if _, err := os.Stat(local); err == nil {
 			return local, nil
 		}
 		if strings.ContainsRune(command, filepath.Separator) {
-			return "", fmt.Errorf("command %q not found in %s", command, ch.Dir)
+			return "", fmt.Errorf("command %q not found in %s", command, ext.Dir)
 		}
 	}
 	path, err := exec.LookPath(command)
 	if err != nil {
-		if ch.Dir != "" {
-			return "", fmt.Errorf("command %q not found in %s or PATH", command, ch.Dir)
+		if ext.Dir != "" {
+			return "", fmt.Errorf("command %q not found in %s or PATH", command, ext.Dir)
 		}
 		return "", fmt.Errorf("command %q not found in PATH", command)
 	}

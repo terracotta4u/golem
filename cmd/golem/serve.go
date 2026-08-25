@@ -42,7 +42,7 @@ func serve(ctx context.Context, app *app, listen string) error {
 	sup := supervisor.New(supervisor.Options{
 		URL:      supervisor.URLFromListen(listen),
 		Token:    token,
-		Channels: channelList(app.cfg),
+		Extensions: extensionList(app.cfg),
 	})
 
 	err := server.New(server.Options{
@@ -57,17 +57,17 @@ func serve(ctx context.Context, app *app, listen string) error {
 	return err
 }
 
-func channelList(cfg config.Config) []supervisor.Channel {
+func extensionList(cfg config.Config) []supervisor.Extension {
 	names := make([]string, 0, len(cfg.Channels))
 	for name := range cfg.Channels {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
-	out := make([]supervisor.Channel, 0, len(names))
+	out := make([]supervisor.Extension, 0, len(names))
 	for _, name := range names {
 		ch := cfg.Channels[name]
-		out = append(out, supervisor.Channel{
+		out = append(out, supervisor.Extension{
 			Name:    name,
 			Command: ch.Command,
 			Args:    ch.Args,

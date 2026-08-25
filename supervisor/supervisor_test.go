@@ -25,7 +25,7 @@ func TestStartEmptyDoesNothing(t *testing.T) {
 	select {
 	case <-done:
 	case <-ctx.Done():
-		t.Fatal("Wait did not return for an empty channel list")
+		t.Fatal("Wait did not return for an empty extension list")
 	}
 }
 
@@ -34,7 +34,7 @@ func TestStartInjectsEnv(t *testing.T) {
 	s := New(Options{
 		URL:   "http://127.0.0.1:8743",
 		Token: "secret",
-		Channels: []Channel{{
+		Extensions: []Extension{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > " + strconv.Quote(out)},
@@ -70,7 +70,7 @@ func TestStartInjectsEnv(t *testing.T) {
 func TestStartRestartsExitedChild(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "runs")
 	s := New(Options{
-		Channels: []Channel{{
+		Extensions: []Extension{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "echo x >> " + strconv.Quote(out)},
@@ -106,7 +106,7 @@ func TestStartResolvesRelativeCommandAgainstDir(t *testing.T) {
 	t.Chdir(cwd)
 
 	s := New(Options{
-		Channels: []Channel{{
+		Extensions: []Extension{{
 			Name:    "bot",
 			Command: "./run",
 			Dir:     ext,
@@ -129,7 +129,7 @@ func TestStartSetsChildCwdToDir(t *testing.T) {
 	writeScript(t, dir, "run", "printf ok > marker")
 
 	s := New(Options{
-		Channels: []Channel{{
+		Extensions: []Extension{{
 			Name:    "bot",
 			Command: "./run",
 			Dir:     dir,
@@ -153,7 +153,7 @@ func TestStartBareNamePrefersDir(t *testing.T) {
 	writeScript(t, ext, "run", "printf from-dir > "+strconv.Quote(out))
 
 	s := New(Options{
-		Channels: []Channel{{
+		Extensions: []Extension{{
 			Name:    "bot",
 			Command: "run",
 			Dir:     ext,
