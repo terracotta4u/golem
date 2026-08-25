@@ -75,7 +75,7 @@ func TestServeStartsConfiguredChannel(t *testing.T) {
 
 func TestExtensionListFillsFromManifest(t *testing.T) {
 	root := t.TempDir()
-	writeManifest(t, root, "echo", `{"name":"echo","kind":"channel","command":"./run","args":["--poll"]}`)
+	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","args":["--poll"]}`)
 
 	got, err := extensionList(config.Config{
 		Channels: map[string]config.Channel{
@@ -102,7 +102,7 @@ func TestExtensionListFillsFromManifest(t *testing.T) {
 
 func TestExtensionListConfigOverridesManifest(t *testing.T) {
 	root := t.TempDir()
-	writeManifest(t, root, "echo", `{"name":"echo","kind":"channel","command":"./run","args":["--poll"]}`)
+	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","args":["--poll"]}`)
 
 	got, err := extensionList(config.Config{
 		Channels: map[string]config.Channel{
@@ -133,7 +133,7 @@ func TestExtensionListKeepsPATHChannel(t *testing.T) {
 
 func TestExtensionListNameMismatch(t *testing.T) {
 	root := t.TempDir()
-	writeManifest(t, root, "echo", `{"name":"telegram","kind":"channel","command":"./run"}`)
+	writeManifest(t, root, "echo", `{"name":"telegram","version":"0.1.0","kind":"channel","command":"./run"}`)
 
 	_, err := extensionList(config.Config{
 		Channels: map[string]config.Channel{"echo": {}},
@@ -165,7 +165,7 @@ func TestServeStartsExtensionFromManifest(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "run"), []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {

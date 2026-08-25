@@ -12,7 +12,7 @@ func TestInstallFromZip(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json": {body: `{"name":"echo","kind":"channel","command":"./run"}`},
+		"golem.json": {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
 		"run":        {body: "#!/bin/sh\n", mode: 0o700},
 	})
 
@@ -37,7 +37,7 @@ func TestInstallFromZipNestedFolder(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"my-echo/golem.json": {body: `{"name":"echo","kind":"channel","command":"./run"}`},
+		"my-echo/golem.json": {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
 		"my-echo/run":        {body: "#!/bin/sh\n", mode: 0o700},
 	})
 
@@ -57,7 +57,7 @@ func TestInstallZipRejectsPathEscape(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "bad.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json":            {body: `{"name":"echo","kind":"channel","command":"./run"}`},
+		"golem.json":            {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
 		"run":                   {body: "#!/bin/sh\n", mode: 0o700},
 		"../outside/golem.json": {body: "{}"},
 	})
@@ -72,7 +72,7 @@ func TestInstallZipMakesCommandExecutable(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json": {body: `{"name":"echo","kind":"channel","command":"./run"}`},
+		"golem.json": {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
 		"run":        {body: "#!/bin/sh\n", mode: 0o600},
 	})
 
@@ -91,7 +91,7 @@ func TestInstallZipMakesCommandExecutable(t *testing.T) {
 
 func TestInstallRequiresCommand(t *testing.T) {
 	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","kind":"channel","command":"./run"}`)
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
 
 	_, err := Install(src, t.TempDir(), false)
 	if err == nil {

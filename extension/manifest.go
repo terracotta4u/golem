@@ -13,6 +13,7 @@ const FileName = "golem.json"
 
 type Manifest struct {
 	Name        string   `json:"name"`
+	Version     string   `json:"version"`
 	Kind        string   `json:"kind"`
 	Description string   `json:"description,omitempty"`
 	Command     string   `json:"command"`
@@ -34,6 +35,11 @@ func Parse(data []byte) (Manifest, error) {
 	}
 	if len(m.Name) > 64 || !nameRE.MatchString(m.Name) {
 		return Manifest{}, fmt.Errorf("invalid name %q", m.Name)
+	}
+
+	m.Version = strings.TrimSpace(m.Version)
+	if m.Version == "" {
+		return Manifest{}, fmt.Errorf("missing version")
 	}
 
 	m.Kind = strings.TrimSpace(m.Kind)

@@ -10,7 +10,7 @@ import (
 func TestInstallCopiesByManifestName(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`)
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`)
 	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestInstallCopiesByManifestName(t *testing.T) {
 func TestInstallRefusesExisting(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","kind":"channel","command":"./run"}`)
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
 	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestInstallRefusesExisting(t *testing.T) {
 func TestInstallForceReplaces(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","kind":"channel","command":"./run"}`)
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
 	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestInstallForceReplaces(t *testing.T) {
 
 func TestInstallRejectsProvider(t *testing.T) {
 	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"ollama","kind":"provider","command":"./ollama"}`)
+	writeInstallSrc(t, src, `{"name":"ollama","version":"0.1.0","kind":"provider","command":"./ollama"}`)
 	_, err := Install(src, t.TempDir(), false)
 	if err == nil {
 		t.Fatal("expected error")

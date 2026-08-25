@@ -13,7 +13,7 @@ import (
 func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
@@ -48,7 +48,7 @@ func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
 func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
@@ -78,7 +78,7 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 		},
 	})
 	src := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
@@ -115,7 +115,7 @@ func TestRunExtensionAddFromZip(t *testing.T) {
 	}
 	w := zip.NewWriter(f)
 	for name, body := range map[string]string{
-		"golem.json": `{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`,
+		"golem.json": `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`,
 		"run":        "#!/bin/sh\n",
 	} {
 		fw, err := w.Create(name)

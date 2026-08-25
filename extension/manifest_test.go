@@ -10,6 +10,7 @@ import (
 func TestParseManifest(t *testing.T) {
 	got, err := Parse([]byte(`{
   "name": "telegram",
+  "version": "1.0.0",
   "kind": "channel",
   "description": "Telegram bot",
   "command": "./telegram",
@@ -19,7 +20,7 @@ func TestParseManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "telegram" || got.Kind != "channel" || got.Command != "./telegram" {
+	if got.Name != "telegram" || got.Version != "1.0.0" || got.Kind != "channel" || got.Command != "./telegram" {
 		t.Errorf("manifest = %+v", got)
 	}
 	if got.Description != "Telegram bot" {
@@ -33,11 +34,12 @@ func TestParseManifest(t *testing.T) {
 	}
 }
 
-func TestParseRequiresNameKindCommand(t *testing.T) {
+func TestParseRequiresNameVersionKindCommand(t *testing.T) {
 	for _, data := range []string{
-		`{"kind":"channel","command":"./bot"}`,
-		`{"name":"telegram","command":"./bot"}`,
-		`{"name":"telegram","kind":"channel"}`,
+		`{"version":"1.0.0","kind":"channel","command":"./bot"}`,
+		`{"name":"telegram","kind":"channel","command":"./bot"}`,
+		`{"name":"telegram","version":"1.0.0","command":"./bot"}`,
+		`{"name":"telegram","version":"1.0.0","kind":"channel"}`,
 	} {
 		if _, err := Parse([]byte(data)); err == nil {
 			t.Errorf("Parse(%s) succeeded, want error", data)
@@ -46,14 +48,14 @@ func TestParseRequiresNameKindCommand(t *testing.T) {
 }
 
 func TestParseRejectsInvalidName(t *testing.T) {
-	_, err := Parse([]byte(`{"name":"Telegram Bot","kind":"channel","command":"./bot"}`))
+	_, err := Parse([]byte(`{"name":"Telegram Bot","version":"1.0.0","kind":"channel","command":"./bot"}`))
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
 func TestParseRejectsProviderKind(t *testing.T) {
-	_, err := Parse([]byte(`{"name":"ollama","kind":"provider","command":"./ollama"}`))
+	_, err := Parse([]byte(`{"name":"ollama","version":"1.0.0","kind":"provider","command":"./ollama"}`))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -63,7 +65,7 @@ func TestParseRejectsProviderKind(t *testing.T) {
 }
 
 func TestParseRejectsUnknownKind(t *testing.T) {
-	_, err := Parse([]byte(`{"name":"telegram","kind":"tool","command":"./bot"}`))
+	_, err := Parse([]byte(`{"name":"telegram","version":"1.0.0","kind":"tool","command":"./bot"}`))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -72,7 +74,7 @@ func TestParseRejectsUnknownKind(t *testing.T) {
 func TestLoadReadsGolemJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, FileName)
-	if err := os.WriteFile(path, []byte(`{"name":"echo","kind":"channel","command":"./run"}`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,7 +82,7 @@ func TestLoadReadsGolemJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "echo" || got.Command != "./run" {
+	if got.Name != "echo" || got.Version != "0.1.0" || got.Command != "./run" {
 		t.Errorf("manifest = %+v", got)
 	}
 }
