@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +51,9 @@ func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := run([]string{"extension", "add", src}); err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +81,9 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
@@ -95,5 +102,46 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	}
 	if cfg.Channels["echo"].Env["ECHO_TOKEN"] != "secret" {
 		t.Errorf("wiped secret: %+v", cfg.Channels["echo"])
+	}
+}
+
+func TestRunExtensionAddFromZip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	zipPath := filepath.Join(src, "echo.zip")
+	f, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := zip.NewWriter(f)
+	for name, body := range map[string]string{
+		"golem.json": `{"name":"echo","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`,
+		"run":        "#!/bin/sh\n",
+	} {
+		fw, err := w.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"extension", "add", zipPath}); err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := config.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "echo", "run")); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -40,6 +40,9 @@ func TestInstallRefusesExisting(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
 	writeInstallSrc(t, src, `{"name":"echo","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +57,9 @@ func TestInstallForceReplaces(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
 	writeInstallSrc(t, src, `{"name":"echo","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(src, "old.txt"), []byte("old"), 0o600); err != nil {
 		t.Fatal(err)
 	}

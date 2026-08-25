@@ -5,9 +5,35 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func Install(src, destRoot string, force bool) (Manifest, error) {
+	src, err := filepath.Abs(src)
+	if err != nil {
+		return Manifest{}, err
+	}
+	info, err := os.Stat(src)
+	if err != nil {
+		return Manifest{}, err
+	}
+
+	dir := src
+	if !info.IsDir() {
+		if !isZipPath(src) {
+			return Manifest{}, fmt.Errorf("%s is not a directory or zip file", src)
+		}
+		staged, cleanup, err := stageZip(src)
+		if err != nil {
+			return Manifest{}, err
+		}
+		defer cleanup()
+		dir = staged
+	}
+	return installDir(dir, destRoot, force)
+}
+
+func installDir(src, destRoot string, force bool) (Manifest, error) {
 	src, err := filepath.Abs(src)
 	if err != nil {
 		return Manifest{}, err
@@ -50,6 +76,9 @@ func Install(src, destRoot string, force bool) (Manifest, error) {
 	}()
 
 	if err := copyDir(src, tmp); err != nil {
+		return Manifest{}, err
+	}
+	if err := ensureCommand(tmp, m); err != nil {
 		return Manifest{}, err
 	}
 	if err := os.RemoveAll(dest); err != nil {
@@ -110,4 +139,16 @@ func copyFile(src, dst string, mode os.FileMode) error {
 		return copyErr
 	}
 	return closeErr
+}
+
+func ensureCommand(dir string, m Manifest) error {
+	command := strings.TrimSpace(m.Command)
+	local := filepath.Join(dir, command)
+	if _, err := os.Stat(local); err == nil {
+		return os.Chmod(local, 0o700)
+	}
+	if filepath.IsAbs(command) || strings.ContainsRune(command, filepath.Separator) || strings.HasPrefix(command, ".") {
+		return fmt.Errorf("extension %q has no executable %q", m.Name, command)
+	}
+	return nil
 }
