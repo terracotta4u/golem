@@ -36,6 +36,69 @@ func TestInstallCopiesByManifestName(t *testing.T) {
 	}
 }
 
+func TestInstallSkipsVenvAndJunk(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "bot.py"), []byte("print('ok')\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	venvPython := filepath.Join(src, ".venv", "bin", "python")
+	if err := os.MkdirAll(filepath.Dir(venvPython), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(venvPython, []byte("not-a-real-python\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	pycache := filepath.Join(src, "pkg", "__pycache__", "bot.cpython-312.pyc")
+	if err := os.MkdirAll(filepath.Dir(pycache), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pycache, []byte("pyc"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "pkg", "bot.py"), []byte("x = 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	gitConfig := filepath.Join(src, ".git", "config")
+	if err := os.MkdirAll(filepath.Dir(gitConfig), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(gitConfig, []byte("[core]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := filepath.Join(destRoot, "echo")
+	if _, err := os.Stat(filepath.Join(dest, "run")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "bot.py")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "pkg", "bot.py")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, ".venv")); !os.IsNotExist(err) {
+		t.Fatal("copied .venv")
+	}
+	if _, err := os.Stat(filepath.Join(dest, "pkg", "__pycache__")); !os.IsNotExist(err) {
+		t.Fatal("copied __pycache__")
+	}
+	if _, err := os.Stat(filepath.Join(dest, ".git")); !os.IsNotExist(err) {
+		t.Fatal("copied .git")
+	}
+}
+
 func TestInstallRefusesExisting(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()

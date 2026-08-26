@@ -100,6 +100,12 @@ func copyDir(src, dst string) error {
 		if err != nil {
 			return err
 		}
+		if skipCopy(rel) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		target := filepath.Join(dst, rel)
 		if d.IsDir() {
 			return os.MkdirAll(target, 0o700)
@@ -113,6 +119,16 @@ func copyDir(src, dst string) error {
 		}
 		return copyFile(path, target, info.Mode())
 	})
+}
+
+func skipCopy(rel string) bool {
+	for _, p := range strings.Split(rel, string(filepath.Separator)) {
+		switch p {
+		case ".venv", "__pycache__", ".git":
+			return true
+		}
+	}
+	return false
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {
