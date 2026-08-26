@@ -113,7 +113,7 @@ func TestRebuildIndexFromJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.Remove(filepath.Join(dir, "conversations.db")); err != nil {
+	if err := os.Remove(filepath.Join(dir, "conversations", "conversations.db")); err != nil {
 		t.Fatal(err)
 	}
 

@@ -49,6 +49,15 @@ func Dir() (string, error) {
 	return filepath.Join(home, dirName), nil
 }
 
+// EtcDir is ~/.golem/etc.
+func EtcDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "etc"), nil
+}
+
 // ExtensionsDir is ~/.golem/extensions.
 func ExtensionsDir() (string, error) {
 	dir, err := Dir()
@@ -67,24 +76,24 @@ func SkillsDir() (string, error) {
 	return filepath.Join(dir, "skills"), nil
 }
 
-// Load creates ~/.golem, SOUL.md, USER.md, and a default config on first run,
+// Load creates ~/.golem/etc, SOUL.md, USER.md, and a default config on first run,
 // then reads the config. created is true when the config file did not already exist.
 func Load() (cfg Config, created bool, err error) {
-	dir, err := Dir()
+	etc, err := EtcDir()
 	if err != nil {
 		return Config{}, false, err
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return Config{}, false, fmt.Errorf("create %s: %w", dir, err)
+	if err := os.MkdirAll(etc, 0o700); err != nil {
+		return Config{}, false, fmt.Errorf("create %s: %w", etc, err)
 	}
-	if err := ensureFile(filepath.Join(dir, SoulFile), ""); err != nil {
+	if err := ensureFile(filepath.Join(etc, SoulFile), ""); err != nil {
 		return Config{}, false, err
 	}
-	if err := ensureFile(filepath.Join(dir, UserFile), ""); err != nil {
+	if err := ensureFile(filepath.Join(etc, UserFile), ""); err != nil {
 		return Config{}, false, err
 	}
 
-	path := filepath.Join(dir, fileName)
+	path := filepath.Join(etc, fileName)
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		cfg := defaults()
@@ -136,14 +145,14 @@ func write(path string, cfg Config) error {
 }
 
 func Save(cfg Config) error {
-	dir, err := Dir()
+	etc, err := EtcDir()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("create %s: %w", dir, err)
+	if err := os.MkdirAll(etc, 0o700); err != nil {
+		return fmt.Errorf("create %s: %w", etc, err)
 	}
-	return write(filepath.Join(dir, fileName), cfg)
+	return write(filepath.Join(etc, fileName), cfg)
 }
 
 func ScaffoldExtension(cfg *Config, name string, envNames []string) {

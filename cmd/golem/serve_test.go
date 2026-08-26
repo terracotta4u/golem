@@ -224,8 +224,11 @@ func writeManifest(t *testing.T, root, name, contents string) {
 
 func writeConfig(t *testing.T, cfg config.Config) {
 	t.Helper()
-	dir, err := config.Dir()
+	dir, err := config.EtcDir()
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")

@@ -25,7 +25,7 @@ func NewFileStore(golemDir string) (*FileStore, error) {
 		return nil, fmt.Errorf("create %s: %w", dir, err)
 	}
 
-	db, err := sql.Open("sqlite", filepath.Join(golemDir, "conversations.db"))
+	db, err := sql.Open("sqlite", filepath.Join(dir, "conversations.db"))
 	if err != nil {
 		return nil, fmt.Errorf("open index: %w", err)
 	}

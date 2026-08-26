@@ -24,7 +24,7 @@ func TestLoadCreatesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "config.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "etc", "config.json")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -46,13 +46,13 @@ func TestLoadCreatesIdentityFiles(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	dir, err := Dir()
+	etc, err := EtcDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, name := range []string{"SOUL.md", "USER.md"} {
-		data, err := os.ReadFile(filepath.Join(dir, name))
+		data, err := os.ReadFile(filepath.Join(etc, name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,13 +61,13 @@ func TestLoadCreatesIdentityFiles(t *testing.T) {
 		}
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("custom soul\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(etc, "SOUL.md"), []byte("custom soul\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, "SOUL.md"))
+	got, err := os.ReadFile(filepath.Join(etc, "SOUL.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,11 +82,11 @@ func TestLoadCreatesMissingIdentityFilesWhenConfigExists(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	dir, err := Dir()
+	etc, err := EtcDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(filepath.Join(dir, "USER.md")); err != nil {
+	if err := os.Remove(filepath.Join(etc, "USER.md")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,7 +95,7 @@ func TestLoadCreatesMissingIdentityFilesWhenConfigExists(t *testing.T) {
 	} else if created {
 		t.Fatal("config already existed")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "USER.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(etc, "USER.md")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -127,6 +127,21 @@ func TestExtensionsDir(t *testing.T) {
 	}
 	if got != filepath.Join(dir, "extensions") {
 		t.Errorf("ExtensionsDir = %q, want %s/extensions", got, dir)
+	}
+}
+
+func TestEtcDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := EtcDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "etc") {
+		t.Errorf("EtcDir = %q, want %s/etc", got, dir)
 	}
 }
 
