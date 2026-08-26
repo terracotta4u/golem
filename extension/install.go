@@ -81,6 +81,9 @@ func installDir(src, destRoot string, force bool) (Manifest, error) {
 	if err := copyDir(src, tmp); err != nil {
 		return Manifest{}, err
 	}
+	if !hasPyproject(tmp) {
+		return Manifest{}, fmt.Errorf("%s: missing pyproject.toml", src)
+	}
 	if err := prepare(tmp, m); err != nil {
 		return Manifest{}, err
 	}
@@ -138,11 +141,8 @@ func skipCopy(rel string) bool {
 }
 
 func prepareVenv(dir string, _ Manifest) error {
-	if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
+	if !hasPyproject(dir) {
+		return fmt.Errorf("missing pyproject.toml")
 	}
 	u, err := ensureRuntime()
 	if err != nil {
@@ -178,6 +178,12 @@ var (
 	prepare       = prepareVenv
 	ensureRuntime = defaultEnsureRuntime
 )
+
+func StubRuntime(u runtime.UV) func() {
+	prev := ensureRuntime
+	ensureRuntime = func() (runtime.UV, error) { return u, nil }
+	return func() { ensureRuntime = prev }
+}
 
 func copyFile(src, dst string, mode os.FileMode) error {
 	in, err := os.Open(src)
@@ -221,18 +227,7 @@ func Remove(destRoot, name string) error {
 }
 
 func ensureCommand(dir string, m Manifest) error {
-	command := strings.TrimSpace(m.Command)
-	if hasPyproject(dir) {
-		return ensurePythonCommand(dir, m.Name, command)
-	}
-	local := filepath.Join(dir, command)
-	if _, err := os.Stat(local); err == nil {
-		return os.Chmod(local, 0o700)
-	}
-	if filepath.IsAbs(command) || strings.ContainsRune(command, filepath.Separator) || strings.HasPrefix(command, ".") {
-		return fmt.Errorf("extension %q has no executable %q", m.Name, command)
-	}
-	return nil
+	return ensurePythonCommand(dir, m.Name, strings.TrimSpace(m.Command))
 }
 
 func ensurePythonCommand(dir, name, command string) error {

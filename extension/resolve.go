@@ -12,7 +12,7 @@ func ResolveCommand(dir string, m Manifest) (string, []string, error) {
 	command := strings.TrimSpace(m.Command)
 	args := append([]string{}, m.Args...)
 	if !hasPyproject(dir) {
-		return command, args, nil
+		return "", nil, fmt.Errorf("extension %q: missing pyproject.toml", m.Name)
 	}
 	if strings.HasSuffix(strings.ToLower(command), ".py") {
 		script := command

@@ -35,8 +35,15 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	}
 	dir := filepath.Join(extDir, "echo")
 	out := filepath.Join(t.TempDir(), "env")
-	writeManifest(t, extDir, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
-	if err := os.WriteFile(filepath.Join(dir, "run"), []byte("#!/bin/sh\nprintf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > "+strconv.Quote(out)+"\n"), 0o700); err != nil {
+	writeManifest(t, extDir, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join(dir, ".venv", "bin", "echo")
+	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > "+strconv.Quote(out)+"\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	writeConfig(t, config.Config{
@@ -79,7 +86,18 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 
 func TestExtensionListFillsFromManifest(t *testing.T) {
 	root := t.TempDir()
-	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","args":["--poll"]}`)
+	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","args":["--poll"]}`)
+	dir := filepath.Join(root, "echo")
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join(dir, ".venv", "bin", "echo")
+	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := extensionList(config.Config{
 		Extensions: map[string]config.Extension{
@@ -93,7 +111,7 @@ func TestExtensionListFillsFromManifest(t *testing.T) {
 		t.Fatalf("extensions = %d, want 1", len(got))
 	}
 	ext := got[0]
-	if ext.Name != "echo" || ext.Command != "./run" || ext.Dir != filepath.Join(root, "echo") {
+	if ext.Name != "echo" || ext.Command != script || ext.Dir != dir {
 		t.Errorf("extension = %+v", ext)
 	}
 	if len(ext.Args) != 1 || ext.Args[0] != "--poll" {
@@ -199,10 +217,17 @@ func TestServeStartsExtensionFromManifest(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "run"), []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join(dir, ".venv", "bin", "echo")
+	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	writeConfig(t, config.Config{

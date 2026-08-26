@@ -23,24 +23,21 @@ func TestVenvScriptWindows(t *testing.T) {
 	}
 }
 
-func TestResolveCommandLeavesBinaryUnchanged(t *testing.T) {
+func TestResolveCommandRequiresPyproject(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	m, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd, args, err := ResolveCommand(dir, m)
-	if err != nil {
-		t.Fatal(err)
+	_, _, err = ResolveCommand(dir, m)
+	if err == nil {
+		t.Fatal("expected error")
 	}
-	if cmd != "./run" {
-		t.Errorf("command = %q, want ./run", cmd)
-	}
-	if len(args) != 0 {
-		t.Errorf("args = %q, want empty", args)
+	if !strings.Contains(err.Error(), "pyproject.toml") {
+		t.Errorf("error = %v, want pyproject.toml", err)
 	}
 }
 

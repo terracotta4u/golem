@@ -12,11 +12,12 @@ func TestInstallFromZip(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json": {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
-		"run":        {body: "#!/bin/sh\n", mode: 0o700},
+		"golem.json":     {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
+		"pyproject.toml": {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
 	})
 
 	destRoot := t.TempDir()
+	stubEchoUV(t)
 	m, err := Install(zipPath, destRoot, false)
 	if err != nil {
 		t.Fatal(err)
@@ -24,12 +25,12 @@ func TestInstallFromZip(t *testing.T) {
 	if m.Name != "echo" {
 		t.Errorf("name = %q, want echo", m.Name)
 	}
-	info, err := os.Stat(filepath.Join(destRoot, "echo", "run"))
+	info, err := os.Stat(venvScript(filepath.Join(destRoot, "echo"), "echo"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.Mode().Perm()&0o100 == 0 {
-		t.Errorf("run mode = %s, want executable", info.Mode())
+		t.Errorf("script mode = %s, want executable", info.Mode())
 	}
 }
 
@@ -37,15 +38,16 @@ func TestInstallFromZipNestedFolder(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"my-echo/golem.json": {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
-		"my-echo/run":        {body: "#!/bin/sh\n", mode: 0o700},
+		"my-echo/golem.json":     {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
+		"my-echo/pyproject.toml": {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
 	})
 
 	destRoot := t.TempDir()
+	stubEchoUV(t)
 	if _, err := Install(zipPath, destRoot, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(destRoot, "echo", "run")); err != nil {
+	if _, err := os.Stat(filepath.Join(destRoot, "echo", "pyproject.toml")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(destRoot, "echo", "my-echo")); !os.IsNotExist(err) {
@@ -57,8 +59,8 @@ func TestInstallZipRejectsPathEscape(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "bad.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json":            {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
-		"run":                   {body: "#!/bin/sh\n", mode: 0o700},
+		"golem.json":            {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
+		"pyproject.toml":        {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
 		"../outside/golem.json": {body: "{}"},
 	})
 
@@ -72,33 +74,34 @@ func TestInstallZipMakesCommandExecutable(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json": {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`},
-		"run":        {body: "#!/bin/sh\n", mode: 0o600},
+		"golem.json":     {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
+		"pyproject.toml": {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
 	})
 
 	destRoot := t.TempDir()
+	stubEchoUV(t)
 	if _, err := Install(zipPath, destRoot, false); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(filepath.Join(destRoot, "echo", "run"))
+	info, err := os.Stat(venvScript(filepath.Join(destRoot, "echo"), "echo"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.Mode().Perm()&0o100 == 0 {
-		t.Errorf("run mode = %s, want executable after install", info.Mode())
+		t.Errorf("script mode = %s, want executable after install", info.Mode())
 	}
 }
 
-func TestInstallRequiresCommand(t *testing.T) {
+func TestInstallRequiresPyprojectInSrc(t *testing.T) {
 	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
 
 	_, err := Install(src, t.TempDir(), false)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "run") {
-		t.Errorf("error = %v, want missing command", err)
+	if !strings.Contains(err.Error(), "pyproject.toml") {
+		t.Errorf("error = %v, want pyproject.toml", err)
 	}
 }
 
