@@ -44,15 +44,6 @@ func runExtensionAdd(args []string) error {
 	if err != nil {
 		return err
 	}
-
-	cfg, _, err := config.Load()
-	if err != nil {
-		return err
-	}
-	config.ScaffoldExtension(&cfg, m.Name, m.Env)
-	if err := config.Save(cfg); err != nil {
-		return err
-	}
 	fmt.Fprintf(os.Stderr, "installed %s\n", m.Name)
 	return nil
 }
@@ -75,11 +66,11 @@ func runExtensionList(args []string) error {
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, m := range list {
-		status := "disabled"
-		if entry, ok := cfg.Extensions[m.Name]; ok && entry.IsEnabled() {
-			status = "enabled"
+		status := "enabled"
+		if !cfg.Extensions[m.Name].IsEnabled() {
+			status = "disabled"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.Name, m.Version, m.Kind, status)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", m.Name, m.Version, status)
 	}
 	return w.Flush()
 }

@@ -14,10 +14,10 @@ import (
 	"github.com/terracotta4u/golem/runtime"
 )
 
-func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
+func TestRunExtensionAddInstalls(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
-	writePythonExt(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","env":["ECHO_TOKEN"]}`)
+	writePythonExt(t, src)
 	stubEchoRuntime(t)
 
 	stderr := captureStderr(t, func() {
@@ -44,19 +44,15 @@ func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ext, ok := cfg.Extensions["echo"]
-	if !ok {
-		t.Fatal("missing echo extension")
-	}
-	if v, ok := ext.Env["ECHO_TOKEN"]; !ok || v != "" {
-		t.Errorf("ECHO_TOKEN = %q present=%v, want empty stub", v, ok)
+	if _, ok := cfg.Extensions["echo"]; ok {
+		t.Fatal("add should not write config.json extensions")
 	}
 }
 
 func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
-	writePythonExt(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonExt(t, src)
 	stubEchoRuntime(t)
 	if err := run([]string{"extension", "add", src}); err != nil {
 		t.Fatal(err)
@@ -82,7 +78,7 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 		},
 	})
 	src := t.TempDir()
-	writePythonExt(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","env":["ECHO_TOKEN"]}`)
+	writePythonExt(t, src)
 	stubEchoRuntime(t)
 	dir, err := config.ExtensionsDir()
 	if err != nil {
@@ -115,8 +111,7 @@ func TestRunExtensionAddFromZip(t *testing.T) {
 	}
 	w := zip.NewWriter(f)
 	for name, body := range map[string]string{
-		"golem.json":     `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","env":["ECHO_TOKEN"]}`,
-		"pyproject.toml": "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n",
+		"pyproject.toml": echoPyproject,
 	} {
 		fw, err := w.Create(name)
 		if err != nil {
@@ -150,7 +145,7 @@ func TestRunExtensionAddFromZip(t *testing.T) {
 func TestRunExtensionList(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
-	writePythonExt(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonExt(t, src)
 	stubEchoRuntime(t)
 	if err := run([]string{"extension", "add", src}); err != nil {
 		t.Fatal(err)
@@ -173,7 +168,7 @@ func TestRunExtensionList(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.TrimSpace(string(data))
-	if got != "echo  0.1.0  channel  enabled" {
+	if got != "echo  0.1.0  enabled" {
 		t.Errorf("list = %q", got)
 	}
 }
@@ -191,7 +186,7 @@ func TestRunExtensionListMarksDisabled(t *testing.T) {
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(path, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(path, "pyproject.toml"), []byte(echoPyproject), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	off := false
@@ -219,7 +214,7 @@ func TestRunExtensionListMarksDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.TrimSpace(string(data))
-	if got != "echo  0.1.0  channel  disabled" {
+	if got != "echo  0.1.0  disabled" {
 		t.Errorf("list = %q", got)
 	}
 }
@@ -227,7 +222,7 @@ func TestRunExtensionListMarksDisabled(t *testing.T) {
 func TestRunExtensionRemove(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
-	writePythonExt(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","env":["ECHO_TOKEN"]}`)
+	writePythonExt(t, src)
 	stubEchoRuntime(t)
 	if err := run([]string{"extension", "add", src}); err != nil {
 		t.Fatal(err)
@@ -252,15 +247,20 @@ func TestRunExtensionRemove(t *testing.T) {
 	}
 }
 
-func writePythonExt(t *testing.T, dir, manifest string) {
+func writePythonExt(t *testing.T, dir string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, "golem.json"), []byte(manifest), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(echoPyproject), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
+
+const echoPyproject = `[project]
+name = "echo"
+version = "0.1.0"
+
+[project.scripts]
+echo = "echo:main"
+`
 
 func stubEchoRuntime(t *testing.T) {
 	t.Helper()

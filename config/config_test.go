@@ -205,37 +205,6 @@ func TestUVPythonDir(t *testing.T) {
 	}
 }
 
-func TestScaffoldExtensionAddsStub(t *testing.T) {
-	cfg := Config{}
-	ScaffoldExtension(&cfg, "echo", []string{"ECHO_TOKEN"})
-	ext, ok := cfg.Extensions["echo"]
-	if !ok {
-		t.Fatal("missing echo extension")
-	}
-	if !ext.IsEnabled() {
-		t.Error("want enabled by default")
-	}
-	if v, ok := ext.Env["ECHO_TOKEN"]; !ok || v != "" {
-		t.Errorf("Env = %v, want empty ECHO_TOKEN stub", ext.Env)
-	}
-}
-
-func TestScaffoldExtensionKeepsExistingEnv(t *testing.T) {
-	cfg := Config{
-		Extensions: map[string]Extension{
-			"telegram": {Env: map[string]string{"TELEGRAM_BOT_TOKEN": "secret"}},
-		},
-	}
-	ScaffoldExtension(&cfg, "telegram", []string{"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"})
-	ext := cfg.Extensions["telegram"]
-	if ext.Env["TELEGRAM_BOT_TOKEN"] != "secret" {
-		t.Errorf("wiped TELEGRAM_BOT_TOKEN: %v", ext.Env)
-	}
-	if ext.Env["TELEGRAM_CHAT_ID"] != "" {
-		t.Errorf("Env = %v, want empty TELEGRAM_CHAT_ID", ext.Env)
-	}
-}
-
 func TestExtensionIsEnabled(t *testing.T) {
 	off := false
 	on := true

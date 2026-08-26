@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,8 +9,8 @@ import (
 
 func TestListReadsInstalled(t *testing.T) {
 	root := t.TempDir()
-	writeListed(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
-	writeListed(t, root, "telegram", `{"name":"telegram","version":"1.2.3","kind":"channel","command":"./bot"}`)
+	writeListed(t, root, "echo", "0.1.0")
+	writeListed(t, root, "telegram", "1.2.3")
 	if err := os.Mkdir(filepath.Join(root, "empty"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -51,20 +52,30 @@ func TestListMissingDir(t *testing.T) {
 
 func TestListNameMismatch(t *testing.T) {
 	root := t.TempDir()
-	writeListed(t, root, "echo", `{"name":"telegram","version":"0.1.0","kind":"channel","command":"./run"}`)
+	dir := filepath.Join(root, "echo")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(projectTOML("telegram", "0.1.0")), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	_, err := List(root)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
-func writeListed(t *testing.T, root, name, manifest string) {
+func writeListed(t *testing.T, root, name, version string) {
 	t.Helper()
 	dir := filepath.Join(root, name)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(manifest), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(projectTOML(name, version)), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func projectTOML(name, version string) string {
+	return fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[project.scripts]\n%s = %q\n", name, version, name, name+":main")
 }

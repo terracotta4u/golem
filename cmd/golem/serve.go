@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"sort"
 
 	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
@@ -68,42 +66,30 @@ func serve(ctx context.Context, app *app, listen string) error {
 }
 
 func extensionList(cfg config.Config, extRoot string) ([]supervisor.Extension, error) {
-	names := make([]string, 0, len(cfg.Extensions))
-	for name := range cfg.Extensions {
-		names = append(names, name)
+	list, err := extension.List(extRoot)
+	if err != nil {
+		return nil, err
 	}
-	sort.Strings(names)
 
-	out := make([]supervisor.Extension, 0, len(names))
-	for _, name := range names {
-		entry := cfg.Extensions[name]
+	out := make([]supervisor.Extension, 0, len(list))
+	for _, m := range list {
+		entry := cfg.Extensions[m.Name]
 		if !entry.IsEnabled() {
 			continue
 		}
-		dir := filepath.Join(extRoot, name)
-		m, err := extension.Load(dir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil, fmt.Errorf("extension %q is not installed in %s", name, dir)
-			}
+		if err := extension.EnsureVenv(m.Dir, m); err != nil {
 			return nil, err
 		}
-		if m.Name != name {
-			return nil, fmt.Errorf("extension %s: manifest name %q does not match", name, m.Name)
-		}
-		if err := extension.EnsureVenv(dir, m); err != nil {
-			return nil, err
-		}
-		command, args, err := extension.ResolveCommand(dir, m)
+		command, args, err := extension.ResolveCommand(m.Dir, m)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, supervisor.Extension{
-			Name:    name,
+			Name:    m.Name,
 			Command: command,
 			Args:    args,
 			Env:     entry.Env,
-			Dir:     dir,
+			Dir:     m.Dir,
 		})
 	}
 	return out, nil

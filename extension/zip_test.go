@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -12,8 +11,7 @@ func TestInstallFromZip(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json":     {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
-		"pyproject.toml": {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
+		"pyproject.toml": {body: projectTOML("echo", "0.1.0")},
 	})
 
 	destRoot := t.TempDir()
@@ -38,8 +36,7 @@ func TestInstallFromZipNestedFolder(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "echo.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"my-echo/golem.json":     {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
-		"my-echo/pyproject.toml": {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
+		"my-echo/pyproject.toml": {body: projectTOML("echo", "0.1.0")},
 	})
 
 	destRoot := t.TempDir()
@@ -47,7 +44,7 @@ func TestInstallFromZipNestedFolder(t *testing.T) {
 	if _, err := Install(zipPath, destRoot, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(destRoot, "echo", "pyproject.toml")); err != nil {
+	if _, err := os.Stat(filepath.Join(destRoot, "echo", FileName)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(destRoot, "echo", "my-echo")); !os.IsNotExist(err) {
@@ -59,49 +56,13 @@ func TestInstallZipRejectsPathEscape(t *testing.T) {
 	dir := t.TempDir()
 	zipPath := filepath.Join(dir, "bad.zip")
 	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json":            {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
-		"pyproject.toml":        {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
-		"../outside/golem.json": {body: "{}"},
+		"pyproject.toml":            {body: projectTOML("echo", "0.1.0")},
+		"../outside/pyproject.toml": {body: "[project]\nname = \"x\"\n"},
 	})
 
 	_, err := Install(zipPath, t.TempDir(), false)
 	if err == nil {
 		t.Fatal("expected error")
-	}
-}
-
-func TestInstallZipMakesCommandExecutable(t *testing.T) {
-	dir := t.TempDir()
-	zipPath := filepath.Join(dir, "echo.zip")
-	writeZip(t, zipPath, map[string]fileInZip{
-		"golem.json":     {body: `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`},
-		"pyproject.toml": {body: "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"},
-	})
-
-	destRoot := t.TempDir()
-	stubEchoUV(t)
-	if _, err := Install(zipPath, destRoot, false); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(venvScript(filepath.Join(destRoot, "echo"), "echo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm()&0o100 == 0 {
-		t.Errorf("script mode = %s, want executable after install", info.Mode())
-	}
-}
-
-func TestInstallRequiresPyprojectInSrc(t *testing.T) {
-	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
-
-	_, err := Install(src, t.TempDir(), false)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "pyproject.toml") {
-		t.Errorf("error = %v, want pyproject.toml", err)
 	}
 }
 

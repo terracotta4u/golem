@@ -10,26 +10,14 @@ import (
 
 func ResolveCommand(dir string, m Manifest) (string, []string, error) {
 	command := strings.TrimSpace(m.Command)
-	args := append([]string{}, m.Args...)
-	if !hasPyproject(dir) {
-		return "", nil, fmt.Errorf("extension %q: missing pyproject.toml", m.Name)
-	}
-	if strings.HasSuffix(strings.ToLower(command), ".py") {
-		script := command
-		if !filepath.IsAbs(script) {
-			script = filepath.Join(dir, script)
-		}
-		py := venvPython(dir)
-		if _, err := os.Stat(py); err != nil {
-			return "", nil, fmt.Errorf("extension %q has no executable %q", m.Name, command)
-		}
-		return py, append([]string{script}, args...), nil
+	if command == "" {
+		return "", nil, fmt.Errorf("extension %q has no executable", m.Name)
 	}
 	script := venvScript(dir, command)
 	if _, err := os.Stat(script); err != nil {
 		return "", nil, fmt.Errorf("extension %q has no executable %q", m.Name, command)
 	}
-	return script, args, nil
+	return script, nil, nil
 }
 
 func venvScript(dir, command string) string {

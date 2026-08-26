@@ -191,27 +191,6 @@ func Save(cfg Config) error {
 	return write(filepath.Join(etc, fileName), cfg)
 }
 
-func ScaffoldExtension(cfg *Config, name string, envNames []string) {
-	if cfg.Extensions == nil {
-		cfg.Extensions = make(map[string]Extension)
-	}
-	ext := cfg.Extensions[name]
-	if len(envNames) > 0 {
-		if ext.Env == nil {
-			ext.Env = make(map[string]string)
-		}
-		for _, k := range envNames {
-			if k == "" {
-				continue
-			}
-			if _, ok := ext.Env[k]; !ok {
-				ext.Env[k] = ""
-			}
-		}
-	}
-	cfg.Extensions[name] = ext
-}
-
 func RemoveExtension(cfg *Config, name string) {
 	delete(cfg.Extensions, name)
 }

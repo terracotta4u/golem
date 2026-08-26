@@ -52,7 +52,7 @@ func installDir(src, destRoot string, force bool) (Manifest, error) {
 	m, err := Load(src)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Manifest{}, fmt.Errorf("%s: missing %s", src, FileName)
+			return Manifest{}, fmt.Errorf("%s: missing pyproject.toml", src)
 		}
 		return Manifest{}, err
 	}
@@ -80,9 +80,6 @@ func installDir(src, destRoot string, force bool) (Manifest, error) {
 
 	if err := copyDir(src, tmp); err != nil {
 		return Manifest{}, err
-	}
-	if !hasPyproject(tmp) {
-		return Manifest{}, fmt.Errorf("%s: missing pyproject.toml", src)
 	}
 	if err := prepare(tmp, m); err != nil {
 		return Manifest{}, err
@@ -133,7 +130,7 @@ func copyDir(src, dst string) error {
 func skipCopy(rel string) bool {
 	for _, p := range strings.Split(rel, string(filepath.Separator)) {
 		switch p {
-		case ".venv", "__pycache__", ".git":
+		case ".venv", "__pycache__", ".git", "golem.json":
 			return true
 		}
 	}
@@ -244,25 +241,15 @@ func Remove(destRoot, name string) error {
 }
 
 func ensureCommand(dir string, m Manifest) error {
-	return ensurePythonCommand(dir, m.Name, strings.TrimSpace(m.Command))
-}
-
-func ensurePythonCommand(dir, name, command string) error {
-	if strings.HasSuffix(strings.ToLower(command), ".py") {
-		local := filepath.Join(dir, command)
-		if _, err := os.Stat(local); err != nil {
-			return fmt.Errorf("extension %q has no executable %q", name, command)
-		}
-		return nil
-	}
+	command := strings.TrimSpace(m.Command)
 	script := venvScript(dir, command)
 	if _, err := os.Stat(script); err != nil {
-		return fmt.Errorf("extension %q has no executable %q", name, command)
+		return fmt.Errorf("extension %q has no executable %q", m.Name, command)
 	}
 	return os.Chmod(script, 0o700)
 }
 
 func hasPyproject(dir string) bool {
-	_, err := os.Stat(filepath.Join(dir, "pyproject.toml"))
+	_, err := os.Stat(filepath.Join(dir, FileName))
 	return err == nil
 }

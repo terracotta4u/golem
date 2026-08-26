@@ -13,9 +13,7 @@ import (
 )
 
 func TestInstallRequiresPyproject(t *testing.T) {
-	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
-	_, err := Install(src, t.TempDir(), false)
+	_, err := Install(t.TempDir(), t.TempDir(), false)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -27,7 +25,7 @@ func TestInstallRequiresPyproject(t *testing.T) {
 func TestInstallCopiesByManifestName(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","env":["ECHO_TOKEN"]}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 
 	m, err := Install(src, destRoot, false)
@@ -42,9 +40,6 @@ func TestInstallCopiesByManifestName(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, FileName)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dest, "pyproject.toml")); err != nil {
-		t.Fatal(err)
-	}
 	info, err := os.Stat(venvScript(dest, "echo"))
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +52,7 @@ func TestInstallCopiesByManifestName(t *testing.T) {
 func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 	if err := os.WriteFile(filepath.Join(src, "bot.py"), []byte("print('ok')\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -89,6 +84,9 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if err := os.WriteFile(gitConfig, []byte("[core]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
@@ -113,12 +111,15 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, ".git")); !os.IsNotExist(err) {
 		t.Fatal("copied .git")
 	}
+	if _, err := os.Stat(filepath.Join(dest, "golem.json")); !os.IsNotExist(err) {
+		t.Fatal("copied golem.json")
+	}
 }
 
 func TestInstallRefusesExisting(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
@@ -133,7 +134,7 @@ func TestInstallRefusesExisting(t *testing.T) {
 func TestInstallForceReplaces(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 	if err := os.WriteFile(filepath.Join(src, "old.txt"), []byte("old"), 0o600); err != nil {
 		t.Fatal(err)
@@ -161,7 +162,7 @@ func TestInstallForceReplaces(t *testing.T) {
 func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 
 	dest := filepath.Join(destRoot, "echo")
@@ -170,9 +171,6 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 		seen = dir
 		if m.Name != "echo" {
 			t.Errorf("name = %q, want echo", m.Name)
-		}
-		if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err != nil {
-			t.Errorf("prepare missing pyproject.toml: %v", err)
 		}
 		if _, err := os.Stat(filepath.Join(dir, FileName)); err != nil {
 			t.Errorf("prepare missing %s: %v", FileName, err)
@@ -197,7 +195,7 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 	if !strings.HasPrefix(seen, destRoot) {
 		t.Errorf("prepare dir = %q, want under %s", seen, destRoot)
 	}
-	if _, err := os.Stat(filepath.Join(dest, "pyproject.toml")); err != nil {
+	if _, err := os.Stat(filepath.Join(dest, FileName)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -205,7 +203,7 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 	if err := os.WriteFile(filepath.Join(src, "keep.txt"), []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
@@ -239,22 +237,10 @@ func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
 	}
 }
 
-func TestInstallRejectsProvider(t *testing.T) {
-	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"ollama","version":"0.1.0","kind":"provider","command":"./ollama"}`)
-	_, err := Install(src, t.TempDir(), false)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "not supported") {
-		t.Errorf("error = %v, want not supported", err)
-	}
-}
-
 func TestRemoveDeletesInstall(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
@@ -295,7 +281,6 @@ func TestPrepareVenvRequiresPyproject(t *testing.T) {
 	t.Cleanup(func() { ensureRuntime = orig })
 
 	dir := t.TempDir()
-	writeInstallSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
 	err := prepareVenv(dir, Manifest{Name: "echo"})
 	if err == nil {
 		t.Fatal("expected error")
@@ -308,10 +293,7 @@ func TestPrepareVenvRequiresPyproject(t *testing.T) {
 func TestInstallSyncsPyproject(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
-	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writePythonSrc(t, src)
 
 	bin := filepath.Join(t.TempDir(), "uv")
 	var got []*exec.Cmd
@@ -368,10 +350,7 @@ func TestInstallSyncsPyproject(t *testing.T) {
 
 func TestInstallPyprojectRequiresVenvScript(t *testing.T) {
 	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
-	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writePythonSrc(t, src)
 	stubUV(t, func(*exec.Cmd) error { return nil })
 
 	_, err := Install(src, t.TempDir(), false)
@@ -386,10 +365,7 @@ func TestInstallPyprojectRequiresVenvScript(t *testing.T) {
 func TestInstallPyprojectAcceptsVenvScript(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
-	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writePythonSrc(t, src)
 	stubUV(t, func(cmd *exec.Cmd) error {
 		writeVenvScript(t, cmd.Dir, "echo")
 		return nil
@@ -405,22 +381,6 @@ func TestInstallPyprojectAcceptsVenvScript(t *testing.T) {
 	}
 	if info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("script mode = %s, want executable", info.Mode())
-	}
-}
-
-func TestInstallPyprojectPythonFile(t *testing.T) {
-	src := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./bot.py"}`)
-	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(src, "bot.py"), []byte("print('ok')\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	stubUV(t, func(*exec.Cmd) error { return nil })
-
-	if _, err := Install(src, t.TempDir(), false); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -455,7 +415,7 @@ func writeVenvScript(t *testing.T, dir, name string) {
 
 func TestInstallPrintsCreatingVenv(t *testing.T) {
 	src := t.TempDir()
-	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, src)
 	stubEchoUV(t)
 
 	stderr := captureStderr(t, func() {
@@ -470,7 +430,7 @@ func TestInstallPrintsCreatingVenv(t *testing.T) {
 
 func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 	dir := t.TempDir()
-	writePythonSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, dir)
 	writeVenvScript(t, dir, "echo")
 	prepare = func(string, Manifest) error {
 		t.Fatal("prepare called")
@@ -494,7 +454,7 @@ func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 
 func TestEnsureVenvRepairsWhenMissing(t *testing.T) {
 	dir := t.TempDir()
-	writePythonSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writePythonSrc(t, dir)
 	var called bool
 	prepare = func(d string, m Manifest) error {
 		called = true
@@ -541,17 +501,9 @@ func captureStderr(t *testing.T, fn func()) string {
 	return string(data)
 }
 
-func writeInstallSrc(t *testing.T, dir, manifest string) {
+func writePythonSrc(t *testing.T, dir string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(manifest), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func writePythonSrc(t *testing.T, dir, manifest string) {
-	t.Helper()
-	writeInstallSrc(t, dir, manifest)
-	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(projectTOML("echo", "0.1.0")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
