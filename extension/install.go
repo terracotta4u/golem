@@ -222,6 +222,9 @@ func Remove(destRoot, name string) error {
 
 func ensureCommand(dir string, m Manifest) error {
 	command := strings.TrimSpace(m.Command)
+	if hasPyproject(dir) {
+		return ensurePythonCommand(dir, m.Name, command)
+	}
 	local := filepath.Join(dir, command)
 	if _, err := os.Stat(local); err == nil {
 		return os.Chmod(local, 0o700)
@@ -230,4 +233,24 @@ func ensureCommand(dir string, m Manifest) error {
 		return fmt.Errorf("extension %q has no executable %q", m.Name, command)
 	}
 	return nil
+}
+
+func ensurePythonCommand(dir, name, command string) error {
+	if strings.HasSuffix(strings.ToLower(command), ".py") {
+		local := filepath.Join(dir, command)
+		if _, err := os.Stat(local); err != nil {
+			return fmt.Errorf("extension %q has no executable %q", name, command)
+		}
+		return nil
+	}
+	script := venvScript(dir, command)
+	if _, err := os.Stat(script); err != nil {
+		return fmt.Errorf("extension %q has no executable %q", name, command)
+	}
+	return os.Chmod(script, 0o700)
+}
+
+func hasPyproject(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "pyproject.toml"))
+	return err == nil
 }

@@ -301,10 +301,7 @@ func TestPrepareVenvSkipsWithoutPyproject(t *testing.T) {
 func TestInstallSyncsPyproject(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
-	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
-	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
 	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -323,6 +320,7 @@ func TestInstallSyncsPyproject(t *testing.T) {
 					Dir:  cmd.Dir,
 					Env:  append([]string{}, cmd.Env...),
 				})
+				writeVenvScript(t, cmd.Dir, "echo")
 				return nil
 			},
 		}, nil
@@ -358,6 +356,93 @@ func TestInstallSyncsPyproject(t *testing.T) {
 	}
 	if env["UV_PROJECT_ENVIRONMENT"] != venv {
 		t.Errorf("UV_PROJECT_ENVIRONMENT = %q, want %q", env["UV_PROJECT_ENVIRONMENT"], venv)
+	}
+}
+
+func TestInstallPyprojectRequiresVenvScript(t *testing.T) {
+	src := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubUV(t, func(*exec.Cmd) error { return nil })
+
+	_, err := Install(src, t.TempDir(), false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "echo") {
+		t.Errorf("error = %v, want missing echo", err)
+	}
+}
+
+func TestInstallPyprojectAcceptsVenvScript(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubUV(t, func(cmd *exec.Cmd) error {
+		writeVenvScript(t, cmd.Dir, "echo")
+		return nil
+	})
+
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+	script := venvScript(filepath.Join(destRoot, "echo"), "echo")
+	info, err := os.Stat(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("script mode = %s, want executable", info.Mode())
+	}
+}
+
+func TestInstallPyprojectPythonFile(t *testing.T) {
+	src := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./bot.py"}`)
+	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "bot.py"), []byte("print('ok')\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubUV(t, func(*exec.Cmd) error { return nil })
+
+	if _, err := Install(src, t.TempDir(), false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func stubUV(t *testing.T, run func(*exec.Cmd) error) {
+	t.Helper()
+	orig := ensureRuntime
+	ensureRuntime = func() (runtime.UV, error) {
+		return runtime.UV{
+			Bin:       filepath.Join(t.TempDir(), "uv"),
+			CacheDir:  t.TempDir(),
+			PythonDir: t.TempDir(),
+			Run:       run,
+		}, nil
+	}
+	t.Cleanup(func() { ensureRuntime = orig })
+}
+
+func writeVenvScript(t *testing.T, dir, name string) {
+	t.Helper()
+	if dir == "" {
+		// uv python install has no project Dir; do not write relative to the package.
+		return
+	}
+	path := venvScript(dir, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
 	}
 }
 
