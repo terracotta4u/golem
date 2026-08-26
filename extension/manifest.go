@@ -19,6 +19,7 @@ type Manifest struct {
 	Command     string   `json:"command"`
 	Args        []string `json:"args,omitempty"`
 	Env         []string `json:"env,omitempty"`
+	Dir         string   `json:"-"`
 }
 
 var nameRE = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)

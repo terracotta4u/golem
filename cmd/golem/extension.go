@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
@@ -11,13 +12,15 @@ import (
 
 func runExtension(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: golem extension add <path>")
+		return fmt.Errorf("usage: golem extension add <path> | golem extension list")
 	}
 	switch args[0] {
 	case "add":
 		return runExtensionAdd(args[1:])
+	case "list":
+		return runExtensionList(args[1:])
 	default:
-		return fmt.Errorf("usage: golem extension add <path>")
+		return fmt.Errorf("usage: golem extension add <path> | golem extension list")
 	}
 }
 
@@ -50,4 +53,31 @@ func runExtensionAdd(args []string) error {
 	}
 	fmt.Fprintf(os.Stderr, "installed %s\n", m.Name)
 	return nil
+}
+
+func runExtensionList(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: golem extension list")
+	}
+	root, err := config.ExtensionsDir()
+	if err != nil {
+		return err
+	}
+	list, err := extension.List(root)
+	if err != nil {
+		return err
+	}
+	cfg, _, err := config.Load()
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	for _, m := range list {
+		status := "disabled"
+		if entry, ok := cfg.Extensions[m.Name]; ok && entry.IsEnabled() {
+			status = "enabled"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.Name, m.Version, m.Kind, status)
+	}
+	return w.Flush()
 }
