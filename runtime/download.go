@@ -212,6 +212,10 @@ func binaryName(goos string) string {
 	return "uv"
 }
 
+func BinPath(dir string) string {
+	return filepath.Join(dir, binaryName(stdruntime.GOOS))
+}
+
 func sha256For(goos, goarch string) (string, error) {
 	name, err := archiveName(goos, goarch)
 	if err != nil {

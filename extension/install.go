@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/runtime"
 )
 
 func Install(src, destRoot string, force bool) (Manifest, error) {
@@ -134,9 +137,47 @@ func skipCopy(rel string) bool {
 	return false
 }
 
-func nopPrepare(string, Manifest) error { return nil }
+func prepareVenv(dir string, _ Manifest) error {
+	if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	u, err := ensureRuntime()
+	if err != nil {
+		return err
+	}
+	return u.SyncProject(dir)
+}
 
-var prepare = nopPrepare
+func defaultEnsureRuntime() (runtime.UV, error) {
+	uvDir, err := config.UVDir()
+	if err != nil {
+		return runtime.UV{}, err
+	}
+	if err := runtime.Ensure(uvDir); err != nil {
+		return runtime.UV{}, err
+	}
+	cache, err := config.UVCacheDir()
+	if err != nil {
+		return runtime.UV{}, err
+	}
+	python, err := config.UVPythonDir()
+	if err != nil {
+		return runtime.UV{}, err
+	}
+	return runtime.UV{
+		Bin:       runtime.BinPath(uvDir),
+		CacheDir:  cache,
+		PythonDir: python,
+	}, nil
+}
+
+var (
+	prepare       = prepareVenv
+	ensureRuntime = defaultEnsureRuntime
+)
 
 func copyFile(src, dst string, mode os.FileMode) error {
 	in, err := os.Open(src)

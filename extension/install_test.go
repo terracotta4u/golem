@@ -3,9 +3,12 @@ package extension
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/terracotta4u/golem/runtime"
 )
 
 func TestInstallCopiesByManifestName(t *testing.T) {
@@ -173,7 +176,7 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 		}
 		return nil
 	}
-	t.Cleanup(func() { prepare = nopPrepare })
+	t.Cleanup(func() { prepare = prepareVenv })
 
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
@@ -212,7 +215,7 @@ func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
 	prepare = func(string, Manifest) error {
 		return errors.New("uv failed")
 	}
-	t.Cleanup(func() { prepare = nopPrepare })
+	t.Cleanup(func() { prepare = prepareVenv })
 
 	_, err := Install(src, destRoot, true)
 	if err == nil {
@@ -277,6 +280,84 @@ func TestRemoveRejectsInvalidName(t *testing.T) {
 		if err := Remove(root, name); err == nil {
 			t.Errorf("Remove(%q) succeeded, want error", name)
 		}
+	}
+}
+
+func TestPrepareVenvSkipsWithoutPyproject(t *testing.T) {
+	orig := ensureRuntime
+	ensureRuntime = func() (runtime.UV, error) {
+		t.Fatal("ensureRuntime called without pyproject.toml")
+		return runtime.UV{}, nil
+	}
+	t.Cleanup(func() { ensureRuntime = orig })
+
+	dir := t.TempDir()
+	writeInstallSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := prepareVenv(dir, Manifest{Name: "echo"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInstallSyncsPyproject(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	bin := filepath.Join(t.TempDir(), "uv")
+	var got []*exec.Cmd
+	orig := ensureRuntime
+	ensureRuntime = func() (runtime.UV, error) {
+		return runtime.UV{
+			Bin:       bin,
+			CacheDir:  t.TempDir(),
+			PythonDir: t.TempDir(),
+			Run: func(cmd *exec.Cmd) error {
+				got = append(got, &exec.Cmd{
+					Args: append([]string{}, cmd.Args...),
+					Dir:  cmd.Dir,
+					Env:  append([]string{}, cmd.Env...),
+				})
+				return nil
+			},
+		}, nil
+	}
+	t.Cleanup(func() { ensureRuntime = orig })
+
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("uv runs = %d, want 3", len(got))
+	}
+	wantVenv := []string{bin, "venv", "--python", runtime.DefaultPython, ".venv"}
+	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
+		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
+	}
+	wantSync := []string{bin, "sync", "--no-dev", "--no-editable"}
+	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
+		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
+	}
+
+	dest := filepath.Join(destRoot, "echo")
+	venv := filepath.Join(got[1].Dir, ".venv")
+	if got[1].Dir == dest {
+		t.Error("uv ran on dest, want temp dir before swap")
+	}
+	env := map[string]string{}
+	for _, kv := range got[1].Env {
+		k, v, ok := strings.Cut(kv, "=")
+		if ok {
+			env[k] = v
+		}
+	}
+	if env["UV_PROJECT_ENVIRONMENT"] != venv {
+		t.Errorf("UV_PROJECT_ENVIRONMENT = %q, want %q", env["UV_PROJECT_ENVIRONMENT"], venv)
 	}
 }
 
