@@ -95,6 +95,27 @@ func TestEnsureUVChecksumMismatch(t *testing.T) {
 	}
 }
 
+func TestEnsureUVPrintsDownload(t *testing.T) {
+	archive := tarGz(t, "uv-aarch64-apple-darwin/uv", "fake-uv\n")
+	srv := serveArchive(t, Version, "uv-aarch64-apple-darwin.tar.gz", archive)
+	d := Downloader{
+		Client:  srv.Client(),
+		BaseURL: srv.URL,
+		GOOS:    "darwin",
+		GOARCH:  "arm64",
+		SHA256:  sha256Hex(archive),
+	}
+
+	stderr := captureStderr(t, func() {
+		if err := d.Ensure(t.TempDir()); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(stderr, "downloading uv "+Version) {
+		t.Errorf("stderr = %q, want downloading uv %s", stderr, Version)
+	}
+}
+
 func TestEnsureUVAlreadyInstalled(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "uv")
@@ -110,8 +131,13 @@ func TestEnsureUVAlreadyInstalled(t *testing.T) {
 		GOOS:   "darwin",
 		GOARCH: "arm64",
 	}
-	if err := d.Ensure(dir); err != nil {
-		t.Fatal(err)
+	stderr := captureStderr(t, func() {
+		if err := d.Ensure(dir); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if strings.Contains(stderr, "downloading") {
+		t.Errorf("stderr = %q, want no download", stderr)
 	}
 
 	got, err := os.ReadFile(path)
@@ -121,6 +147,24 @@ func TestEnsureUVAlreadyInstalled(t *testing.T) {
 	if string(got) != "existing\n" {
 		t.Errorf("uv replaced: %q", got)
 	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	fn()
+	_ = w.Close()
+	os.Stderr = old
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 func TestEnsureUVUnknownPlatform(t *testing.T) {

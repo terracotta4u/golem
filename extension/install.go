@@ -140,7 +140,7 @@ func skipCopy(rel string) bool {
 	return false
 }
 
-func prepareVenv(dir string, _ Manifest) error {
+func prepareVenv(dir string, m Manifest) error {
 	if !hasPyproject(dir) {
 		return fmt.Errorf("missing pyproject.toml")
 	}
@@ -148,6 +148,7 @@ func prepareVenv(dir string, _ Manifest) error {
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(os.Stderr, "creating Python environment for %s\n", m.Name)
 	return u.SyncProject(dir)
 }
 
@@ -189,6 +190,7 @@ func EnsureVenv(dir string, m Manifest) error {
 	if hasVenv(dir) {
 		return nil
 	}
+	fmt.Fprintf(os.Stderr, "repairing Python environment for %s\n", m.Name)
 	if err := prepare(dir, m); err != nil {
 		return fmt.Errorf("extension %q: cannot prepare Python environment: %w", m.Name, err)
 	}

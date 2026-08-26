@@ -2,6 +2,7 @@ package extension
 
 import (
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -452,6 +453,21 @@ func writeVenvScript(t *testing.T, dir, name string) {
 	}
 }
 
+func TestInstallPrintsCreatingVenv(t *testing.T) {
+	src := t.TempDir()
+	writePythonSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	stubEchoUV(t)
+
+	stderr := captureStderr(t, func() {
+		if _, err := Install(src, t.TempDir(), false); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(stderr, "creating Python environment for echo") {
+		t.Errorf("stderr = %q, want creating Python environment", stderr)
+	}
+}
+
 func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
@@ -466,8 +482,13 @@ func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := EnsureVenv(dir, m); err != nil {
-		t.Fatal(err)
+	stderr := captureStderr(t, func() {
+		if err := EnsureVenv(dir, m); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if strings.Contains(stderr, "repairing") {
+		t.Errorf("stderr = %q, want no repair", stderr)
 	}
 }
 
@@ -486,15 +507,38 @@ func TestEnsureVenvRepairsWhenMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := EnsureVenv(dir, m); err != nil {
-		t.Fatal(err)
-	}
+	stderr := captureStderr(t, func() {
+		if err := EnsureVenv(dir, m); err != nil {
+			t.Fatal(err)
+		}
+	})
 	if !called {
 		t.Fatal("prepare not called")
 	}
 	if _, err := os.Stat(venvScript(dir, "echo")); err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(stderr, "repairing Python environment for echo") {
+		t.Errorf("stderr = %q, want repairing Python environment", stderr)
+	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	fn()
+	_ = w.Close()
+	os.Stderr = old
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 func writeInstallSrc(t *testing.T, dir, manifest string) {

@@ -55,6 +55,8 @@ func (d Downloader) Ensure(dir string) error {
 		return err
 	}
 
+	fmt.Fprintf(os.Stderr, "downloading uv %s\n", d.version())
+
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}

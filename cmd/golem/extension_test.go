@@ -20,8 +20,16 @@ func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
 	writePythonExt(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo","env":["ECHO_TOKEN"]}`)
 	stubEchoRuntime(t)
 
-	if err := run([]string{"extension", "add", src}); err != nil {
-		t.Fatal(err)
+	stderr := captureStderr(t, func() {
+		if err := run([]string{"extension", "add", src}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(stderr, "creating Python environment for echo") {
+		t.Errorf("stderr = %q, want creating Python environment", stderr)
+	}
+	if !strings.Contains(stderr, "installed echo") {
+		t.Errorf("stderr = %q, want installed echo", stderr)
 	}
 
 	dir, err := config.ExtensionsDir()
@@ -283,4 +291,22 @@ func TestRunExtensionRemoveMissing(t *testing.T) {
 	if !strings.Contains(err.Error(), "not installed") {
 		t.Errorf("error = %v, want not installed", err)
 	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	fn()
+	_ = w.Close()
+	os.Stderr = old
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
