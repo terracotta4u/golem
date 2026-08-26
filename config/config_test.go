@@ -145,6 +145,66 @@ func TestEtcDir(t *testing.T) {
 	}
 }
 
+func TestRuntimeDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := RuntimeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "runtime") {
+		t.Errorf("RuntimeDir = %q, want %s/runtime", got, dir)
+	}
+}
+
+func TestUVDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := RuntimeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := UVDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "uv") {
+		t.Errorf("UVDir = %q, want %s/uv", got, dir)
+	}
+}
+
+func TestUVCacheDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := RuntimeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := UVCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "cache") {
+		t.Errorf("UVCacheDir = %q, want %s/cache", got, dir)
+	}
+}
+
+func TestUVPythonDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir, err := RuntimeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := UVPythonDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(dir, "python") {
+		t.Errorf("UVPythonDir = %q, want %s/python", got, dir)
+	}
+}
+
 func TestScaffoldExtensionAddsStub(t *testing.T) {
 	cfg := Config{}
 	ScaffoldExtension(&cfg, "echo", []string{"ECHO_TOKEN"})

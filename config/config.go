@@ -76,6 +76,42 @@ func SkillsDir() (string, error) {
 	return filepath.Join(dir, "skills"), nil
 }
 
+// RuntimeDir is ~/.golem/runtime.
+func RuntimeDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "runtime"), nil
+}
+
+// UVDir is ~/.golem/runtime/uv.
+func UVDir() (string, error) {
+	dir, err := RuntimeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "uv"), nil
+}
+
+// UVCacheDir is ~/.golem/runtime/cache.
+func UVCacheDir() (string, error) {
+	dir, err := RuntimeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "cache"), nil
+}
+
+// UVPythonDir is ~/.golem/runtime/python.
+func UVPythonDir() (string, error) {
+	dir, err := RuntimeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "python"), nil
+}
+
 // Load creates ~/.golem/etc, SOUL.md, USER.md, and a default config on first run,
 // then reads the config. created is true when the config file did not already exist.
 func Load() (cfg Config, created bool, err error) {
