@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -107,7 +108,7 @@ func (s *Supervisor) runOnce(ctx context.Context, ext Extension) error {
 	}
 
 	cmd := exec.CommandContext(ctx, bin, ext.Args...)
-	cmd.Env = childEnv(s.opts.URL, s.opts.Token, ext.Env)
+	cmd.Env = childEnv(s.opts.URL, s.opts.Token, ext)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if ext.Dir != "" {
@@ -143,17 +144,55 @@ func (s *Supervisor) resolve(ext Extension) (string, error) {
 	return path, nil
 }
 
-func childEnv(url, token string, extra map[string]string) []string {
-	env := os.Environ()
-	env = append(env, "GOLEM_URL="+url)
-	if token != "" {
-		env = append(env, "GOLEM_TOKEN="+token)
+func childEnv(url, token string, ext Extension) []string {
+	parent := os.Environ()
+	out := make([]string, 0, len(parent)+4)
+	path := ""
+	for _, kv := range parent {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok {
+			continue
+		}
+		if strings.EqualFold(k, "PATH") {
+			path = v
+			continue
+		}
+		out = append(out, kv)
 	}
-	for k, v := range extra {
+	if bin := venvBin(ext.Dir); bin != "" {
+		if path != "" {
+			path = bin + string(os.PathListSeparator) + path
+		} else {
+			path = bin
+		}
+	}
+	if path != "" {
+		out = append(out, "PATH="+path)
+	}
+	out = append(out, "GOLEM_URL="+url)
+	if token != "" {
+		out = append(out, "GOLEM_TOKEN="+token)
+	}
+	for k, v := range ext.Env {
 		if strings.TrimSpace(v) == "" {
 			continue
 		}
-		env = append(env, k+"="+v)
+		out = append(out, k+"="+v)
 	}
-	return env
+	return out
+}
+
+func venvBin(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	bin := filepath.Join(dir, ".venv", "bin")
+	if runtime.GOOS == "windows" {
+		bin = filepath.Join(dir, ".venv", "Scripts")
+	}
+	info, err := os.Stat(bin)
+	if err != nil || !info.IsDir() {
+		return ""
+	}
+	return bin
 }

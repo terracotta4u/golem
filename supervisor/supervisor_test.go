@@ -67,6 +67,91 @@ func TestStartInjectsEnv(t *testing.T) {
 	}
 }
 
+func TestStartPrependsVenvBinToPATH(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, ".venv", "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeScript(t, bin, "python", "printf venv-python")
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	out := filepath.Join(t.TempDir(), "path")
+	s := New(Options{
+		URL:   "http://127.0.0.1:8743",
+		Token: "secret",
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "printf '%s' \"$PATH\" > " + strconv.Quote(out)},
+			Dir:     dir,
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	first, _, _ := strings.Cut(got, string(os.PathListSeparator))
+	if first != bin {
+		t.Fatalf("PATH starts with %q, want %q (full %q)", first, bin, got)
+	}
+}
+
+func TestStartVenvPythonWinsOnPATH(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, ".venv", "bin")
+	writeScript(t, bin, "python", "printf venv-python")
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	out := filepath.Join(t.TempDir(), "python")
+	s := New(Options{
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "command -v python > " + strconv.Quote(out)},
+			Dir:     dir,
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	want := filepath.Join(bin, "python")
+	if got != want {
+		t.Fatalf("python = %q, want %q", got, want)
+	}
+}
+
+func TestStartKeepsPATHWithoutVenv(t *testing.T) {
+	t.Setenv("PATH", "/custom/bin:/usr/bin:/bin")
+	out := filepath.Join(t.TempDir(), "path")
+	s := New(Options{
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "printf '%s' \"$PATH\" > " + strconv.Quote(out)},
+			Dir:     t.TempDir(),
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	first, _, _ := strings.Cut(got, string(os.PathListSeparator))
+	if first != "/custom/bin" {
+		t.Fatalf("PATH starts with %q, want /custom/bin (full %q)", first, got)
+	}
+}
+
 func TestStartKeepsParentEnvWhenConfigEmpty(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
