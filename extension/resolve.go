@@ -8,16 +8,16 @@ import (
 	"strings"
 )
 
-func ResolveCommand(dir string, m Manifest) (string, []string, error) {
+func ResolveCommand(dir string, m Manifest) (string, error) {
 	command := strings.TrimSpace(m.Command)
 	if command == "" {
-		return "", nil, fmt.Errorf("extension %q has no executable", m.Name)
+		return "", fmt.Errorf("extension %q has no executable", m.Name)
 	}
 	script := venvScript(dir, command)
 	if _, err := os.Stat(script); err != nil {
-		return "", nil, fmt.Errorf("extension %q has no executable %q", m.Name, command)
+		return "", fmt.Errorf("extension %q has no executable %q", m.Name, command)
 	}
-	return script, nil, nil
+	return script, nil
 }
 
 func venvScript(dir, command string) string {

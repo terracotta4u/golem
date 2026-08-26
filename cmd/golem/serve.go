@@ -80,14 +80,13 @@ func extensionList(cfg config.Config, extRoot string) ([]supervisor.Extension, e
 		if err := extension.EnsureVenv(m.Dir, m); err != nil {
 			return nil, err
 		}
-		command, args, err := extension.ResolveCommand(m.Dir, m)
+		command, err := extension.ResolveCommand(m.Dir, m)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, supervisor.Extension{
 			Name:    m.Name,
 			Command: command,
-			Args:    args,
 			Env:     entry.Env,
 			Dir:     m.Dir,
 		})

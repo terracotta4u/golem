@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func List(root string) ([]Manifest, error) {
@@ -18,7 +19,7 @@ func List(root string) ([]Manifest, error) {
 
 	var out []Manifest
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		dir := filepath.Join(root, e.Name())

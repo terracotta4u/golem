@@ -84,9 +84,6 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if err := os.WriteFile(gitConfig, []byte("[core]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
 
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
@@ -110,9 +107,6 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dest, ".git")); !os.IsNotExist(err) {
 		t.Fatal("copied .git")
-	}
-	if _, err := os.Stat(filepath.Join(dest, "golem.json")); !os.IsNotExist(err) {
-		t.Fatal("copied golem.json")
 	}
 }
 

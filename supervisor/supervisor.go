@@ -102,12 +102,12 @@ func (s *Supervisor) keepAlive(ctx context.Context, ext Extension) {
 }
 
 func (s *Supervisor) runOnce(ctx context.Context, ext Extension) error {
-	bin, err := s.resolve(ext)
-	if err != nil {
-		return err
+	command := strings.TrimSpace(ext.Command)
+	if command == "" {
+		return fmt.Errorf("extension %s: missing command", ext.Name)
 	}
 
-	cmd := exec.CommandContext(ctx, bin, ext.Args...)
+	cmd := exec.CommandContext(ctx, command, ext.Args...)
 	cmd.Env = childEnv(s.opts.URL, s.opts.Token, ext)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
@@ -115,33 +115,6 @@ func (s *Supervisor) runOnce(ctx context.Context, ext Extension) error {
 		cmd.Dir = ext.Dir
 	}
 	return cmd.Run()
-}
-
-func (s *Supervisor) resolve(ext Extension) (string, error) {
-	command := strings.TrimSpace(ext.Command)
-	if command == "" {
-		command = ext.Name
-	}
-	if filepath.IsAbs(command) {
-		return command, nil
-	}
-	if ext.Dir != "" {
-		local := filepath.Join(ext.Dir, command)
-		if _, err := os.Stat(local); err == nil {
-			return local, nil
-		}
-		if strings.ContainsRune(command, filepath.Separator) {
-			return "", fmt.Errorf("command %q not found in %s", command, ext.Dir)
-		}
-	}
-	path, err := exec.LookPath(command)
-	if err != nil {
-		if ext.Dir != "" {
-			return "", fmt.Errorf("command %q not found in %s or PATH", command, ext.Dir)
-		}
-		return "", fmt.Errorf("command %q not found in PATH", command)
-	}
-	return path, nil
 }
 
 func childEnv(url, token string, ext Extension) []string {

@@ -230,41 +230,14 @@ func TestStartRestartsExitedChild(t *testing.T) {
 	s.Wait()
 }
 
-func TestStartResolvesRelativeCommandAgainstDir(t *testing.T) {
-	out := filepath.Join(t.TempDir(), "from")
-	ext := t.TempDir()
-	cwd := t.TempDir()
-	writeScript(t, ext, "run", "printf from-ext > "+strconv.Quote(out))
-	writeScript(t, cwd, "run", "printf from-cwd > "+strconv.Quote(out))
-	t.Chdir(cwd)
-
-	s := New(Options{
-		Extensions: []Extension{{
-			Name:    "bot",
-			Command: "./run",
-			Dir:     ext,
-		}},
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	s.Start(ctx)
-	got := waitFile(t, out, time.Second)
-	cancel()
-	s.Wait()
-
-	if got != "from-ext" {
-		t.Fatalf("ran %q, want command resolved against Dir not cwd", got)
-	}
-}
-
 func TestStartSetsChildCwdToDir(t *testing.T) {
 	dir := t.TempDir()
-	writeScript(t, dir, "run", "printf ok > marker")
 
 	s := New(Options{
 		Extensions: []Extension{{
 			Name:    "bot",
-			Command: "./run",
+			Command: "sh",
+			Args:    []string{"-c", "printf ok > marker"},
 			Dir:     dir,
 		}},
 	})
@@ -277,30 +250,6 @@ func TestStartSetsChildCwdToDir(t *testing.T) {
 
 	if got != "ok" {
 		t.Fatalf("marker = %q, want child cwd to be Dir", got)
-	}
-}
-
-func TestStartBareNamePrefersDir(t *testing.T) {
-	out := filepath.Join(t.TempDir(), "from")
-	ext := t.TempDir()
-	writeScript(t, ext, "run", "printf from-dir > "+strconv.Quote(out))
-
-	s := New(Options{
-		Extensions: []Extension{{
-			Name:    "bot",
-			Command: "run",
-			Dir:     ext,
-		}},
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	s.Start(ctx)
-	got := waitFile(t, out, time.Second)
-	cancel()
-	s.Wait()
-
-	if got != "from-dir" {
-		t.Fatalf("ran %q, want bare name found in Dir", got)
 	}
 }
 

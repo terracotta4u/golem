@@ -100,9 +100,6 @@ func TestExtensionListFillsFromInstall(t *testing.T) {
 	if ext.Name != "echo" || ext.Command != script || ext.Dir != dir {
 		t.Errorf("extension = %+v", ext)
 	}
-	if len(ext.Args) != 0 {
-		t.Errorf("Args = %q, want empty", ext.Args)
-	}
 	if ext.Env["TOKEN"] != "x" {
 		t.Errorf("Env = %v", ext.Env)
 	}

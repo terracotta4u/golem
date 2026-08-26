@@ -65,6 +65,26 @@ func TestListNameMismatch(t *testing.T) {
 	}
 }
 
+func TestListSkipsHiddenDirs(t *testing.T) {
+	root := t.TempDir()
+	writeListed(t, root, "echo", "0.1.0")
+	hidden := filepath.Join(root, ".echo.-tmp")
+	if err := os.MkdirAll(hidden, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hidden, FileName), []byte(projectTOML("echo", "0.1.0")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := List(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Name != "echo" || got[0].Dir != filepath.Join(root, "echo") {
+		t.Fatalf("list = %+v, want only echo", got)
+	}
+}
+
 func writeListed(t *testing.T, root, name, version string) {
 	t.Helper()
 	dir := filepath.Join(root, name)

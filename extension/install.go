@@ -130,7 +130,7 @@ func copyDir(src, dst string) error {
 func skipCopy(rel string) bool {
 	for _, p := range strings.Split(rel, string(filepath.Separator)) {
 		switch p {
-		case ".venv", "__pycache__", ".git", "golem.json":
+		case ".venv", "__pycache__", ".git":
 			return true
 		}
 	}
