@@ -452,6 +452,51 @@ func writeVenvScript(t *testing.T, dir, name string) {
 	}
 }
 
+func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
+	dir := t.TempDir()
+	writePythonSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	writeVenvScript(t, dir, "echo")
+	prepare = func(string, Manifest) error {
+		t.Fatal("prepare called")
+		return nil
+	}
+	t.Cleanup(func() { prepare = prepareVenv })
+
+	m, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureVenv(dir, m); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEnsureVenvRepairsWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+	writePythonSrc(t, dir, `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	var called bool
+	prepare = func(d string, m Manifest) error {
+		called = true
+		writeVenvScript(t, d, "echo")
+		return nil
+	}
+	t.Cleanup(func() { prepare = prepareVenv })
+
+	m, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureVenv(dir, m); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("prepare not called")
+	}
+	if _, err := os.Stat(venvScript(dir, "echo")); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func writeInstallSrc(t *testing.T, dir, manifest string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(manifest), 0o600); err != nil {

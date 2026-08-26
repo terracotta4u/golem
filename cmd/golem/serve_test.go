@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/extension"
+	"github.com/terracotta4u/golem/runtime"
 )
 
 func TestServeStartsConfiguredExtension(t *testing.T) {
@@ -119,6 +122,62 @@ func TestExtensionListFillsFromManifest(t *testing.T) {
 	}
 	if ext.Env["TOKEN"] != "x" {
 		t.Errorf("Env = %v", ext.Env)
+	}
+}
+
+func TestExtensionListRepairsMissingVenv(t *testing.T) {
+	root := t.TempDir()
+	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"echo"}`)
+	dir := filepath.Join(root, "echo")
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var runs int
+	restore := extension.StubRuntime(runtime.UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			runs++
+			if cmd.Dir == "" {
+				return nil
+			}
+			script := filepath.Join(cmd.Dir, ".venv", "bin", "echo")
+			if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+				return err
+			}
+			return os.WriteFile(script, []byte("#!/bin/sh\n"), 0o700)
+		},
+	})
+	t.Cleanup(restore)
+
+	got, err := extensionList(config.Config{
+		Extensions: map[string]config.Extension{"echo": {}},
+	}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runs == 0 {
+		t.Fatal("did not repair missing .venv")
+	}
+	script := filepath.Join(dir, ".venv", "bin", "echo")
+	if len(got) != 1 || got[0].Command != script {
+		t.Errorf("Command = %q, want %q", got[0].Command, script)
+	}
+
+	runs = 0
+	got, err = extensionList(config.Config{
+		Extensions: map[string]config.Extension{"echo": {}},
+	}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runs != 0 {
+		t.Fatalf("repaired again: %d uv runs", runs)
+	}
+	if got[0].Command != script {
+		t.Errorf("Command = %q, want %q", got[0].Command, script)
 	}
 }
 

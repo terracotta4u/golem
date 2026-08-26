@@ -91,6 +91,9 @@ func extensionList(cfg config.Config, extRoot string) ([]supervisor.Extension, e
 		if m.Name != name {
 			return nil, fmt.Errorf("extension %s: manifest name %q does not match", name, m.Name)
 		}
+		if err := extension.EnsureVenv(dir, m); err != nil {
+			return nil, err
+		}
 		command, args, err := extension.ResolveCommand(dir, m)
 		if err != nil {
 			return nil, err

@@ -185,6 +185,21 @@ func StubRuntime(u runtime.UV) func() {
 	return func() { ensureRuntime = prev }
 }
 
+func EnsureVenv(dir string, m Manifest) error {
+	if hasVenv(dir) {
+		return nil
+	}
+	if err := prepare(dir, m); err != nil {
+		return fmt.Errorf("extension %q: cannot prepare Python environment: %w", m.Name, err)
+	}
+	return ensureCommand(dir, m)
+}
+
+func hasVenv(dir string) bool {
+	info, err := os.Stat(filepath.Dir(venvPython(dir)))
+	return err == nil && info.IsDir()
+}
+
 func copyFile(src, dst string, mode os.FileMode) error {
 	in, err := os.Open(src)
 	if err != nil {
