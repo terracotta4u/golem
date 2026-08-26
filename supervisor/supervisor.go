@@ -150,6 +150,9 @@ func childEnv(url, token string, extra map[string]string) []string {
 		env = append(env, "GOLEM_TOKEN="+token)
 	}
 	for k, v := range extra {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
 		env = append(env, k+"="+v)
 	}
 	return env

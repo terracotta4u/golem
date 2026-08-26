@@ -67,6 +67,54 @@ func TestStartInjectsEnv(t *testing.T) {
 	}
 }
 
+func TestStartKeepsParentEnvWhenConfigEmpty(t *testing.T) {
+	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
+	out := filepath.Join(t.TempDir(), "env")
+	s := New(Options{
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
+			Env:     map[string]string{"TELEGRAM_BOT_TOKEN": ""},
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	if got != "token=from-shell" {
+		t.Fatalf("child env = %q, want parent value when config is empty", got)
+	}
+}
+
+func TestStartConfigEnvOverridesParent(t *testing.T) {
+	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
+	out := filepath.Join(t.TempDir(), "env")
+	s := New(Options{
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
+			Env:     map[string]string{"TELEGRAM_BOT_TOKEN": "from-config"},
+		}},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	s.Start(ctx)
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+
+	if got != "token=from-config" {
+		t.Fatalf("child env = %q, want config to override parent", got)
+	}
+}
+
 func TestStartRestartsExitedChild(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "runs")
 	s := New(Options{
