@@ -36,11 +36,11 @@ func TestRunExtensionAddInstallsAndScaffolds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ch, ok := cfg.Channels["echo"]
+	ext, ok := cfg.Extensions["echo"]
 	if !ok {
-		t.Fatal("missing echo channel")
+		t.Fatal("missing echo extension")
 	}
-	if v, ok := ch.Env["ECHO_TOKEN"]; !ok || v != "" {
+	if v, ok := ext.Env["ECHO_TOKEN"]; !ok || v != "" {
 		t.Errorf("ECHO_TOKEN = %q present=%v, want empty stub", v, ok)
 	}
 }
@@ -73,7 +73,7 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	}
 	writeConfig(t, config.Config{
 		Model: "openai/gpt-4o-mini",
-		Channels: map[string]config.Channel{
+		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
 	})
@@ -100,8 +100,8 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Channels["echo"].Env["ECHO_TOKEN"] != "secret" {
-		t.Errorf("wiped secret: %+v", cfg.Channels["echo"])
+	if cfg.Extensions["echo"].Env["ECHO_TOKEN"] != "secret" {
+		t.Errorf("wiped secret: %+v", cfg.Extensions["echo"])
 	}
 }
 

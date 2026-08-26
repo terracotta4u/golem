@@ -44,7 +44,7 @@ func runExtensionAdd(args []string) error {
 	if err != nil {
 		return err
 	}
-	config.ScaffoldChannel(&cfg, m.Name, m.Env)
+	config.ScaffoldExtension(&cfg, m.Name, m.Env)
 	if err := config.Save(cfg); err != nil {
 		return err
 	}

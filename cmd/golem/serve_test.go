@@ -15,7 +15,7 @@ import (
 	"github.com/terracotta4u/golem/config"
 )
 
-func TestServeStartsConfiguredChannel(t *testing.T) {
+func TestServeStartsConfiguredExtension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENROUTER_API_KEY", "test")
 
@@ -29,15 +29,19 @@ func TestServeStartsConfiguredChannel(t *testing.T) {
 	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
+	extDir, err := config.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(extDir, "echo")
 	out := filepath.Join(t.TempDir(), "env")
+	writeManifest(t, extDir, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(dir, "run"), []byte("#!/bin/sh\nprintf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > "+strconv.Quote(out)+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	writeConfig(t, config.Config{
-		Listen: addr,
-		Channels: map[string]config.Channel{
-			"echo": {
-				Command: "sh",
-				Args:    []string{"-c", "printf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > " + strconv.Quote(out)},
-			},
-		},
+		Listen:     addr,
+		Extensions: map[string]config.Extension{"echo": {}},
 	})
 
 	app, err := loadApp()
@@ -62,7 +66,7 @@ func TestServeStartsConfiguredChannel(t *testing.T) {
 			}
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("channel env = %q (%v), want GOLEM_URL=http://%s and a token", got, err, addr)
+			t.Fatalf("extension env = %q (%v), want GOLEM_URL=http://%s and a token", got, err, addr)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
@@ -78,7 +82,7 @@ func TestExtensionListFillsFromManifest(t *testing.T) {
 	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","args":["--poll"]}`)
 
 	got, err := extensionList(config.Config{
-		Channels: map[string]config.Channel{
+		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"TOKEN": "x"}},
 		},
 	}, root)
@@ -100,34 +104,32 @@ func TestExtensionListFillsFromManifest(t *testing.T) {
 	}
 }
 
-func TestExtensionListConfigOverridesManifest(t *testing.T) {
-	root := t.TempDir()
-	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","args":["--poll"]}`)
+func TestExtensionListRequiresInstall(t *testing.T) {
+	_, err := extensionList(config.Config{
+		Extensions: map[string]config.Extension{"echo": {}},
+	}, t.TempDir())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "not installed") {
+		t.Errorf("error = %v, want not installed", err)
+	}
+}
 
+func TestExtensionListSkipsDisabled(t *testing.T) {
+	root := t.TempDir()
+	writeManifest(t, root, "echo", `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	off := false
 	got, err := extensionList(config.Config{
-		Channels: map[string]config.Channel{
-			"echo": {Command: "sh", Args: []string{"-c", "true"}},
+		Extensions: map[string]config.Extension{
+			"echo": {Enabled: &off},
 		},
 	}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got[0].Command != "sh" || len(got[0].Args) != 2 || got[0].Dir != filepath.Join(root, "echo") {
-		t.Errorf("extension = %+v", got[0])
-	}
-}
-
-func TestExtensionListKeepsPATHChannel(t *testing.T) {
-	got, err := extensionList(config.Config{
-		Channels: map[string]config.Channel{
-			"echo": {Command: "sh", Args: []string{"-c", "true"}},
-		},
-	}, t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got[0].Command != "sh" || got[0].Dir != "" {
-		t.Errorf("extension = %+v, want PATH channel with empty Dir", got[0])
+	if len(got) != 0 {
+		t.Errorf("extensions = %+v, want none", got)
 	}
 }
 
@@ -136,7 +138,7 @@ func TestExtensionListNameMismatch(t *testing.T) {
 	writeManifest(t, root, "echo", `{"name":"telegram","version":"0.1.0","kind":"channel","command":"./run"}`)
 
 	_, err := extensionList(config.Config{
-		Channels: map[string]config.Channel{"echo": {}},
+		Extensions: map[string]config.Extension{"echo": {}},
 	}, root)
 	if err == nil {
 		t.Fatal("expected error")
@@ -172,8 +174,8 @@ func TestServeStartsExtensionFromManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeConfig(t, config.Config{
-		Listen:   addr,
-		Channels: map[string]config.Channel{"echo": {}},
+		Listen:     addr,
+		Extensions: map[string]config.Extension{"echo": {}},
 	})
 
 	app, err := loadApp()

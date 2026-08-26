@@ -68,38 +68,36 @@ func serve(ctx context.Context, app *app, listen string) error {
 }
 
 func extensionList(cfg config.Config, extRoot string) ([]supervisor.Extension, error) {
-	names := make([]string, 0, len(cfg.Channels))
-	for name := range cfg.Channels {
+	names := make([]string, 0, len(cfg.Extensions))
+	for name := range cfg.Extensions {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	out := make([]supervisor.Extension, 0, len(names))
 	for _, name := range names {
-		ch := cfg.Channels[name]
-		ext := supervisor.Extension{
-			Name:    name,
-			Command: ch.Command,
-			Args:    ch.Args,
-			Env:     ch.Env,
+		entry := cfg.Extensions[name]
+		if !entry.IsEnabled() {
+			continue
 		}
 		dir := filepath.Join(extRoot, name)
 		m, err := extension.Load(dir)
-		if err == nil {
-			if m.Name != name {
-				return nil, fmt.Errorf("extension %s: manifest name %q does not match", name, m.Name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("extension %q is not installed in %s", name, dir)
 			}
-			if ext.Command == "" {
-				ext.Command = m.Command
-			}
-			if ext.Args == nil {
-				ext.Args = m.Args
-			}
-			ext.Dir = dir
-		} else if !os.IsNotExist(err) {
 			return nil, err
 		}
-		out = append(out, ext)
+		if m.Name != name {
+			return nil, fmt.Errorf("extension %s: manifest name %q does not match", name, m.Name)
+		}
+		out = append(out, supervisor.Extension{
+			Name:    name,
+			Command: m.Command,
+			Args:    m.Args,
+			Env:     entry.Env,
+			Dir:     dir,
+		})
 	}
 	return out, nil
 }

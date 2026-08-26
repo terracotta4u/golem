@@ -16,17 +16,20 @@ const (
 )
 
 type Config struct {
-	Provider string             `json:"provider,omitempty"`
-	Model    string             `json:"model"`
-	APIKey   string             `json:"api_key,omitempty"`
-	Listen   string             `json:"listen,omitempty"`
-	Channels map[string]Channel `json:"channels,omitempty"`
+	Provider   string               `json:"provider,omitempty"`
+	Model      string               `json:"model"`
+	APIKey     string               `json:"api_key,omitempty"`
+	Listen     string               `json:"listen,omitempty"`
+	Extensions map[string]Extension `json:"extensions,omitempty"`
 }
 
-type Channel struct {
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
+type Extension struct {
+	Enabled *bool             `json:"enabled,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
+}
+
+func (e Extension) IsEnabled() bool {
+	return e.Enabled == nil || *e.Enabled
 }
 
 func defaults() Config {
@@ -143,23 +146,23 @@ func Save(cfg Config) error {
 	return write(filepath.Join(dir, fileName), cfg)
 }
 
-func ScaffoldChannel(cfg *Config, name string, envNames []string) {
-	if cfg.Channels == nil {
-		cfg.Channels = make(map[string]Channel)
+func ScaffoldExtension(cfg *Config, name string, envNames []string) {
+	if cfg.Extensions == nil {
+		cfg.Extensions = make(map[string]Extension)
 	}
-	ch := cfg.Channels[name]
+	ext := cfg.Extensions[name]
 	if len(envNames) > 0 {
-		if ch.Env == nil {
-			ch.Env = make(map[string]string)
+		if ext.Env == nil {
+			ext.Env = make(map[string]string)
 		}
 		for _, k := range envNames {
 			if k == "" {
 				continue
 			}
-			if _, ok := ch.Env[k]; !ok {
-				ch.Env[k] = ""
+			if _, ok := ext.Env[k]; !ok {
+				ext.Env[k] = ""
 			}
 		}
 	}
-	cfg.Channels[name] = ch
+	cfg.Extensions[name] = ext
 }

@@ -130,31 +130,48 @@ func TestExtensionsDir(t *testing.T) {
 	}
 }
 
-func TestScaffoldChannelAddsStub(t *testing.T) {
+func TestScaffoldExtensionAddsStub(t *testing.T) {
 	cfg := Config{}
-	ScaffoldChannel(&cfg, "echo", []string{"ECHO_TOKEN"})
-	ch, ok := cfg.Channels["echo"]
+	ScaffoldExtension(&cfg, "echo", []string{"ECHO_TOKEN"})
+	ext, ok := cfg.Extensions["echo"]
 	if !ok {
-		t.Fatal("missing echo channel")
+		t.Fatal("missing echo extension")
 	}
-	if v, ok := ch.Env["ECHO_TOKEN"]; !ok || v != "" {
-		t.Errorf("Env = %v, want empty ECHO_TOKEN stub", ch.Env)
+	if !ext.IsEnabled() {
+		t.Error("want enabled by default")
+	}
+	if v, ok := ext.Env["ECHO_TOKEN"]; !ok || v != "" {
+		t.Errorf("Env = %v, want empty ECHO_TOKEN stub", ext.Env)
 	}
 }
 
-func TestScaffoldChannelKeepsExistingEnv(t *testing.T) {
+func TestScaffoldExtensionKeepsExistingEnv(t *testing.T) {
 	cfg := Config{
-		Channels: map[string]Channel{
+		Extensions: map[string]Extension{
 			"telegram": {Env: map[string]string{"TELEGRAM_BOT_TOKEN": "secret"}},
 		},
 	}
-	ScaffoldChannel(&cfg, "telegram", []string{"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"})
-	ch := cfg.Channels["telegram"]
-	if ch.Env["TELEGRAM_BOT_TOKEN"] != "secret" {
-		t.Errorf("wiped TELEGRAM_BOT_TOKEN: %v", ch.Env)
+	ScaffoldExtension(&cfg, "telegram", []string{"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"})
+	ext := cfg.Extensions["telegram"]
+	if ext.Env["TELEGRAM_BOT_TOKEN"] != "secret" {
+		t.Errorf("wiped TELEGRAM_BOT_TOKEN: %v", ext.Env)
 	}
-	if ch.Env["TELEGRAM_CHAT_ID"] != "" {
-		t.Errorf("Env = %v, want empty TELEGRAM_CHAT_ID", ch.Env)
+	if ext.Env["TELEGRAM_CHAT_ID"] != "" {
+		t.Errorf("Env = %v, want empty TELEGRAM_CHAT_ID", ext.Env)
+	}
+}
+
+func TestExtensionIsEnabled(t *testing.T) {
+	off := false
+	on := true
+	if !(Extension{}).IsEnabled() {
+		t.Error("omitted enabled should be true")
+	}
+	if !(Extension{Enabled: &on}).IsEnabled() {
+		t.Error("enabled true should be true")
+	}
+	if (Extension{Enabled: &off}).IsEnabled() {
+		t.Error("enabled false should be false")
 	}
 }
 
@@ -163,7 +180,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	cfg := Config{Model: "test-model", Channels: map[string]Channel{"echo": {}}}
+	cfg := Config{Model: "test-model", Extensions: map[string]Extension{"echo": {}}}
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +191,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	if created {
 		t.Fatal("Save should not look like first-run create")
 	}
-	if got.Model != "test-model" || got.Channels["echo"].Command != "" {
+	if got.Model != "test-model" || !got.Extensions["echo"].IsEnabled() {
 		t.Errorf("got = %+v", got)
 	}
 }
