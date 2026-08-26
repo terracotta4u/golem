@@ -91,10 +91,14 @@ func extensionList(cfg config.Config, extRoot string) ([]supervisor.Extension, e
 		if m.Name != name {
 			return nil, fmt.Errorf("extension %s: manifest name %q does not match", name, m.Name)
 		}
+		command, args, err := extension.ResolveCommand(dir, m)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, supervisor.Extension{
 			Name:    name,
-			Command: m.Command,
-			Args:    m.Args,
+			Command: command,
+			Args:    args,
 			Env:     entry.Env,
 			Dir:     dir,
 		})
