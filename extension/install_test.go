@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,6 +144,90 @@ func TestInstallForceReplaces(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(destRoot, "echo", "old.txt")); !os.IsNotExist(err) {
 		t.Fatal("force left old files in place")
+	}
+}
+
+func TestInstallPrepareSeesCopiedTree(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := filepath.Join(destRoot, "echo")
+	var seen string
+	prepare = func(dir string, m Manifest) error {
+		seen = dir
+		if m.Name != "echo" {
+			t.Errorf("name = %q, want echo", m.Name)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "run")); err != nil {
+			t.Errorf("prepare missing run: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, FileName)); err != nil {
+			t.Errorf("prepare missing %s: %v", FileName, err)
+		}
+		if _, err := os.Stat(dest); !os.IsNotExist(err) {
+			t.Error("dest already present during prepare")
+		}
+		return nil
+	}
+	t.Cleanup(func() { prepare = nopPrepare })
+
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+	if seen == "" {
+		t.Fatal("prepare not called")
+	}
+	if seen == dest {
+		t.Error("prepare ran on dest, want temp dir before swap")
+	}
+	if !strings.HasPrefix(seen, destRoot) {
+		t.Errorf("prepare dir = %q, want under %s", seen, destRoot)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "run")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "keep.txt"), []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(src, "new.txt"), []byte("new"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	prepare = func(string, Manifest) error {
+		return errors.New("uv failed")
+	}
+	t.Cleanup(func() { prepare = nopPrepare })
+
+	_, err := Install(src, destRoot, true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "uv failed") {
+		t.Errorf("error = %v, want uv failed", err)
+	}
+
+	dest := filepath.Join(destRoot, "echo")
+	if _, err := os.Stat(filepath.Join(dest, "keep.txt")); err != nil {
+		t.Fatalf("existing install was removed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "new.txt")); !os.IsNotExist(err) {
+		t.Fatal("force swapped in the failed install")
 	}
 }
 

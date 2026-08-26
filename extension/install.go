@@ -78,6 +78,9 @@ func installDir(src, destRoot string, force bool) (Manifest, error) {
 	if err := copyDir(src, tmp); err != nil {
 		return Manifest{}, err
 	}
+	if err := prepare(tmp, m); err != nil {
+		return Manifest{}, err
+	}
 	if err := ensureCommand(tmp, m); err != nil {
 		return Manifest{}, err
 	}
@@ -130,6 +133,10 @@ func skipCopy(rel string) bool {
 	}
 	return false
 }
+
+func nopPrepare(string, Manifest) error { return nil }
+
+var prepare = nopPrepare
 
 func copyFile(src, dst string, mode os.FileMode) error {
 	in, err := os.Open(src)
