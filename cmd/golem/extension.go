@@ -12,15 +12,17 @@ import (
 
 func runExtension(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: golem extension add <path> | golem extension list")
+		return fmt.Errorf("usage: golem extension add <path> | golem extension list | golem extension remove <name>")
 	}
 	switch args[0] {
 	case "add":
 		return runExtensionAdd(args[1:])
 	case "list":
 		return runExtensionList(args[1:])
+	case "remove":
+		return runExtensionRemove(args[1:])
 	default:
-		return fmt.Errorf("usage: golem extension add <path> | golem extension list")
+		return fmt.Errorf("usage: golem extension add <path> | golem extension list | golem extension remove <name>")
 	}
 }
 
@@ -80,4 +82,27 @@ func runExtensionList(args []string) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.Name, m.Version, m.Kind, status)
 	}
 	return w.Flush()
+}
+
+func runExtensionRemove(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: golem extension remove <name>")
+	}
+	root, err := config.ExtensionsDir()
+	if err != nil {
+		return err
+	}
+	if err := extension.Remove(root, args[0]); err != nil {
+		return err
+	}
+	cfg, _, err := config.Load()
+	if err != nil {
+		return err
+	}
+	config.RemoveExtension(&cfg, args[0])
+	if err := config.Save(cfg); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "removed %s\n", args[0])
+	return nil
 }

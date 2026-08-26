@@ -141,6 +141,21 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	return closeErr
 }
 
+func Remove(destRoot, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 64 || !nameRE.MatchString(name) {
+		return fmt.Errorf("invalid extension name %q", name)
+	}
+	dest := filepath.Join(destRoot, name)
+	if _, err := os.Stat(dest); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("extension %q is not installed", name)
+		}
+		return err
+	}
+	return os.RemoveAll(dest)
+}
+
 func ensureCommand(dir string, m Manifest) error {
 	command := strings.TrimSpace(m.Command)
 	local := filepath.Join(dir, command)

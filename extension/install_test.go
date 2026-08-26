@@ -95,6 +95,43 @@ func TestInstallRejectsProvider(t *testing.T) {
 	}
 }
 
+func TestRemoveDeletesInstall(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writeInstallSrc(t, src, `{"name":"echo","version":"0.1.0","kind":"channel","command":"./run"}`)
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := Remove(destRoot, "echo"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(destRoot, "echo")); !os.IsNotExist(err) {
+		t.Fatal("install dir still present")
+	}
+}
+
+func TestRemoveMissing(t *testing.T) {
+	err := Remove(t.TempDir(), "echo")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "not installed") {
+		t.Errorf("error = %v, want not installed", err)
+	}
+}
+
+func TestRemoveRejectsInvalidName(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"", "../echo", "foo/bar", "Echo"} {
+		if err := Remove(root, name); err == nil {
+			t.Errorf("Remove(%q) succeeded, want error", name)
+		}
+	}
+}
+
 func writeInstallSrc(t *testing.T, dir, manifest string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(manifest), 0o600); err != nil {

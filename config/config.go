@@ -166,3 +166,7 @@ func ScaffoldExtension(cfg *Config, name string, envNames []string) {
 	}
 	cfg.Extensions[name] = ext
 }
+
+func RemoveExtension(cfg *Config, name string) {
+	delete(cfg.Extensions, name)
+}

@@ -195,3 +195,19 @@ func TestSaveRoundTrip(t *testing.T) {
 		t.Errorf("got = %+v", got)
 	}
 }
+
+func TestRemoveExtensionDeletesEntry(t *testing.T) {
+	cfg := Config{
+		Extensions: map[string]Extension{
+			"echo":     {Env: map[string]string{"ECHO_TOKEN": "x"}},
+			"telegram": {},
+		},
+	}
+	RemoveExtension(&cfg, "echo")
+	if _, ok := cfg.Extensions["echo"]; ok {
+		t.Fatal("echo still in config")
+	}
+	if _, ok := cfg.Extensions["telegram"]; !ok {
+		t.Fatal("removed telegram")
+	}
+}

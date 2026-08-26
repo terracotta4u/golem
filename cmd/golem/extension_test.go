@@ -227,3 +227,46 @@ func TestRunExtensionListMarksDisabled(t *testing.T) {
 		t.Errorf("list = %q", got)
 	}
 }
+
+func TestRunExtensionRemove(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "golem.json"), []byte(`{"name":"echo","version":"0.1.0","kind":"channel","command":"./run","env":["ECHO_TOKEN"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "run"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"extension", "remove", "echo"}); err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := config.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "echo")); !os.IsNotExist(err) {
+		t.Fatal("install dir still present")
+	}
+	cfg, _, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cfg.Extensions["echo"]; ok {
+		t.Fatal("echo still in config")
+	}
+}
+
+func TestRunExtensionRemoveMissing(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	err := run([]string{"extension", "remove", "echo"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "not installed") {
+		t.Errorf("error = %v, want not installed", err)
+	}
+}
