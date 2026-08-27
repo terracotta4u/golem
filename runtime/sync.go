@@ -17,7 +17,7 @@ func (u UV) SyncProject(dir string) error {
 	args := []string{"sync", "--python", DefaultPython, "--no-dev", "--no-editable"}
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
 		args = []string{"sync", "--python", DefaultPython, "--frozen", "--no-dev", "--no-editable"}
-	} else if err != nil && !os.IsNotExist(err) {
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 	return u.run(u.projectCommand(dir, venv, args...))
