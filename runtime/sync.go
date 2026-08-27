@@ -7,7 +7,7 @@ import (
 )
 
 func (u UV) SyncProject(dir string) error {
-	if err := u.EnsurePython(""); err != nil {
+	if err := u.EnsurePython(DefaultPython); err != nil {
 		return err
 	}
 	venv := filepath.Join(dir, ".venv")

@@ -11,10 +11,7 @@ import (
 	"github.com/terracotta4u/golem/runtime"
 )
 
-var (
-	prepare       = prepareVenv
-	ensureRuntime = defaultEnsureRuntime
-)
+var ensureRuntime = defaultEnsureRuntime
 
 func StubRuntime(u runtime.UV) func() {
 	prev := ensureRuntime
@@ -23,11 +20,11 @@ func StubRuntime(u runtime.UV) func() {
 }
 
 func EnsureVenv(dir string, p Project) error {
-	if VenvBin(dir) != "" {
+	if hasConsoleScript(dir, p) {
 		return nil
 	}
 	fmt.Fprintf(os.Stderr, "repairing Python environment for %s\n", p.Name)
-	if err := prepare(dir, p); err != nil {
+	if err := prepareVenv(dir, p); err != nil {
 		return fmt.Errorf("extension %q: cannot prepare Python environment: %w", p.Name, err)
 	}
 	return ensureScript(dir, p)
@@ -36,11 +33,11 @@ func EnsureVenv(dir string, p Project) error {
 func ResolveCommand(dir string, p Project) (string, error) {
 	command := strings.TrimSpace(p.Command)
 	if command == "" {
-		return "", fmt.Errorf("extension %q has no executable", p.Name)
+		return "", fmt.Errorf("extension %q has no console script", p.Name)
 	}
 	script := venvScript(dir, command)
 	if _, err := os.Stat(script); err != nil {
-		return "", fmt.Errorf("extension %q has no executable %q", p.Name, command)
+		return "", fmt.Errorf("extension %q has no console script %q", p.Name, command)
 	}
 	return script, nil
 }
@@ -84,9 +81,18 @@ func ensureScript(dir string, p Project) error {
 	command := strings.TrimSpace(p.Command)
 	script := venvScript(dir, command)
 	if _, err := os.Stat(script); err != nil {
-		return fmt.Errorf("extension %q has no executable %q", p.Name, command)
+		return fmt.Errorf("extension %q has no console script %q", p.Name, command)
 	}
 	return os.Chmod(script, 0o700)
+}
+
+func hasConsoleScript(dir string, p Project) bool {
+	command := strings.TrimSpace(p.Command)
+	if command == "" {
+		return false
+	}
+	_, err := os.Stat(venvScript(dir, command))
+	return err == nil
 }
 
 func hasPyproject(dir string) bool {
@@ -100,11 +106,8 @@ func venvScript(dir, command string) string {
 
 func venvScriptFor(goos, dir, command string) string {
 	name := filepath.Base(strings.TrimSpace(command))
-	if goos == "windows" {
-		if !strings.EqualFold(filepath.Ext(name), ".exe") {
-			name += ".exe"
-		}
-		return filepath.Join(venvBinFor(goos, dir), name)
+	if goos == "windows" && !strings.EqualFold(filepath.Ext(name), ".exe") {
+		name += ".exe"
 	}
 	return filepath.Join(venvBinFor(goos, dir), name)
 }

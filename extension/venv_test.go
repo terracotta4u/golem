@@ -34,11 +34,11 @@ func TestResolveCommandVenvScript(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m, err := Load(dir)
+	p, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd, err := ResolveCommand(dir, m)
+	cmd, err := ResolveCommand(dir, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,11 +50,11 @@ func TestResolveCommandVenvScript(t *testing.T) {
 func TestResolveCommandMissingVenvScript(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
-	m, err := Load(dir)
+	p, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ResolveCommand(dir, m)
+	_, err = ResolveCommand(dir, p)
 	if err == nil {
 		t.Fatal("expected error")
 	}

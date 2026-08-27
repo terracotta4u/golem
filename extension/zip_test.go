@@ -16,12 +16,12 @@ func TestInstallFromZip(t *testing.T) {
 
 	destRoot := t.TempDir()
 	stubEchoUV(t)
-	m, err := Install(zipPath, destRoot, false)
+	p, err := Install(zipPath, destRoot, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Name != "echo" {
-		t.Errorf("name = %q, want echo", m.Name)
+	if p.Name != "echo" {
+		t.Errorf("name = %q, want echo", p.Name)
 	}
 	info, err := os.Stat(venvScript(filepath.Join(destRoot, "echo"), "echo"))
 	if err != nil {

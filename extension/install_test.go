@@ -28,12 +28,12 @@ func TestInstallCopiesByProjectName(t *testing.T) {
 	writePythonSrc(t, src)
 	stubEchoUV(t)
 
-	m, err := Install(src, destRoot, false)
+	p, err := Install(src, destRoot, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Name != "echo" {
-		t.Errorf("manifest name = %q, want echo", m.Name)
+	if p.Name != "echo" {
+		t.Errorf("name = %q, want echo", p.Name)
 	}
 
 	dest := filepath.Join(destRoot, "echo")
@@ -159,42 +159,7 @@ func TestInstallForceReplaces(t *testing.T) {
 	}
 }
 
-func TestInstallPrepareSeesCopiedTree(t *testing.T) {
-	src := t.TempDir()
-	destRoot := t.TempDir()
-	writePythonSrc(t, src)
-	stubEchoUV(t)
-
-	dest := filepath.Join(destRoot, "echo")
-	var seen string
-	prepare = func(dir string, m Project) error {
-		seen = dir
-		if m.Name != "echo" {
-			t.Errorf("name = %q, want echo", m.Name)
-		}
-		if _, err := os.Stat(filepath.Join(dir, FileName)); err != nil {
-			t.Errorf("prepare missing %s: %v", FileName, err)
-		}
-		if dir != dest {
-			t.Errorf("prepare dir = %q, want dest %q", dir, dest)
-		}
-		writeVenvScript(t, dir, "echo")
-		return nil
-	}
-	t.Cleanup(func() { prepare = prepareVenv })
-
-	if _, err := Install(src, destRoot, false); err != nil {
-		t.Fatal(err)
-	}
-	if seen != dest {
-		t.Fatalf("prepare dir = %q, want dest", seen)
-	}
-	if _, err := os.Stat(filepath.Join(dest, FileName)); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
+func TestInstallUvFailureKeepsExisting(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
 	writePythonSrc(t, src)
@@ -209,10 +174,9 @@ func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "new.txt"), []byte("new"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	prepare = func(string, Project) error {
+	stubUV(t, func(*exec.Cmd) error {
 		return errors.New("uv failed")
-	}
-	t.Cleanup(func() { prepare = prepareVenv })
+	})
 
 	_, err := Install(src, destRoot, true)
 	if err == nil {
@@ -458,18 +422,17 @@ func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
 	writeVenvScript(t, dir, "echo")
-	prepare = func(string, Project) error {
-		t.Fatal("prepare called")
+	stubUV(t, func(*exec.Cmd) error {
+		t.Fatal("uv called")
 		return nil
-	}
-	t.Cleanup(func() { prepare = prepareVenv })
+	})
 
-	m, err := Load(dir)
+	p, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	stderr := captureStderr(t, func() {
-		if err := EnsureVenv(dir, m); err != nil {
+		if err := EnsureVenv(dir, p); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -481,31 +444,42 @@ func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 func TestEnsureVenvRepairsWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
-	var called bool
-	prepare = func(d string, m Project) error {
-		called = true
-		writeVenvScript(t, d, "echo")
-		return nil
-	}
-	t.Cleanup(func() { prepare = prepareVenv })
+	stubEchoUV(t)
 
-	m, err := Load(dir)
+	p, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	stderr := captureStderr(t, func() {
-		if err := EnsureVenv(dir, m); err != nil {
+		if err := EnsureVenv(dir, p); err != nil {
 			t.Fatal(err)
 		}
 	})
-	if !called {
-		t.Fatal("prepare not called")
-	}
 	if _, err := os.Stat(venvScript(dir, "echo")); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stderr, "repairing Python environment for echo") {
 		t.Errorf("stderr = %q, want repairing Python environment", stderr)
+	}
+}
+
+func TestEnsureVenvRepairsWhenScriptMissing(t *testing.T) {
+	dir := t.TempDir()
+	writePythonSrc(t, dir)
+	if err := os.MkdirAll(filepath.Join(dir, ".venv", "bin"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	stubEchoUV(t)
+
+	p, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureVenv(dir, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(venvScript(dir, "echo")); err != nil {
+		t.Fatal(err)
 	}
 }
 

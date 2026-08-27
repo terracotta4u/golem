@@ -40,11 +40,11 @@ func runExtensionAdd(args []string) error {
 	if err != nil {
 		return err
 	}
-	m, err := extension.Install(fs.Arg(0), destRoot, *force)
+	p, err := extension.Install(fs.Arg(0), destRoot, *force)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "installed %s\n", m.Name)
+	fmt.Fprintf(os.Stderr, "installed %s\n", p.Name)
 	return nil
 }
 
@@ -65,12 +65,12 @@ func runExtensionList(args []string) error {
 		return err
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	for _, m := range list {
+	for _, p := range list {
 		status := "enabled"
-		if !cfg.Extensions[m.Name].IsEnabled() {
+		if !cfg.Extensions[p.Name].IsEnabled() {
 			status = "disabled"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", m.Name, m.Version, status)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, p.Version, status)
 	}
 	return w.Flush()
 }

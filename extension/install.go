@@ -97,7 +97,7 @@ func installDir(src, destRoot string, force bool) (Project, error) {
 	}
 	moved = true
 
-	if err := prepare(dest, p); err != nil {
+	if err := prepareVenv(dest, p); err != nil {
 		return restoreDest(dest, backup, err)
 	}
 	if err := ensureScript(dest, p); err != nil {
