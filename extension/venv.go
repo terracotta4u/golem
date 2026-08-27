@@ -7,7 +7,7 @@ import (
 	stdruntime "runtime"
 	"strings"
 
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/runtime"
 )
 
@@ -58,18 +58,18 @@ func prepareVenv(dir string, p Project) error {
 }
 
 func defaultEnsureRuntime() (runtime.UV, error) {
-	uvDir, err := config.UVDir()
+	uvDir, err := conf.UVDir()
 	if err != nil {
 		return runtime.UV{}, err
 	}
 	if err := runtime.EnsureUV(uvDir); err != nil {
 		return runtime.UV{}, err
 	}
-	cache, err := config.UVCacheDir()
+	cache, err := conf.UVCacheDir()
 	if err != nil {
 		return runtime.UV{}, err
 	}
-	python, err := config.UVPythonDir()
+	python, err := conf.UVPythonDir()
 	if err != nil {
 		return runtime.UV{}, err
 	}

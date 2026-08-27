@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/server"
 	"github.com/terracotta4u/golem/supervisor"
@@ -15,7 +15,7 @@ import (
 
 func runServe(args []string) error {
 	fs := flag.NewFlagSet("golem", flag.ContinueOnError)
-	addr := fs.String("addr", "", "listen address (default from config)")
+	addr := fs.String("addr", "", "listen address (default from conf)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func serve(ctx context.Context, app *app, listen string) error {
 	token := server.NewToken()
 	fmt.Fprintf(os.Stderr, "token: %s\n", token)
 
-	extRoot, err := config.ExtensionsDir()
+	extRoot, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func serve(ctx context.Context, app *app, listen string) error {
 	return err
 }
 
-func runningExtensions(cfg config.Config, extRoot string) ([]supervisor.Extension, error) {
+func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, error) {
 	list, err := extension.List(extRoot)
 	if err != nil {
 		return nil, err

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
 )
@@ -29,10 +29,10 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	if _, _, err := config.Load(); err != nil {
+	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
-	extDir, err := config.ExtensionsDir()
+	extDir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > "+strconv.Quote(out)+"\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, config.Config{Listen: addr})
+	writeConf(t, conf.Conf{Listen: addr})
 
 	app, err := loadApp()
 	if err != nil {
@@ -85,8 +85,8 @@ func TestRunningExtensionsFillsFromInstall(t *testing.T) {
 	dir := writeProject(t, root, "echo")
 	script := writeVenvEcho(t, dir)
 
-	got, err := runningExtensions(config.Config{
-		Extensions: map[string]config.Extension{
+	got, err := runningExtensions(conf.Conf{
+		Extensions: map[string]conf.Extension{
 			"echo": {Env: map[string]string{"TOKEN": "x"}},
 		},
 	}, root)
@@ -105,12 +105,12 @@ func TestRunningExtensionsFillsFromInstall(t *testing.T) {
 	}
 }
 
-func TestRunningExtensionsStartsWithoutConfig(t *testing.T) {
+func TestRunningExtensionsStartsWithoutConf(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
 	script := writeVenvEcho(t, dir)
 
-	got, err := runningExtensions(config.Config{}, root)
+	got, err := runningExtensions(conf.Conf{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	})
 	t.Cleanup(restore)
 
-	got, err := runningExtensions(config.Config{}, root)
+	got, err := runningExtensions(conf.Conf{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	}
 
 	runs = 0
-	got, err = runningExtensions(config.Config{}, root)
+	got, err = runningExtensions(conf.Conf{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,9 +167,9 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	}
 }
 
-func TestRunningExtensionsIgnoresConfigWithoutInstall(t *testing.T) {
-	got, err := runningExtensions(config.Config{
-		Extensions: map[string]config.Extension{"echo": {}},
+func TestRunningExtensionsIgnoresConfWithoutInstall(t *testing.T) {
+	got, err := runningExtensions(conf.Conf{
+		Extensions: map[string]conf.Extension{"echo": {}},
 	}, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -183,8 +183,8 @@ func TestRunningExtensionsSkipsDisabled(t *testing.T) {
 	root := t.TempDir()
 	writeProject(t, root, "echo")
 	off := false
-	got, err := runningExtensions(config.Config{
-		Extensions: map[string]config.Extension{
+	got, err := runningExtensions(conf.Conf{
+		Extensions: map[string]conf.Extension{
 			"echo": {Enabled: &off},
 		},
 	}, root)
@@ -206,7 +206,7 @@ func TestRunningExtensionsNameMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := runningExtensions(config.Config{}, root)
+	_, err := runningExtensions(conf.Conf{}, root)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -223,10 +223,10 @@ func TestServeStartsVenvExtension(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	if _, _, err := config.Load(); err != nil {
+	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
-	extDir, err := config.ExtensionsDir()
+	extDir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestServeStartsVenvExtension(t *testing.T) {
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, config.Config{Listen: addr})
+	writeConf(t, conf.Conf{Listen: addr})
 
 	app, err := loadApp()
 	if err != nil {
@@ -301,9 +301,9 @@ func projectTOML(name string) string {
 	return "[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\n\n[project.scripts]\n" + name + " = \"" + name + ":main\"\n"
 }
 
-func writeConfig(t *testing.T, cfg config.Config) {
+func writeConf(t *testing.T, cfg conf.Conf) {
 	t.Helper()
-	dir, err := config.EtcDir()
+	dir, err := conf.EtcDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func writeConfig(t *testing.T, cfg config.Config) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "config.json"), append(data, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "conf.json"), append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/terracotta4u/golem/agent"
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/provider/openrouter"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
@@ -13,27 +13,27 @@ import (
 )
 
 type app struct {
-	cfg   config.Config
+	cfg   conf.Conf
 	store store.Store
 	agent *agent.Agent
 }
 
 // setup loads ~/.golem, opens the file store, and reports first-run creation.
-func setup() (config.Config, store.Store, error) {
-	cfg, created, err := config.Load()
+func setup() (conf.Conf, store.Store, error) {
+	cfg, created, err := conf.Load()
 	if err != nil {
-		return config.Config{}, nil, err
+		return conf.Conf{}, nil, err
 	}
-	dir, err := config.Dir()
+	dir, err := conf.Dir()
 	if err != nil {
-		return config.Config{}, nil, err
+		return conf.Conf{}, nil, err
 	}
 	if created {
 		fmt.Fprintf(os.Stderr, "created %s\n", dir)
 	}
 	st, err := store.NewFileStore(dir)
 	if err != nil {
-		return config.Config{}, nil, err
+		return conf.Conf{}, nil, err
 	}
 	return cfg, st, nil
 }
@@ -49,7 +49,7 @@ func loadApp() (*app, error) {
 		apiKey = cfg.APIKey
 	}
 	if apiKey == "" {
-		return nil, fmt.Errorf("set api_key in ~/.golem/etc/config.json or OPENROUTER_API_KEY")
+		return nil, fmt.Errorf("set api_key in ~/.golem/etc/conf.json or OPENROUTER_API_KEY")
 	}
 
 	model := os.Getenv("OPENROUTER_MODEL")
@@ -75,7 +75,7 @@ func loadApp() (*app, error) {
 		tools = append(tools, tool.NewSkill(skills))
 	}
 
-	dir, err := config.EtcDir()
+	dir, err := conf.EtcDir()
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func loadApp() (*app, error) {
 }
 
 func loadSkills() ([]skill.Skill, error) {
-	dir, err := config.SkillsDir()
+	dir, err := conf.SkillsDir()
 	if err != nil {
 		return nil, err
 	}

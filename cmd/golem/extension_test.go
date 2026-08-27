@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
 )
@@ -32,7 +32,7 @@ func TestRunExtensionAddInstalls(t *testing.T) {
 		t.Errorf("stderr = %q, want installed echo", stderr)
 	}
 
-	dir, err := config.ExtensionsDir()
+	dir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,12 +40,12 @@ func TestRunExtensionAddInstalls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, _, err := config.Load()
+	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := cfg.Extensions["echo"]; ok {
-		t.Fatal("add should not write config.json extensions")
+		t.Fatal("add should not write conf.json extensions")
 	}
 }
 
@@ -68,19 +68,19 @@ func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 
 func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := config.Load(); err != nil {
+	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, config.Config{
+	writeConf(t, conf.Conf{
 		Model: "openai/gpt-4o-mini",
-		Extensions: map[string]config.Extension{
+		Extensions: map[string]conf.Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
 	})
 	src := t.TempDir()
 	writePythonExt(t, src)
 	stubEchoRuntime(t)
-	dir, err := config.ExtensionsDir()
+	dir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, _, err := config.Load()
+	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestRunExtensionAddFromZip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dir, err := config.ExtensionsDir()
+	dir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,10 +175,10 @@ func TestRunExtensionList(t *testing.T) {
 
 func TestRunExtensionListMarksDisabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := config.Load(); err != nil {
+	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
-	dir, err := config.ExtensionsDir()
+	dir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,9 +190,9 @@ func TestRunExtensionListMarksDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	off := false
-	writeConfig(t, config.Config{
+	writeConf(t, conf.Conf{
 		Model: "openai/gpt-4o-mini",
-		Extensions: map[string]config.Extension{
+		Extensions: map[string]conf.Extension{
 			"echo": {Enabled: &off},
 		},
 	})
@@ -231,19 +231,19 @@ func TestRunExtensionRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dir, err := config.ExtensionsDir()
+	dir, err := conf.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "echo")); !os.IsNotExist(err) {
 		t.Fatal("install dir still present")
 	}
-	cfg, _, err := config.Load()
+	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := cfg.Extensions["echo"]; ok {
-		t.Fatal("echo still in config")
+		t.Fatal("echo still in conf")
 	}
 }
 

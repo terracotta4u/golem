@@ -6,7 +6,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
 )
 
@@ -36,7 +36,7 @@ func runExtensionAdd(args []string) error {
 		return fmt.Errorf("usage: golem extension add <path>")
 	}
 
-	destRoot, err := config.ExtensionsDir()
+	destRoot, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func runExtensionList(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("usage: golem extension list")
 	}
-	root, err := config.ExtensionsDir()
+	root, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func runExtensionList(args []string) error {
 	if err != nil {
 		return err
 	}
-	cfg, _, err := config.Load()
+	cfg, _, err := conf.Load()
 	if err != nil {
 		return err
 	}
@@ -79,19 +79,19 @@ func runExtensionRemove(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: golem extension remove <name>")
 	}
-	root, err := config.ExtensionsDir()
+	root, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
 	}
 	if err := extension.Remove(root, args[0]); err != nil {
 		return err
 	}
-	cfg, _, err := config.Load()
+	cfg, _, err := conf.Load()
 	if err != nil {
 		return err
 	}
-	config.RemoveExtension(&cfg, args[0])
-	if err := config.Save(cfg); err != nil {
+	conf.RemoveExtension(&cfg, args[0])
+	if err := conf.Save(cfg); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "removed %s\n", args[0])

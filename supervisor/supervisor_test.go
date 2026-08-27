@@ -152,7 +152,7 @@ func TestStartKeepsPATHWithoutVenv(t *testing.T) {
 	}
 }
 
-func TestStartKeepsParentEnvWhenConfigEmpty(t *testing.T) {
+func TestStartKeepsParentEnvWhenConfEmpty(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
 	s := New(Options{
@@ -172,11 +172,11 @@ func TestStartKeepsParentEnvWhenConfigEmpty(t *testing.T) {
 	s.Wait()
 
 	if got != "token=from-shell" {
-		t.Fatalf("child env = %q, want parent value when config is empty", got)
+		t.Fatalf("child env = %q, want parent value when conf is empty", got)
 	}
 }
 
-func TestStartConfigEnvOverridesParent(t *testing.T) {
+func TestStartConfEnvOverridesParent(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
 	s := New(Options{
@@ -184,7 +184,7 @@ func TestStartConfigEnvOverridesParent(t *testing.T) {
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
-			Env:     map[string]string{"TELEGRAM_BOT_TOKEN": "from-config"},
+			Env:     map[string]string{"TELEGRAM_BOT_TOKEN": "from-conf"},
 		}},
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -195,8 +195,8 @@ func TestStartConfigEnvOverridesParent(t *testing.T) {
 	cancel()
 	s.Wait()
 
-	if got != "token=from-config" {
-		t.Fatalf("child env = %q, want config to override parent", got)
+	if got != "token=from-conf" {
+		t.Fatalf("child env = %q, want conf to override parent", got)
 	}
 }
 

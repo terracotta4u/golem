@@ -1,4 +1,4 @@
-package config
+package conf
 
 import (
 	"encoding/json"
@@ -9,13 +9,13 @@ import (
 
 const (
 	dirName       = ".golem"
-	fileName      = "config.json"
+	fileName      = "conf.json"
 	SoulFile      = "SOUL.md"
 	UserFile      = "USER.md"
 	DefaultListen = "127.0.0.1:8743"
 )
 
-type Config struct {
+type Conf struct {
 	Provider   string               `json:"provider,omitempty"`
 	Model      string               `json:"model"`
 	APIKey     string               `json:"api_key,omitempty"`
@@ -32,8 +32,8 @@ func (e Extension) IsEnabled() bool {
 	return e.Enabled == nil || *e.Enabled
 }
 
-func defaults() Config {
-	return Config{
+func defaults() Conf {
+	return Conf{
 		Provider: "openrouter",
 		Model:    "openai/gpt-4o-mini",
 		Listen:   DefaultListen,
@@ -112,21 +112,21 @@ func UVPythonDir() (string, error) {
 	return filepath.Join(dir, "python"), nil
 }
 
-// Load creates ~/.golem/etc, SOUL.md, USER.md, and a default config on first run,
-// then reads the config. created is true when the config file did not already exist.
-func Load() (cfg Config, created bool, err error) {
+// Load creates ~/.golem/etc, SOUL.md, USER.md, and a default conf on first run,
+// then reads the conf. created is true when the conf file did not already exist.
+func Load() (cfg Conf, created bool, err error) {
 	etc, err := EtcDir()
 	if err != nil {
-		return Config{}, false, err
+		return Conf{}, false, err
 	}
 	if err := os.MkdirAll(etc, 0o700); err != nil {
-		return Config{}, false, fmt.Errorf("create %s: %w", etc, err)
+		return Conf{}, false, fmt.Errorf("create %s: %w", etc, err)
 	}
 	if err := ensureFile(filepath.Join(etc, SoulFile), ""); err != nil {
-		return Config{}, false, err
+		return Conf{}, false, err
 	}
 	if err := ensureFile(filepath.Join(etc, UserFile), ""); err != nil {
-		return Config{}, false, err
+		return Conf{}, false, err
 	}
 
 	path := filepath.Join(etc, fileName)
@@ -134,16 +134,16 @@ func Load() (cfg Config, created bool, err error) {
 	if os.IsNotExist(err) {
 		cfg := defaults()
 		if err := write(path, cfg); err != nil {
-			return Config{}, false, err
+			return Conf{}, false, err
 		}
 		return cfg, true, nil
 	}
 	if err != nil {
-		return Config{}, false, fmt.Errorf("read %s: %w", path, err)
+		return Conf{}, false, fmt.Errorf("read %s: %w", path, err)
 	}
 
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return Config{}, false, fmt.Errorf("parse %s: %w", path, err)
+		return Conf{}, false, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = defaults().Provider
@@ -168,10 +168,10 @@ func ensureFile(path, contents string) error {
 	return nil
 }
 
-func write(path string, cfg Config) error {
+func write(path string, cfg Conf) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode config: %w", err)
+		return fmt.Errorf("encode conf: %w", err)
 	}
 	data = append(data, '\n')
 	if err := os.WriteFile(path, data, 0o600); err != nil {
@@ -180,7 +180,7 @@ func write(path string, cfg Config) error {
 	return nil
 }
 
-func Save(cfg Config) error {
+func Save(cfg Conf) error {
 	etc, err := EtcDir()
 	if err != nil {
 		return err
@@ -191,6 +191,6 @@ func Save(cfg Config) error {
 	return write(filepath.Join(etc, fileName), cfg)
 }
 
-func RemoveExtension(cfg *Config, name string) {
+func RemoveExtension(cfg *Conf, name string) {
 	delete(cfg.Extensions, name)
 }

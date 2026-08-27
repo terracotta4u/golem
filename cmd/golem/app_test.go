@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conf"
 )
 
 func TestLoadSkillsCreatesDir(t *testing.T) {
@@ -19,7 +19,7 @@ func TestLoadSkillsCreatesDir(t *testing.T) {
 		t.Errorf("skills = %+v, want empty", skills)
 	}
 
-	dir, err := config.SkillsDir()
+	dir, err := conf.SkillsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestLoadSkillsCreatesDir(t *testing.T) {
 
 func TestLoadSkillsReadsSkillMD(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	dir, err := config.SkillsDir()
+	dir, err := conf.SkillsDir()
 	if err != nil {
 		t.Fatal(err)
 	}

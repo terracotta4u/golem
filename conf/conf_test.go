@@ -1,4 +1,4 @@
-package config
+package conf
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestLoadCreatesConfig(t *testing.T) {
+func TestLoadCreatesConf(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	cfg, created, err := Load()
@@ -14,7 +14,7 @@ func TestLoadCreatesConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !created {
-		t.Fatal("expected first load to create config")
+		t.Fatal("expected first load to create conf")
 	}
 	if cfg.Provider != "openrouter" || cfg.Model != "openai/gpt-4o-mini" || cfg.Listen != DefaultListen {
 		t.Errorf("cfg = %+v", cfg)
@@ -24,7 +24,7 @@ func TestLoadCreatesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "etc", "config.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "etc", "conf.json")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,7 +33,7 @@ func TestLoadCreatesConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if created2 {
-		t.Fatal("second load should not create config")
+		t.Fatal("second load should not create conf")
 	}
 	if cfg2.Provider != cfg.Provider || cfg2.Model != cfg.Model || cfg2.Listen != cfg.Listen {
 		t.Errorf("cfg2 = %+v", cfg2)
@@ -76,7 +76,7 @@ func TestLoadCreatesIdentityFiles(t *testing.T) {
 	}
 }
 
-func TestLoadCreatesMissingIdentityFilesWhenConfigExists(t *testing.T) {
+func TestLoadCreatesMissingIdentityFilesWhenConfExists(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	if _, _, err := Load(); err != nil {
@@ -93,7 +93,7 @@ func TestLoadCreatesMissingIdentityFilesWhenConfigExists(t *testing.T) {
 	if _, created, err := Load(); err != nil {
 		t.Fatal(err)
 	} else if created {
-		t.Fatal("config already existed")
+		t.Fatal("conf already existed")
 	}
 	if _, err := os.Stat(filepath.Join(etc, "USER.md")); err != nil {
 		t.Fatal(err)
@@ -224,7 +224,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	cfg := Config{Model: "test-model", Extensions: map[string]Extension{"echo": {}}}
+	cfg := Conf{Model: "test-model", Extensions: map[string]Extension{"echo": {}}}
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestSaveRoundTrip(t *testing.T) {
 }
 
 func TestRemoveExtensionDeletesEntry(t *testing.T) {
-	cfg := Config{
+	cfg := Conf{
 		Extensions: map[string]Extension{
 			"echo":     {Env: map[string]string{"ECHO_TOKEN": "x"}},
 			"telegram": {},
@@ -249,7 +249,7 @@ func TestRemoveExtensionDeletesEntry(t *testing.T) {
 	}
 	RemoveExtension(&cfg, "echo")
 	if _, ok := cfg.Extensions["echo"]; ok {
-		t.Fatal("echo still in config")
+		t.Fatal("echo still in conf")
 	}
 	if _, ok := cfg.Extensions["telegram"]; !ok {
 		t.Fatal("removed telegram")
