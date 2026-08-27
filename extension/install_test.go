@@ -84,6 +84,9 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if err := os.WriteFile(gitConfig, []byte("[core]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(src, ".python-version"), []byte("3.10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
@@ -107,6 +110,9 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dest, ".git")); !os.IsNotExist(err) {
 		t.Fatal("copied .git")
+	}
+	if _, err := os.Stat(filepath.Join(dest, ".python-version")); !os.IsNotExist(err) {
+		t.Fatal("copied .python-version")
 	}
 }
 
@@ -169,8 +175,8 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, FileName)); err != nil {
 			t.Errorf("prepare missing %s: %v", FileName, err)
 		}
-		if _, err := os.Stat(dest); !os.IsNotExist(err) {
-			t.Error("dest already present during prepare")
+		if dir != dest {
+			t.Errorf("prepare dir = %q, want dest %q", dir, dest)
 		}
 		writeVenvScript(t, dir, "echo")
 		return nil
@@ -180,14 +186,8 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 	if _, err := Install(src, destRoot, false); err != nil {
 		t.Fatal(err)
 	}
-	if seen == "" {
-		t.Fatal("prepare not called")
-	}
-	if seen == dest {
-		t.Error("prepare ran on dest, want temp dir before swap")
-	}
-	if !strings.HasPrefix(seen, destRoot) {
-		t.Errorf("prepare dir = %q, want under %s", seen, destRoot)
+	if seen != dest {
+		t.Fatalf("prepare dir = %q, want dest", seen)
 	}
 	if _, err := os.Stat(filepath.Join(dest, FileName)); err != nil {
 		t.Fatal(err)
@@ -320,15 +320,15 @@ func TestInstallSyncsPyproject(t *testing.T) {
 	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
 		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
 	}
-	wantSync := []string{bin, "sync", "--no-dev", "--no-editable"}
+	wantSync := []string{bin, "sync", "--python", runtime.DefaultPython, "--no-dev", "--no-editable"}
 	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
 		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
 	}
 
 	dest := filepath.Join(destRoot, "echo")
 	venv := filepath.Join(got[1].Dir, ".venv")
-	if got[1].Dir == dest {
-		t.Error("uv ran on dest, want temp dir before swap")
+	if got[1].Dir != dest {
+		t.Errorf("uv Dir = %q, want dest %q", got[1].Dir, dest)
 	}
 	env := map[string]string{}
 	for _, kv := range got[1].Env {
@@ -390,6 +390,38 @@ func stubUV(t *testing.T, run func(*exec.Cmd) error) {
 		}, nil
 	}
 	t.Cleanup(func() { ensureRuntime = orig })
+}
+
+func TestInstallVenvUsesFinalPath(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writePythonSrc(t, src)
+	dest := filepath.Join(destRoot, "echo")
+
+	stubUV(t, func(cmd *exec.Cmd) error {
+		if cmd.Dir == "" {
+			return nil
+		}
+		path := venvScript(cmd.Dir, "echo")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return err
+		}
+		shebang := "#!" + filepath.Join(cmd.Dir, ".venv", "bin", "python") + "\n"
+		return os.WriteFile(path, []byte(shebang), 0o700)
+	})
+
+	if _, err := Install(src, destRoot, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(venvScript(dest, "echo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.TrimSpace(string(data))
+	want := "#!" + filepath.Join(dest, ".venv", "bin", "python")
+	if got != want {
+		t.Errorf("shebang = %q, want %q", got, want)
+	}
 }
 
 func writeVenvScript(t *testing.T, dir, name string) {

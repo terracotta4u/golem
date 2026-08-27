@@ -68,9 +68,9 @@ func installDir(src, destRoot string, force bool) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	ok := false
+	moved := false
 	defer func() {
-		if !ok {
+		if !moved {
 			_ = os.RemoveAll(tmp)
 		}
 	}()
@@ -78,20 +78,60 @@ func installDir(src, destRoot string, force bool) (Project, error) {
 	if err := copyDir(src, tmp); err != nil {
 		return Project{}, err
 	}
-	if err := prepare(tmp, p); err != nil {
+
+	var backup string
+	if _, err := os.Stat(dest); err == nil {
+		backup, err = stashDir(destRoot, p.Name, dest)
+		if err != nil {
+			return Project{}, err
+		}
+	} else if !os.IsNotExist(err) {
 		return Project{}, err
 	}
-	if err := ensureScript(tmp, p); err != nil {
-		return Project{}, err
-	}
-	if err := os.RemoveAll(dest); err != nil {
-		return Project{}, err
-	}
+
 	if err := os.Rename(tmp, dest); err != nil {
+		if backup != "" {
+			_ = os.Rename(backup, dest)
+		}
 		return Project{}, err
 	}
-	ok = true
+	moved = true
+
+	if err := prepare(dest, p); err != nil {
+		return restoreDest(dest, backup, err)
+	}
+	if err := ensureScript(dest, p); err != nil {
+		return restoreDest(dest, backup, err)
+	}
+	if backup != "" {
+		_ = os.RemoveAll(backup)
+	}
 	return p, nil
+}
+
+func stashDir(destRoot, name, dest string) (string, error) {
+	backup, err := os.MkdirTemp(destRoot, "."+name+".prev-")
+	if err != nil {
+		return "", err
+	}
+	if err := os.Remove(backup); err != nil {
+		_ = os.RemoveAll(backup)
+		return "", err
+	}
+	if err := os.Rename(dest, backup); err != nil {
+		return "", err
+	}
+	return backup, nil
+}
+
+func restoreDest(dest, backup string, err error) (Project, error) {
+	_ = os.RemoveAll(dest)
+	if backup != "" {
+		if rerr := os.Rename(backup, dest); rerr != nil {
+			return Project{}, fmt.Errorf("%w (restore failed: %v)", err, rerr)
+		}
+	}
+	return Project{}, err
 }
 
 func copyDir(src, dst string) error {
@@ -127,7 +167,7 @@ func copyDir(src, dst string) error {
 func skipCopy(rel string) bool {
 	for _, p := range strings.Split(rel, string(filepath.Separator)) {
 		switch p {
-		case ".venv", "__pycache__", ".git":
+		case ".venv", "__pycache__", ".git", ".python-version":
 			return true
 		}
 	}

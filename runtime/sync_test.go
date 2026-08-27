@@ -43,7 +43,7 @@ func TestSyncProjectInvokesVenvAndSync(t *testing.T) {
 	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
 		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
 	}
-	wantSync := []string{bin, "sync", "--no-dev", "--no-editable"}
+	wantSync := []string{bin, "sync", "--python", DefaultPython, "--no-dev", "--no-editable"}
 	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
 		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
 	}
@@ -88,7 +88,7 @@ func TestSyncProjectFrozenWhenLockfilePresent(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("runs = %d, want 3", len(got))
 	}
-	want := []string{u.Bin, "sync", "--frozen", "--no-dev", "--no-editable"}
+	want := []string{u.Bin, "sync", "--python", DefaultPython, "--frozen", "--no-dev", "--no-editable"}
 	if strings.Join(got[2].Args, " ") != strings.Join(want, " ") {
 		t.Errorf("sync = %q, want %q", got[2].Args, want)
 	}
