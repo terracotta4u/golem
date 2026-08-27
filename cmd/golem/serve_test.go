@@ -80,12 +80,12 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	}
 }
 
-func TestExtensionListFillsFromInstall(t *testing.T) {
+func TestRunningExtensionsFillsFromInstall(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
 	script := writeVenvEcho(t, dir)
 
-	got, err := extensionList(config.Config{
+	got, err := runningExtensions(config.Config{
 		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"TOKEN": "x"}},
 		},
@@ -105,12 +105,12 @@ func TestExtensionListFillsFromInstall(t *testing.T) {
 	}
 }
 
-func TestExtensionListStartsWithoutConfig(t *testing.T) {
+func TestRunningExtensionsStartsWithoutConfig(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
 	script := writeVenvEcho(t, dir)
 
-	got, err := extensionList(config.Config{}, root)
+	got, err := runningExtensions(config.Config{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestExtensionListStartsWithoutConfig(t *testing.T) {
 	}
 }
 
-func TestExtensionListRepairsMissingVenv(t *testing.T) {
+func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
 
@@ -142,7 +142,7 @@ func TestExtensionListRepairsMissingVenv(t *testing.T) {
 	})
 	t.Cleanup(restore)
 
-	got, err := extensionList(config.Config{}, root)
+	got, err := runningExtensions(config.Config{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestExtensionListRepairsMissingVenv(t *testing.T) {
 	}
 
 	runs = 0
-	got, err = extensionList(config.Config{}, root)
+	got, err = runningExtensions(config.Config{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,8 +167,8 @@ func TestExtensionListRepairsMissingVenv(t *testing.T) {
 	}
 }
 
-func TestExtensionListIgnoresConfigWithoutInstall(t *testing.T) {
-	got, err := extensionList(config.Config{
+func TestRunningExtensionsIgnoresConfigWithoutInstall(t *testing.T) {
+	got, err := runningExtensions(config.Config{
 		Extensions: map[string]config.Extension{"echo": {}},
 	}, t.TempDir())
 	if err != nil {
@@ -179,11 +179,11 @@ func TestExtensionListIgnoresConfigWithoutInstall(t *testing.T) {
 	}
 }
 
-func TestExtensionListSkipsDisabled(t *testing.T) {
+func TestRunningExtensionsSkipsDisabled(t *testing.T) {
 	root := t.TempDir()
 	writeProject(t, root, "echo")
 	off := false
-	got, err := extensionList(config.Config{
+	got, err := runningExtensions(config.Config{
 		Extensions: map[string]config.Extension{
 			"echo": {Enabled: &off},
 		},
@@ -196,7 +196,7 @@ func TestExtensionListSkipsDisabled(t *testing.T) {
 	}
 }
 
-func TestExtensionListNameMismatch(t *testing.T) {
+func TestRunningExtensionsNameMismatch(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "echo")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -206,7 +206,7 @@ func TestExtensionListNameMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := extensionList(config.Config{}, root)
+	_, err := runningExtensions(config.Config{}, root)
 	if err == nil {
 		t.Fatal("expected error")
 	}

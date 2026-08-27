@@ -28,7 +28,7 @@ type Downloader struct {
 	SHA256  string
 }
 
-func Ensure(dir string) error {
+func EnsureUV(dir string) error {
 	return Downloader{}.Ensure(dir)
 }
 

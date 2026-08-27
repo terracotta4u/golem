@@ -22,7 +22,7 @@ func TestInstallRequiresPyproject(t *testing.T) {
 	}
 }
 
-func TestInstallCopiesByManifestName(t *testing.T) {
+func TestInstallCopiesByProjectName(t *testing.T) {
 	src := t.TempDir()
 	destRoot := t.TempDir()
 	writePythonSrc(t, src)
@@ -161,7 +161,7 @@ func TestInstallPrepareSeesCopiedTree(t *testing.T) {
 
 	dest := filepath.Join(destRoot, "echo")
 	var seen string
-	prepare = func(dir string, m Manifest) error {
+	prepare = func(dir string, m Project) error {
 		seen = dir
 		if m.Name != "echo" {
 			t.Errorf("name = %q, want echo", m.Name)
@@ -209,7 +209,7 @@ func TestInstallPrepareFailureKeepsExisting(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "new.txt"), []byte("new"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	prepare = func(string, Manifest) error {
+	prepare = func(string, Project) error {
 		return errors.New("uv failed")
 	}
 	t.Cleanup(func() { prepare = prepareVenv })
@@ -275,7 +275,7 @@ func TestPrepareVenvRequiresPyproject(t *testing.T) {
 	t.Cleanup(func() { ensureRuntime = orig })
 
 	dir := t.TempDir()
-	err := prepareVenv(dir, Manifest{Name: "echo"})
+	err := prepareVenv(dir, Project{Name: "echo"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -426,7 +426,7 @@ func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
 	writeVenvScript(t, dir, "echo")
-	prepare = func(string, Manifest) error {
+	prepare = func(string, Project) error {
 		t.Fatal("prepare called")
 		return nil
 	}
@@ -450,7 +450,7 @@ func TestEnsureVenvRepairsWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
 	var called bool
-	prepare = func(d string, m Manifest) error {
+	prepare = func(d string, m Project) error {
 		called = true
 		writeVenvScript(t, d, "echo")
 		return nil

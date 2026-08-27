@@ -43,7 +43,7 @@ func serve(ctx context.Context, app *app, listen string) error {
 	if err != nil {
 		return err
 	}
-	exts, err := extensionList(app.cfg, extRoot)
+	exts, err := runningExtensions(app.cfg, extRoot)
 	if err != nil {
 		return err
 	}
@@ -65,30 +65,30 @@ func serve(ctx context.Context, app *app, listen string) error {
 	return err
 }
 
-func extensionList(cfg config.Config, extRoot string) ([]supervisor.Extension, error) {
+func runningExtensions(cfg config.Config, extRoot string) ([]supervisor.Extension, error) {
 	list, err := extension.List(extRoot)
 	if err != nil {
 		return nil, err
 	}
 
 	out := make([]supervisor.Extension, 0, len(list))
-	for _, m := range list {
-		entry := cfg.Extensions[m.Name]
+	for _, p := range list {
+		entry := cfg.Extensions[p.Name]
 		if !entry.IsEnabled() {
 			continue
 		}
-		if err := extension.EnsureVenv(m.Dir, m); err != nil {
+		if err := extension.EnsureVenv(p.Dir, p); err != nil {
 			return nil, err
 		}
-		command, err := extension.ResolveCommand(m.Dir, m)
+		command, err := extension.ResolveCommand(p.Dir, p)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, supervisor.Extension{
-			Name:    m.Name,
+			Name:    p.Name,
 			Command: command,
 			Env:     entry.Env,
-			Dir:     m.Dir,
+			Dir:     p.Dir,
 		})
 	}
 	return out, nil

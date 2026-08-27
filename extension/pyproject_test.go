@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestParseManifest(t *testing.T) {
+func TestParsePyproject(t *testing.T) {
 	got, err := Parse([]byte(`
 [project]
 name = "telegram"
@@ -21,10 +21,7 @@ telegram = "telegram:main"
 		t.Fatal(err)
 	}
 	if got.Name != "telegram" || got.Version != "1.0.0" || got.Command != "telegram" {
-		t.Errorf("manifest = %+v", got)
-	}
-	if got.Description != "Telegram bot" {
-		t.Errorf("Description = %q", got.Description)
+		t.Errorf("project = %+v", got)
 	}
 }
 
@@ -116,7 +113,7 @@ func TestLoadReadsPyproject(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Name != "echo" || got.Version != "0.1.0" || got.Command != "echo" {
-		t.Errorf("manifest = %+v", got)
+		t.Errorf("project = %+v", got)
 	}
 }
 

@@ -6,11 +6,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/terracotta4u/golem/extension"
 )
 
 const (
@@ -132,7 +132,7 @@ func childEnv(url, token string, ext Extension) []string {
 		}
 		out = append(out, kv)
 	}
-	if bin := venvBin(ext.Dir); bin != "" {
+	if bin := extension.VenvBin(ext.Dir); bin != "" {
 		if path != "" {
 			path = bin + string(os.PathListSeparator) + path
 		} else {
@@ -153,19 +153,4 @@ func childEnv(url, token string, ext Extension) []string {
 		out = append(out, k+"="+v)
 	}
 	return out
-}
-
-func venvBin(dir string) string {
-	if dir == "" {
-		return ""
-	}
-	bin := filepath.Join(dir, ".venv", "bin")
-	if runtime.GOOS == "windows" {
-		bin = filepath.Join(dir, ".venv", "Scripts")
-	}
-	info, err := os.Stat(bin)
-	if err != nil || !info.IsDir() {
-		return ""
-	}
-	return bin
 }

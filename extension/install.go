@@ -6,29 +6,26 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/terracotta4u/golem/config"
-	"github.com/terracotta4u/golem/runtime"
 )
 
-func Install(src, destRoot string, force bool) (Manifest, error) {
+func Install(src, destRoot string, force bool) (Project, error) {
 	src, err := filepath.Abs(src)
 	if err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 	info, err := os.Stat(src)
 	if err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 
 	dir := src
 	if !info.IsDir() {
 		if !isZipPath(src) {
-			return Manifest{}, fmt.Errorf("%s is not a directory or zip file", src)
+			return Project{}, fmt.Errorf("%s is not a directory or zip file", src)
 		}
 		staged, cleanup, err := stageZip(src)
 		if err != nil {
-			return Manifest{}, err
+			return Project{}, err
 		}
 		defer cleanup()
 		dir = staged
@@ -36,40 +33,40 @@ func Install(src, destRoot string, force bool) (Manifest, error) {
 	return installDir(dir, destRoot, force)
 }
 
-func installDir(src, destRoot string, force bool) (Manifest, error) {
+func installDir(src, destRoot string, force bool) (Project, error) {
 	src, err := filepath.Abs(src)
 	if err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 	info, err := os.Stat(src)
 	if err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 	if !info.IsDir() {
-		return Manifest{}, fmt.Errorf("%s is not a directory", src)
+		return Project{}, fmt.Errorf("%s is not a directory", src)
 	}
 
-	m, err := Load(src)
+	p, err := Load(src)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Manifest{}, fmt.Errorf("%s: missing pyproject.toml", src)
+			return Project{}, fmt.Errorf("%s: missing pyproject.toml", src)
 		}
-		return Manifest{}, err
+		return Project{}, err
 	}
 
 	if err := os.MkdirAll(destRoot, 0o700); err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
-	dest := filepath.Join(destRoot, m.Name)
+	dest := filepath.Join(destRoot, p.Name)
 	if _, err := os.Stat(dest); err == nil && !force {
-		return Manifest{}, fmt.Errorf("extension %q already installed (use --force to replace)", m.Name)
+		return Project{}, fmt.Errorf("extension %q already installed (use --force to replace)", p.Name)
 	} else if err != nil && !os.IsNotExist(err) {
-		return Manifest{}, err
+		return Project{}, err
 	}
 
-	tmp, err := os.MkdirTemp(destRoot, "."+m.Name+".-")
+	tmp, err := os.MkdirTemp(destRoot, "."+p.Name+".-")
 	if err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 	ok := false
 	defer func() {
@@ -79,22 +76,22 @@ func installDir(src, destRoot string, force bool) (Manifest, error) {
 	}()
 
 	if err := copyDir(src, tmp); err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
-	if err := prepare(tmp, m); err != nil {
-		return Manifest{}, err
+	if err := prepare(tmp, p); err != nil {
+		return Project{}, err
 	}
-	if err := ensureCommand(tmp, m); err != nil {
-		return Manifest{}, err
+	if err := ensureScript(tmp, p); err != nil {
+		return Project{}, err
 	}
 	if err := os.RemoveAll(dest); err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 	if err := os.Rename(tmp, dest); err != nil {
-		return Manifest{}, err
+		return Project{}, err
 	}
 	ok = true
-	return m, nil
+	return p, nil
 }
 
 func copyDir(src, dst string) error {
@@ -137,68 +134,6 @@ func skipCopy(rel string) bool {
 	return false
 }
 
-func prepareVenv(dir string, m Manifest) error {
-	if !hasPyproject(dir) {
-		return fmt.Errorf("missing pyproject.toml")
-	}
-	u, err := ensureRuntime()
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stderr, "creating Python environment for %s\n", m.Name)
-	return u.SyncProject(dir)
-}
-
-func defaultEnsureRuntime() (runtime.UV, error) {
-	uvDir, err := config.UVDir()
-	if err != nil {
-		return runtime.UV{}, err
-	}
-	if err := runtime.Ensure(uvDir); err != nil {
-		return runtime.UV{}, err
-	}
-	cache, err := config.UVCacheDir()
-	if err != nil {
-		return runtime.UV{}, err
-	}
-	python, err := config.UVPythonDir()
-	if err != nil {
-		return runtime.UV{}, err
-	}
-	return runtime.UV{
-		Bin:       runtime.BinPath(uvDir),
-		CacheDir:  cache,
-		PythonDir: python,
-	}, nil
-}
-
-var (
-	prepare       = prepareVenv
-	ensureRuntime = defaultEnsureRuntime
-)
-
-func StubRuntime(u runtime.UV) func() {
-	prev := ensureRuntime
-	ensureRuntime = func() (runtime.UV, error) { return u, nil }
-	return func() { ensureRuntime = prev }
-}
-
-func EnsureVenv(dir string, m Manifest) error {
-	if hasVenv(dir) {
-		return nil
-	}
-	fmt.Fprintf(os.Stderr, "repairing Python environment for %s\n", m.Name)
-	if err := prepare(dir, m); err != nil {
-		return fmt.Errorf("extension %q: cannot prepare Python environment: %w", m.Name, err)
-	}
-	return ensureCommand(dir, m)
-}
-
-func hasVenv(dir string) bool {
-	info, err := os.Stat(filepath.Dir(venvPython(dir)))
-	return err == nil && info.IsDir()
-}
-
 func copyFile(src, dst string, mode os.FileMode) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -238,18 +173,4 @@ func Remove(destRoot, name string) error {
 		return err
 	}
 	return os.RemoveAll(dest)
-}
-
-func ensureCommand(dir string, m Manifest) error {
-	command := strings.TrimSpace(m.Command)
-	script := venvScript(dir, command)
-	if _, err := os.Stat(script); err != nil {
-		return fmt.Errorf("extension %q has no executable %q", m.Name, command)
-	}
-	return os.Chmod(script, 0o700)
-}
-
-func hasPyproject(dir string) bool {
-	_, err := os.Stat(filepath.Join(dir, FileName))
-	return err == nil
 }
