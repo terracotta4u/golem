@@ -30,6 +30,6 @@ The quickest way to start talking to Golem is with Telegram:
 golem extension add https://github.com/terracotta4u/golem-telegram
 ```
 
-Telegram also requires you create a new bot, instructions can be found [here](https://core.telegram.org/bots/tutorial).
+Telegram also requires you create a new bot; instructions can be found [here](https://core.telegram.org/bots/tutorial).
 
-Once you have create a new bot set the `TELEGRAM_BOT_TOKEN` environment variable.
+Once you have created a new bot, set the `TELEGRAM_BOT_TOKEN` environment variable.
