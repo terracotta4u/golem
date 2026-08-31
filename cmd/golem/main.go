@@ -16,6 +16,9 @@ func main() {
 
 func run(args []string) error {
 	// TODO: Add stop command
+	if len(args) > 0 && args[0] == "version" {
+		return runVersion(args[1:])
+	}
 	if len(args) > 0 && args[0] == "extension" {
 		return runExtension(args[1:])
 	}
