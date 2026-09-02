@@ -66,7 +66,7 @@ func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mountChat(mux, runCtx)
-	s.mountWeb(mux)
+	s.mountWeb(mux, runCtx)
 	return mux
 }
 

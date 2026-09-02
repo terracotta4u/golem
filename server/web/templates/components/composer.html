@@ -1,5 +1,13 @@
 {{define "composer"}}
-<form class="composer" method="post" action="/conversations/{{.ID}}/turns">
+<form
+  class="composer"
+  method="post"
+  action="/conversations/{{.ID}}/turns"
+  hx-post="/conversations/{{.ID}}/turns"
+  hx-target="#messages"
+  hx-swap="beforeend"
+  hx-on::after-request="this.reset()"
+>
   <textarea name="message" rows="3" required placeholder="Message"></textarea>
   <button type="submit">Send</button>
 </form>

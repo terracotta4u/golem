@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"html/template"
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -21,7 +23,7 @@ func parseWeb() *template.Template {
 	return template.Must(template.ParseFS(webFS, "web/templates/*.html", "web/templates/components/*.html"))
 }
 
-func (s *Server) mountWeb(mux *http.ServeMux) {
+func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
 	static, err := fs.Sub(webFS, "web/static")
 	if err != nil {
 		panic(err)
@@ -30,6 +32,7 @@ func (s *Server) mountWeb(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("POST /conversations", s.handleNewConversation)
 	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
+	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
 }
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +54,36 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/conversations/"+uuid.NewString(), http.StatusSeeOther)
+}
+
+func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "invalid form", http.StatusBadRequest)
+			return
+		}
+		convID := r.PathValue("id")
+		text := strings.TrimSpace(r.FormValue("message"))
+		if convID == "" || text == "" {
+			http.Error(w, "message is required", http.StatusBadRequest)
+			return
+		}
+		if s.opts.Store != nil {
+			c, err := s.opts.Store.Load(convID)
+			switch {
+			case errors.Is(err, store.ErrNotFound):
+			case err != nil:
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			case c.Channel != webChannel:
+				http.NotFound(w, r)
+				return
+			}
+		}
+		t := s.startTurn(runCtx, convID, postTurnRequest{Channel: webChannel, Text: text})
+		s.render(w, "turn", map[string]any{"User": text, "ID": t.ID})
+	}
 }
 
 func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {

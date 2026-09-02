@@ -63,14 +63,18 @@ func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
 			return
 		}
 
-		t := &turn{ID: uuid.NewString(), Status: "pending"}
-		s.mu.Lock()
-		s.turns[t.ID] = t
-		s.mu.Unlock()
-
-		go s.run(runCtx, t.ID, convID, req)
+		t := s.startTurn(runCtx, convID, req)
 		writeJSON(w, http.StatusAccepted, map[string]string{"id": t.ID})
 	}
+}
+
+func (s *Server) startTurn(runCtx context.Context, convID string, req postTurnRequest) *turn {
+	t := &turn{ID: uuid.NewString(), Status: "pending"}
+	s.mu.Lock()
+	s.turns[t.ID] = t
+	s.mu.Unlock()
+	go s.run(runCtx, t.ID, convID, req)
+	return t
 }
 
 func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {

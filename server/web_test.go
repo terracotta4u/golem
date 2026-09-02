@@ -4,9 +4,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/store"
 )
@@ -87,6 +90,15 @@ func TestConversationShowsMessages(t *testing.T) {
 	}
 	if !strings.Contains(body, `name="message"`) {
 		t.Fatalf("conversation = %q, want composer", body)
+	}
+	if !strings.Contains(body, `hx-post="/conversations/web-1/turns"`) {
+		t.Fatalf("conversation = %q, want hx-post", body)
+	}
+	if !strings.Contains(body, `hx-target="#messages"`) {
+		t.Fatalf("conversation = %q, want hx-target", body)
+	}
+	if !strings.Contains(body, "/static/htmx.min.js") {
+		t.Fatalf("conversation = %q, want htmx", body)
 	}
 }
 
@@ -191,6 +203,148 @@ func TestStaticCSS(t *testing.T) {
 	if !strings.Contains(string(body), "body") {
 		t.Fatalf("css = %q, want stylesheet", body)
 	}
+}
+
+func TestWebPostTurn(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	status, body := postTurnHTML(t, ts.URL, "web-1", "What is for dinner?")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
+	}
+	if !strings.Contains(body, "What is for dinner?") {
+		t.Fatalf("body = %q, want user message", body)
+	}
+	if !strings.Contains(body, "Thinking...") {
+		t.Fatalf("body = %q, want assistant placeholder", body)
+	}
+	id := turnID(t, body)
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want done", events)
+	}
+}
+
+func TestWebPostTurnPersists(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "What is for dinner?")
+	events := getTurnEvents(t, ts.URL, "secret", turnID(t, body))
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want done", events)
+	}
+
+	page := getHTML(t, ts.URL+"/conversations/web-1")
+	if !strings.Contains(page, "What is for dinner?") || !strings.Contains(page, "Pasta.") {
+		t.Fatalf("conversation = %q, want saved turn", page)
+	}
+}
+
+func TestWebPostTurnEmpty(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postTurnHTML(t, ts.URL, "web-1", "   ")
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+}
+
+func TestWebPostTurnWrongChannel(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(store.Conversation{ID: "tg-1", Channel: "telegram"}); err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postTurnHTML(t, ts.URL, "tg-1", "hello")
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", status)
+	}
+}
+
+func TestWebPostTurnEscapesHTML(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "ok"}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", `<script>alert(1)</script>`)
+	if strings.Contains(body, "<script>") {
+		t.Fatalf("body = %q, want escaped user text", body)
+	}
+	if !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatalf("body = %q, want escaped user text", body)
+	}
+	events := getTurnEvents(t, ts.URL, "secret", turnID(t, body))
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want done", events)
+	}
+}
+
+func postTurnHTML(t *testing.T, base, convID, message string) (int, string) {
+	t.Helper()
+	form := url.Values{"message": {message}}.Encode()
+	req, err := http.NewRequest(http.MethodPost, base+"/conversations/"+convID+"/turns", strings.NewReader(form))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp.StatusCode, string(body)
+}
+
+func turnID(t *testing.T, body string) string {
+	t.Helper()
+	m := regexp.MustCompile(`id="turn-([^"]+)"`).FindStringSubmatch(body)
+	if len(m) != 2 {
+		t.Fatalf("body = %q, want turn id", body)
+	}
+	return m[1]
 }
 
 func getHTML(t *testing.T, url string) string {
