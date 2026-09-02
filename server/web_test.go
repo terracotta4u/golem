@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/provider"
@@ -99,6 +101,9 @@ func TestConversationShowsMessages(t *testing.T) {
 	}
 	if !strings.Contains(body, "/static/htmx.min.js") {
 		t.Fatalf("conversation = %q, want htmx", body)
+	}
+	if !strings.Contains(body, "/static/sse.js") {
+		t.Fatalf("conversation = %q, want sse extension", body)
 	}
 }
 
@@ -229,6 +234,15 @@ func TestWebPostTurn(t *testing.T) {
 		t.Fatalf("body = %q, want assistant placeholder", body)
 	}
 	id := turnID(t, body)
+	if !strings.Contains(body, `hx-ext="sse"`) {
+		t.Fatalf("body = %q, want sse extension", body)
+	}
+	if !strings.Contains(body, `sse-connect="/conversations/web-1/turns/`+id) {
+		t.Fatalf("body = %q, want sse-connect", body)
+	}
+	if !strings.Contains(body, `sse-close="close"`) {
+		t.Fatalf("body = %q, want sse-close", body)
+	}
 	events := getTurnEvents(t, ts.URL, "secret", id)
 	if len(events) != 1 || events[0].Event != "done" {
 		t.Fatalf("events = %+v, want done", events)
@@ -336,6 +350,232 @@ func postTurnHTML(t *testing.T, base, convID, message string) (int, string) {
 		t.Fatal(err)
 	}
 	return resp.StatusCode, string(body)
+}
+
+func TestWebTurnEventsNotFound(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/conversations/web-1/turns/missing/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestWebTurnEventsDone(t *testing.T) {
+	waiting := make(chan struct{}, 1)
+	release := make(chan struct{})
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "Pasta."}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	id := turnID(t, body)
+	select {
+	case <-waiting:
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent did not start")
+	}
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		close(release)
+	}()
+
+	events := getWebTurnEvents(t, ts.URL, "web-1", id)
+	if !hasEvent(events, "done") || !strings.Contains(eventData(events, "done"), "Pasta.") {
+		t.Fatalf("events = %+v, want HTML done", events)
+	}
+	if !hasEvent(events, "close") {
+		t.Fatalf("events = %+v, want close", events)
+	}
+}
+
+func TestWebTurnEventsLateSubscriber(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	id := turnID(t, body)
+	first := getWebTurnEvents(t, ts.URL, "web-1", id)
+	if !hasEvent(first, "done") {
+		t.Fatalf("first = %+v, want done", first)
+	}
+	events := getWebTurnEvents(t, ts.URL, "web-1", id)
+	if !hasEvent(events, "done") || !strings.Contains(eventData(events, "done"), "Pasta.") {
+		t.Fatalf("events = %+v, want HTML done", events)
+	}
+}
+
+func TestWebTurnEventsLogThenDone(t *testing.T) {
+	waiting := make(chan struct{}, 1)
+	release := make(chan struct{})
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &gatedScript{
+		gateAt:  1,
+		waiting: waiting,
+		release: release,
+		replies: []provider.Message{
+			{
+				Role: "assistant",
+				ToolCalls: []provider.ToolCall{{
+					ID:   "call_1",
+					Type: "function",
+					Function: provider.FunctionCall{
+						Name:      "echo",
+						Arguments: `{"text":"hi"}`,
+					},
+				}},
+			},
+			{Role: "assistant", Content: "all set"},
+		},
+	}
+	s := New(Options{
+		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	id := turnID(t, body)
+	select {
+	case <-waiting:
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent did not reach second chat")
+	}
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		close(release)
+	}()
+
+	events := getWebTurnEvents(t, ts.URL, "web-1", id)
+	if !hasEvent(events, "log") || !strings.Contains(eventData(events, "log"), "[echo]") {
+		t.Fatalf("events = %+v, want HTML log", events)
+	}
+	if !hasEvent(events, "done") || !strings.Contains(eventData(events, "done"), "all set") {
+		t.Fatalf("events = %+v, want HTML done", events)
+	}
+}
+
+func TestWebTurnEventsError(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&errProvider{err: errors.New("boom")}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	id := turnID(t, body)
+	events := getWebTurnEvents(t, ts.URL, "web-1", id)
+	if !hasEvent(events, "error") || !strings.Contains(eventData(events, "error"), "boom") {
+		t.Fatalf("events = %+v, want HTML error", events)
+	}
+	if !hasEvent(events, "close") {
+		t.Fatalf("events = %+v, want close", events)
+	}
+}
+
+func TestWebTurnEventsWrongConversation(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "ok"}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	id := turnID(t, body)
+	getTurnEvents(t, ts.URL, "secret", id)
+
+	resp, err := http.Get(ts.URL + "/conversations/other/turns/" + id + "/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func getWebTurnEvents(t *testing.T, base, convID, turnID string) []sseEvent {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, base+"/conversations/"+convID+"/turns/"+turnID+"/events", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("get web events status = %d: %s", resp.StatusCode, b)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/event-stream") {
+		t.Fatalf("Content-Type = %q, want text/event-stream", ct)
+	}
+	return readSSE(t, resp.Body)
+}
+
+func hasEvent(events []sseEvent, name string) bool {
+	for _, e := range events {
+		if e.Event == name {
+			return true
+		}
+	}
+	return false
+}
+
+func eventData(events []sseEvent, name string) string {
+	for _, e := range events {
+		if e.Event == name {
+			return e.Data
+		}
+	}
+	return ""
 }
 
 func turnID(t *testing.T, body string) string {

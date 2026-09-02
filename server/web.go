@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"html"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -33,6 +34,7 @@ func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
 	mux.HandleFunc("POST /conversations", s.handleNewConversation)
 	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
 	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
+	mux.HandleFunc("GET /conversations/{id}/turns/{tid}/events", s.handleWebTurnEvents)
 }
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -82,8 +84,37 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 			}
 		}
 		t := s.startTurn(runCtx, convID, postTurnRequest{Channel: webChannel, Text: text})
-		s.render(w, "turn", map[string]any{"User": text, "ID": t.ID})
+		s.render(w, "turn", map[string]any{"User": text, "ID": t.ID, "ConvID": convID})
 	}
+}
+
+func (s *Server) handleWebTurnEvents(w http.ResponseWriter, r *http.Request) {
+	s.serveTurnEvents(w, r, r.PathValue("tid"), r.PathValue("id"), func() {
+		http.NotFound(w, r)
+	}, func(name, line, text, err string) bool {
+		switch name {
+		case "log":
+			return writeSSE(w, "log", `<div class="log-line">`+sseEscape(line)+`</div>`)
+		case "done":
+			if !writeSSE(w, "done", `<p>`+sseEscape(text)+`</p>`) {
+				return false
+			}
+			return writeSSE(w, "close", "")
+		case "error":
+			if !writeSSE(w, "error", `<p class="error">`+sseEscape(err)+`</p>`) {
+				return false
+			}
+			return writeSSE(w, "close", "")
+		default:
+			return false
+		}
+	})
+}
+
+func sseEscape(s string) string {
+	s = html.EscapeString(s)
+	s = strings.ReplaceAll(s, "\r", "")
+	return strings.ReplaceAll(s, "\n", " ")
 }
 
 func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {

@@ -88,6 +88,24 @@ a {
   border-color: transparent;
 }
 
+.message p.error {
+  color: maroon;
+}
+
+.tool-log:empty {
+  display: none;
+}
+
+.tool-log {
+  margin-bottom: 0.4rem;
+  font: 0.82rem/1.4 ui-monospace, monospace;
+  color: var(--muted);
+}
+
+.log-line {
+  white-space: pre-wrap;
+}
+
 .composer {
   display: flex;
   flex-direction: column;

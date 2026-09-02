@@ -2,7 +2,14 @@
 <div class="message user">
   <p>{{.User}}</p>
 </div>
-<div class="message assistant" id="turn-{{.ID}}">
-  <p>Thinking...</p>
+<div
+  class="message assistant"
+  id="turn-{{.ID}}"
+  hx-ext="sse"
+  sse-connect="/conversations/{{.ConvID}}/turns/{{.ID}}/events"
+  sse-close="close"
+>
+  <div class="tool-log" sse-swap="log" hx-swap="beforeend"></div>
+  <div sse-swap="done,error"><p>Thinking...</p></div>
 </div>
 {{end}}

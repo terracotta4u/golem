@@ -32,7 +32,8 @@ type turn struct {
 	Error  string   `json:"error,omitempty"`
 	Log    []string `json:"log,omitempty"`
 
-	subs []chan turnEvent
+	convID string
+	subs   []chan turnEvent
 }
 
 type postTurnRequest struct {
@@ -69,7 +70,7 @@ func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
 }
 
 func (s *Server) startTurn(runCtx context.Context, convID string, req postTurnRequest) *turn {
-	t := &turn{ID: uuid.NewString(), Status: "pending"}
+	t := &turn{ID: uuid.NewString(), convID: convID, Status: "pending"}
 	s.mu.Lock()
 	s.turns[t.ID] = t
 	s.mu.Unlock()
@@ -82,11 +83,39 @@ func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
+	s.serveTurnEvents(w, r, r.PathValue("id"), "", func() {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "turn not found"})
+	}, func(name, line, text, err string) bool {
+		var data any
+		switch name {
+		case "log":
+			data = map[string]string{"line": line}
+		case "done":
+			data = map[string]string{"text": text}
+		case "error":
+			data = map[string]string{"error": err}
+		default:
+			return false
+		}
+		b, jerr := json.Marshal(data)
+		if jerr != nil {
+			return false
+		}
+		return writeSSE(w, name, string(b))
+	})
+}
 
-	id := r.PathValue("id")
+func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id, wantConv string, notFound func(), write func(name, line, text, err string) bool) {
 	snap, ch, ok := s.snapshotAndSubscribe(id)
 	if !ok {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "turn not found"})
+		notFound()
+		return
+	}
+	if wantConv != "" && snap.convID != wantConv {
+		if ch != nil {
+			s.unsubscribe(id, ch)
+		}
+		notFound()
 		return
 	}
 	if ch != nil {
@@ -98,31 +127,17 @@ func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	write := func(name string, data any) bool {
-		b, err := json.Marshal(data)
-		if err != nil {
-			return false
-		}
-		if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, b); err != nil {
-			return false
-		}
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
-		return true
-	}
-
 	for _, line := range snap.Log {
-		if !write("log", map[string]string{"line": line}) {
+		if !write("log", line, "", "") {
 			return
 		}
 	}
 	switch snap.Status {
 	case "done":
-		write("done", map[string]string{"text": snap.Text})
+		write("done", "", snap.Text, "")
 		return
 	case "error":
-		write("error", map[string]string{"error": snap.Error})
+		write("error", "", "", snap.Error)
 		return
 	}
 
@@ -134,20 +149,24 @@ func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			var wrote bool
-			switch ev.name {
-			case "log":
-				wrote = write("log", map[string]string{"line": ev.line})
-			case "done":
-				wrote = write("done", map[string]string{"text": ev.text})
-			case "error":
-				wrote = write("error", map[string]string{"error": ev.err})
+			if !write(ev.name, ev.line, ev.text, ev.err) {
+				return
 			}
-			if !wrote || ev.name == "done" || ev.name == "error" {
+			if ev.name == "done" || ev.name == "error" {
 				return
 			}
 		}
 	}
+}
+
+func writeSSE(w http.ResponseWriter, name, data string) bool {
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, data); err != nil {
+		return false
+	}
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	return true
 }
 
 func (s *Server) run(ctx context.Context, turnID, convID string, req postTurnRequest) {
