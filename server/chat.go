@@ -43,7 +43,7 @@ type postTurnRequest struct {
 
 func (s *Server) mountChat(mux *http.ServeMux, runCtx context.Context) {
 	mux.HandleFunc("POST /v1/conversations/{id}/turns", s.handlePostTurn(runCtx))
-	mux.HandleFunc("GET /v1/turns/{id}/events", s.handleGetTurnEvents)
+	mux.HandleFunc("GET /v1/turns/{id}", s.handleGetTurn)
 }
 
 func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
@@ -78,7 +78,7 @@ func (s *Server) startTurn(runCtx context.Context, convID string, req postTurnRe
 	return t
 }
 
-func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetTurn(w http.ResponseWriter, r *http.Request) {
 	if !s.authorized(r) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return

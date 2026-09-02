@@ -378,7 +378,7 @@ func TestWebTurnEventsNotFound(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/turns/missing/events")
+	resp, err := http.Get(ts.URL + "/turns/missing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +531,7 @@ func TestWebTurnEventsError(t *testing.T) {
 
 func getWebTurnEvents(t *testing.T, base, turnID string) []sseEvent {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, base+"/turns/"+turnID+"/events", nil)
+	req, err := http.NewRequest(http.MethodGet, base+"/turns/"+turnID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
