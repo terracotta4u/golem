@@ -17,7 +17,7 @@ import (
 
 const webChannel = "web"
 
-//go:embed web/templates/*.html web/templates/components/*.html web/static/*
+//go:embed web/templates/*.html web/templates/components/*.html web/static
 var webFS embed.FS
 
 func parseWeb() *template.Template {
@@ -94,14 +94,14 @@ func (s *Server) handleWebTurnEvents(w http.ResponseWriter, r *http.Request) {
 	}, func(name, line, text, err string) bool {
 		switch name {
 		case "log":
-			return writeSSE(w, "log", `<div class="log-line">`+sseEscape(line)+`</div>`)
+			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend"><div class="log-line">`+sseEscape(line)+`</div></hx-partial>`)
 		case "done":
-			if !writeSSE(w, "done", `<p>`+sseEscape(text)+`</p>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p>`+sseEscape(text)+`</p></hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")
 		case "error":
-			if !writeSSE(w, "error", `<p class="error">`+sseEscape(err)+`</p>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(err)+`</p></hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")

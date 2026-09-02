@@ -5,11 +5,11 @@
 <div
   class="message assistant"
   id="turn-{{.ID}}"
-  hx-ext="sse"
-  sse-connect="/conversations/{{.ConvID}}/turns/{{.ID}}/events"
-  sse-close="close"
+  hx-sse:connect="/conversations/{{.ConvID}}/turns/{{.ID}}/events"
+  hx-sse:close="close"
+  hx-swap="none"
 >
-  <div class="tool-log" sse-swap="log" hx-swap="beforeend"></div>
-  <div sse-swap="done,error"><p>Thinking...</p></div>
+  <div class="tool-log"></div>
+  <div class="reply"><p>Thinking...</p></div>
 </div>
 {{end}}

@@ -160,7 +160,13 @@ func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id, wan
 }
 
 func writeSSE(w http.ResponseWriter, name, data string) bool {
-	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, data); err != nil {
+	var err error
+	if name == "" {
+		_, err = fmt.Fprintf(w, "data: %s\n\n", data)
+	} else {
+		_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, data)
+	}
+	if err != nil {
 		return false
 	}
 	if f, ok := w.(http.Flusher); ok {

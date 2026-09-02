@@ -99,11 +99,11 @@ func TestConversationShowsMessages(t *testing.T) {
 	if !strings.Contains(body, `hx-target="#messages"`) {
 		t.Fatalf("conversation = %q, want hx-target", body)
 	}
-	if !strings.Contains(body, "/static/htmx.min.js") {
+	if !strings.Contains(body, "/static/htmx-4.0.0/htmx.min.js") {
 		t.Fatalf("conversation = %q, want htmx", body)
 	}
-	if !strings.Contains(body, "/static/sse.js") {
-		t.Fatalf("conversation = %q, want sse extension", body)
+	if !strings.Contains(body, "/static/htmx-4.0.0/hx-sse.min.js") {
+		t.Fatalf("conversation = %q, want hx-sse extension", body)
 	}
 }
 
@@ -208,6 +208,27 @@ func TestStaticCSS(t *testing.T) {
 	if !strings.Contains(string(body), "body") {
 		t.Fatalf("css = %q, want stylesheet", body)
 	}
+
+	for _, path := range []string{
+		"/static/htmx-4.0.0/htmx.min.js",
+		"/static/htmx-4.0.0/hx-sse.min.js",
+	} {
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s status = %d, want 200", path, resp.StatusCode)
+		}
+		if len(body) == 0 {
+			t.Fatalf("%s empty", path)
+		}
+	}
 }
 
 func TestWebPostTurn(t *testing.T) {
@@ -234,14 +255,11 @@ func TestWebPostTurn(t *testing.T) {
 		t.Fatalf("body = %q, want assistant placeholder", body)
 	}
 	id := turnID(t, body)
-	if !strings.Contains(body, `hx-ext="sse"`) {
-		t.Fatalf("body = %q, want sse extension", body)
+	if !strings.Contains(body, `hx-sse:connect="/conversations/web-1/turns/`+id) {
+		t.Fatalf("body = %q, want hx-sse:connect", body)
 	}
-	if !strings.Contains(body, `sse-connect="/conversations/web-1/turns/`+id) {
-		t.Fatalf("body = %q, want sse-connect", body)
-	}
-	if !strings.Contains(body, `sse-close="close"`) {
-		t.Fatalf("body = %q, want sse-close", body)
+	if !strings.Contains(body, `hx-sse:close="close"`) {
+		t.Fatalf("body = %q, want hx-sse:close", body)
 	}
 	events := getTurnEvents(t, ts.URL, "secret", id)
 	if len(events) != 1 || events[0].Event != "done" {
@@ -399,8 +417,8 @@ func TestWebTurnEventsDone(t *testing.T) {
 	}()
 
 	events := getWebTurnEvents(t, ts.URL, "web-1", id)
-	if !hasEvent(events, "done") || !strings.Contains(eventData(events, "done"), "Pasta.") {
-		t.Fatalf("events = %+v, want HTML done", events)
+	if !unnamedContains(events, "Pasta.") {
+		t.Fatalf("events = %+v, want unnamed HTML done", events)
 	}
 	if !hasEvent(events, "close") {
 		t.Fatalf("events = %+v, want close", events)
@@ -423,12 +441,12 @@ func TestWebTurnEventsLateSubscriber(t *testing.T) {
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
 	id := turnID(t, body)
 	first := getWebTurnEvents(t, ts.URL, "web-1", id)
-	if !hasEvent(first, "done") {
-		t.Fatalf("first = %+v, want done", first)
+	if !unnamedContains(first, "Pasta.") {
+		t.Fatalf("first = %+v, want unnamed HTML done", first)
 	}
 	events := getWebTurnEvents(t, ts.URL, "web-1", id)
-	if !hasEvent(events, "done") || !strings.Contains(eventData(events, "done"), "Pasta.") {
-		t.Fatalf("events = %+v, want HTML done", events)
+	if !unnamedContains(events, "Pasta.") {
+		t.Fatalf("events = %+v, want unnamed HTML done", events)
 	}
 }
 
@@ -479,11 +497,11 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 	}()
 
 	events := getWebTurnEvents(t, ts.URL, "web-1", id)
-	if !hasEvent(events, "log") || !strings.Contains(eventData(events, "log"), "[echo]") {
-		t.Fatalf("events = %+v, want HTML log", events)
+	if !unnamedContains(events, "[echo]") {
+		t.Fatalf("events = %+v, want unnamed HTML log", events)
 	}
-	if !hasEvent(events, "done") || !strings.Contains(eventData(events, "done"), "all set") {
-		t.Fatalf("events = %+v, want HTML done", events)
+	if !unnamedContains(events, "all set") {
+		t.Fatalf("events = %+v, want unnamed HTML done", events)
 	}
 }
 
@@ -503,8 +521,8 @@ func TestWebTurnEventsError(t *testing.T) {
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
 	id := turnID(t, body)
 	events := getWebTurnEvents(t, ts.URL, "web-1", id)
-	if !hasEvent(events, "error") || !strings.Contains(eventData(events, "error"), "boom") {
-		t.Fatalf("events = %+v, want HTML error", events)
+	if !unnamedContains(events, "boom") {
+		t.Fatalf("events = %+v, want unnamed HTML error", events)
 	}
 	if !hasEvent(events, "close") {
 		t.Fatalf("events = %+v, want close", events)
@@ -569,13 +587,13 @@ func hasEvent(events []sseEvent, name string) bool {
 	return false
 }
 
-func eventData(events []sseEvent, name string) string {
+func unnamedContains(events []sseEvent, substr string) bool {
 	for _, e := range events {
-		if e.Event == name {
-			return e.Data
+		if e.Event == "" && strings.Contains(e.Data, substr) {
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 func turnID(t *testing.T, body string) string {
