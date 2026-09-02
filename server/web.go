@@ -17,11 +17,11 @@ import (
 
 const webChannel = "web"
 
-//go:embed web/templates/*.html web/templates/components/*.html web/static
+//go:embed web/templates/*.html web/static
 var webFS embed.FS
 
 func parseWeb() *template.Template {
-	return template.Must(template.ParseFS(webFS, "web/templates/*.html", "web/templates/components/*.html"))
+	return template.Must(template.ParseFS(webFS, "web/templates/*.html"))
 }
 
 func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
