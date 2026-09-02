@@ -1,0 +1,31 @@
+{{define "conversation"}}
+{{template "layout-start" .}}
+<header class="bar">
+  <a href="/">All conversations</a>
+  <h1>{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</h1>
+</header>
+<main class="thread">
+  <section id="messages">
+    {{range .Messages}}
+      {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
+        <div class="message {{.Role}}">
+          <p>{{.Content}}</p>
+        </div>
+      {{end}}
+    {{end}}
+  </section>
+  <form
+    class="composer"
+    method="post"
+    action="/conversations/{{.ID}}/turns"
+    hx-post="/conversations/{{.ID}}/turns"
+    hx-target="#messages"
+    hx-swap="beforeend"
+    hx-on::after:request="this.reset()"
+  >
+    <textarea name="message" rows="3" required placeholder="Message"></textarea>
+    <button type="submit">Send</button>
+  </form>
+</main>
+{{template "layout-end" .}}
+{{end}}

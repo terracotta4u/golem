@@ -1,0 +1,15 @@
+{{define "turn"}}
+<div class="message user">
+  <p>{{.User}}</p>
+</div>
+<div
+  class="message assistant"
+  id="turn-{{.ID}}"
+  hx-sse:connect="/turns/{{.ID}}"
+  hx-sse:close="close"
+  hx-swap="none"
+>
+  <div class="tool-log"></div>
+  <div class="reply"><p>Thinking...</p></div>
+</div>
+{{end}}

@@ -1,0 +1,23 @@
+{{define "home"}}
+{{template "layout-start" .}}
+<header class="bar">
+  <h1>Golem</h1>
+  <form method="post" action="/conversations">
+    <button type="submit">New conversation</button>
+  </form>
+</header>
+<main>
+  {{if .Conversations}}
+  <ul class="conversation-list">
+    {{range .Conversations}}
+    <li>
+      <a href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p>No conversations</p>
+  {{end}}
+</main>
+{{template "layout-end" .}}
+{{end}}
