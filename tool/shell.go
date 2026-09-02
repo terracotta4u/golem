@@ -10,10 +10,9 @@ import (
 	"time"
 )
 
-// TODO: make these configurable
 const (
-	shellTimeout   = 30 * time.Second
-	maxShellOutput = 32 * 1024
+	defaultShellTimeout   = 30 * time.Second
+	defaultMaxShellOutput = 32 * 1024
 )
 
 type Shell struct{}
@@ -33,6 +32,14 @@ func (Shell) Spec() Spec {
 					"type":        "string",
 					"description": "The bash command to execute",
 				},
+				"timeout": map[string]any{
+					"type":        "integer",
+					"description": "Timeout in seconds. Defaults to 30.",
+				},
+				"max_output": map[string]any{
+					"type":        "integer",
+					"description": "Maximum number of output bytes to return. Defaults to 32768.",
+				},
 			},
 			"required": []string{"command"},
 		},
@@ -41,7 +48,9 @@ func (Shell) Spec() Spec {
 
 func (Shell) Call(ctx context.Context, args json.RawMessage) (string, error) {
 	var input struct {
-		Command string `json:"command"`
+		Command   string `json:"command"`
+		Timeout   int    `json:"timeout"`
+		MaxOutput int    `json:"max_output"`
 	}
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -50,11 +59,17 @@ func (Shell) Call(ctx context.Context, args json.RawMessage) (string, error) {
 		return "", fmt.Errorf("command is required")
 	}
 
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, shellTimeout)
-		defer cancel()
+	timeout := defaultShellTimeout
+	if input.Timeout > 0 {
+		timeout = time.Duration(input.Timeout) * time.Second
 	}
+	maxOutput := defaultMaxShellOutput
+	if input.MaxOutput > 0 {
+		maxOutput = input.MaxOutput
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "bash", "-c", input.Command)
 	var out bytes.Buffer
@@ -62,14 +77,14 @@ func (Shell) Call(ctx context.Context, args json.RawMessage) (string, error) {
 	cmd.Stderr = &out
 
 	err := cmd.Run()
-	output := truncate(out.String(), maxShellOutput)
+	output := truncate(out.String(), maxOutput)
 	if output == "" {
 		output = "(no output)"
 	}
 
 	if err != nil {
 		if ctx.Err() != nil {
-			return fmt.Sprintf("timed out after %s\n%s", shellTimeout, output), nil
+			return fmt.Sprintf("timed out after %s\n%s", timeout, output), nil
 		}
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
