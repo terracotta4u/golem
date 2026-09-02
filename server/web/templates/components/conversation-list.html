@@ -1,0 +1,13 @@
+{{define "conversation-list"}}
+{{if .}}
+<ul class="conversation-list">
+  {{range .}}
+  <li>
+    <a href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p>No conversations</p>
+{{end}}
+{{end}}

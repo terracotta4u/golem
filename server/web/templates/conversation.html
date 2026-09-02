@@ -1,0 +1,18 @@
+{{define "conversation"}}
+{{template "layout-start" .}}
+<header class="bar">
+  <a href="/">All conversations</a>
+  <h1>{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</h1>
+</header>
+<main class="thread">
+  <section id="messages">
+    {{range .Messages}}
+      {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
+        {{template "message" .}}
+      {{end}}
+    {{end}}
+  </section>
+  {{template "composer" .}}
+</main>
+{{template "layout-end" .}}
+{{end}}

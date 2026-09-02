@@ -1,0 +1,6 @@
+{{define "composer"}}
+<form class="composer" method="post" action="/conversations/{{.ID}}/turns">
+  <textarea name="message" rows="3" required placeholder="Message"></textarea>
+  <button type="submit">Send</button>
+</form>
+{{end}}

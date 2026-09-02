@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +30,7 @@ type Options struct {
 
 type Server struct {
 	opts Options
+	tmpl *template.Template
 
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
@@ -38,6 +40,7 @@ type Server struct {
 func New(opts Options) *Server {
 	return &Server{
 		opts:  opts,
+		tmpl:  parseWeb(),
 		locks: make(map[string]*sync.Mutex),
 		turns: make(map[string]*turn),
 	}
@@ -63,6 +66,7 @@ func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 	s.mountChat(mux, runCtx)
+	s.mountWeb(mux)
 	return mux
 }
 
