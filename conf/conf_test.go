@@ -3,6 +3,7 @@ package conf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,6 +38,21 @@ func TestLoadCreatesConf(t *testing.T) {
 	}
 	if cfg2.Provider != cfg.Provider || cfg2.Model != cfg.Model || cfg2.Listen != cfg.Listen {
 		t.Errorf("cfg2 = %+v", cfg2)
+	}
+
+	etc, err := EtcDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(etc, fileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MaxToolRounds != 0 {
+		t.Errorf("MaxToolRounds = %d, want 0 (no cap)", cfg.MaxToolRounds)
+	}
+	if strings.Contains(string(data), "max_tool_rounds") {
+		t.Errorf("default conf should omit max_tool_rounds: %s", data)
 	}
 }
 
@@ -237,6 +253,26 @@ func TestSaveRoundTrip(t *testing.T) {
 	}
 	if got.Model != "test-model" || !got.Extensions["echo"].IsEnabled() {
 		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestLoadMaxToolRounds(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(Conf{Model: "test-model", MaxToolRounds: 20}); err != nil {
+		t.Fatal(err)
+	}
+	got, created, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created {
+		t.Fatal("Save should not look like first-run create")
+	}
+	if got.MaxToolRounds != 20 {
+		t.Errorf("MaxToolRounds = %d, want 20", got.MaxToolRounds)
 	}
 }
 

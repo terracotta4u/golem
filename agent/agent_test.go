@@ -245,6 +245,80 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 	}
 }
 
+func TestSendAllowsManyToolRounds(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "ok"}
+	const rounds = 25
+	p := &scriptedProvider{replies: toolThenReply(rounds, "done")}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := New(p, workspace(t), echo).Session(st, store.New("cli")).Send(context.Background(), "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "done" {
+		t.Errorf("reply = %q, want done", reply)
+	}
+	if len(p.got) != rounds+1 {
+		t.Errorf("Chat calls = %d, want %d", len(p.got), rounds+1)
+	}
+	if len(echo.calls) != rounds {
+		t.Errorf("tool calls = %d, want %d", len(echo.calls), rounds)
+	}
+}
+
+func TestSendCapsToolRounds(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "ok"}
+	p := &scriptedProvider{replies: toolThenReply(5, "done")}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t), echo)
+	a.MaxToolRounds = 2
+	_, err = a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	if err == nil || !strings.Contains(err.Error(), "exceeded 2 tool rounds") {
+		t.Fatalf("err = %v, want exceeded 2 tool rounds", err)
+	}
+	if len(p.got) != 2 {
+		t.Errorf("Chat calls = %d, want 2", len(p.got))
+	}
+}
+
+func TestSendStopsWhenContextCanceled(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "ok"}
+	p := &scriptedProvider{replies: toolThenReply(100, "done")}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = New(p, workspace(t), echo).Session(st, store.New("cli")).Send(ctx, "hello")
+	if err != context.Canceled {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+	if len(p.got) != 0 {
+		t.Errorf("Chat calls = %d, want 0", len(p.got))
+	}
+}
+
+func toolThenReply(rounds int, reply string) []provider.Message {
+	msgs := make([]provider.Message, 0, rounds+1)
+	for range rounds {
+		msgs = append(msgs, provider.Message{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:       "call_1",
+				Type:     "function",
+				Function: provider.FunctionCall{Name: "echo", Arguments: `{}`},
+			}},
+		})
+	}
+	return append(msgs, provider.Message{Role: "assistant", Content: reply})
+}
+
 type stubTool struct {
 	name   string
 	result string

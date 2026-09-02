@@ -80,6 +80,7 @@ func loadApp() (*app, error) {
 		return nil, err
 	}
 	a := agent.New(openrouter.New(apiKey, model), dir, tools...)
+	a.MaxToolRounds = cfg.MaxToolRounds
 	return &app{cfg: cfg, store: st, agent: a}, nil
 }
 

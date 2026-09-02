@@ -11,10 +11,10 @@ import (
 	"github.com/terracotta4u/golem/tool"
 )
 
-// TODO: make this configurable
-const maxToolRounds = 20
-
 type Agent struct {
+	// MaxToolRounds caps Chat/tool loops per Send. Zero means no cap.
+	MaxToolRounds int
+
 	provider  provider.Provider
 	tools     map[string]tool.Tool
 	list      []tool.Tool
@@ -54,7 +54,14 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 	s.conv.SetTitleFrom(input)
 	s.conv.Messages = append(s.conv.Messages, provider.Message{Role: "user", Content: input})
 
-	for range maxToolRounds {
+	for round := 0; ; round++ {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		if max := s.agent.MaxToolRounds; max > 0 && round >= max {
+			return "", fmt.Errorf("exceeded %d tool rounds", max)
+		}
+
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
 			Messages: withSystemPrompt(systemPrompt(s.agent.workspace, s.agent.list...), s.conv.Messages),
 			Tools:    s.agent.defs,
@@ -85,8 +92,6 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 			})
 		}
 	}
-
-	return "", fmt.Errorf("exceeded %d tool rounds", maxToolRounds)
 }
 
 func withSystemPrompt(prompt string, msgs []provider.Message) []provider.Message {

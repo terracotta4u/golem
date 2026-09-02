@@ -16,11 +16,12 @@ const (
 )
 
 type Conf struct {
-	Provider   string               `json:"provider,omitempty"`
-	Model      string               `json:"model"`
-	APIKey     string               `json:"api_key,omitempty"`
-	Listen     string               `json:"listen,omitempty"`
-	Extensions map[string]Extension `json:"extensions,omitempty"`
+	Provider      string               `json:"provider,omitempty"`
+	Model         string               `json:"model"`
+	APIKey        string               `json:"api_key,omitempty"`
+	Listen        string               `json:"listen,omitempty"`
+	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
+	Extensions    map[string]Extension `json:"extensions,omitempty"`
 }
 
 type Extension struct {
