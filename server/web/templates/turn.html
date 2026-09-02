@@ -5,7 +5,7 @@
 <div
   class="message assistant"
   id="turn-{{.ID}}"
-  hx-sse:connect="/conversations/{{.ConvID}}/turns/{{.ID}}/events"
+  hx-sse:connect="/turns/{{.ID}}/events"
   hx-sse:close="close"
   hx-swap="none"
 >

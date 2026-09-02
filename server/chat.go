@@ -83,7 +83,7 @@ func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
-	s.serveTurnEvents(w, r, r.PathValue("id"), "", func() {
+	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "turn not found"})
 	}, func(name, line, text, err string) bool {
 		var data any
@@ -105,16 +105,9 @@ func (s *Server) handleGetTurnEvents(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id, wantConv string, notFound func(), write func(name, line, text, err string) bool) {
+func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id string, notFound func(), write func(name, line, text, err string) bool) {
 	snap, ch, ok := s.snapshotAndSubscribe(id)
 	if !ok {
-		notFound()
-		return
-	}
-	if wantConv != "" && snap.convID != wantConv {
-		if ch != nil {
-			s.unsubscribe(id, ch)
-		}
 		notFound()
 		return
 	}

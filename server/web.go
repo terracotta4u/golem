@@ -34,7 +34,7 @@ func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
 	mux.HandleFunc("POST /conversations", s.handleNewConversation)
 	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
 	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
-	mux.HandleFunc("GET /conversations/{id}/turns/{tid}/events", s.handleWebTurnEvents)
+	mux.HandleFunc("GET /turns/{id}/events", s.handleWebTurnEvents)
 }
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -84,12 +84,12 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 			}
 		}
 		t := s.startTurn(runCtx, convID, postTurnRequest{Channel: webChannel, Text: text})
-		s.render(w, "turn", map[string]any{"User": text, "ID": t.ID, "ConvID": convID})
+		s.render(w, "turn", map[string]any{"User": text, "ID": t.ID})
 	}
 }
 
 func (s *Server) handleWebTurnEvents(w http.ResponseWriter, r *http.Request) {
-	s.serveTurnEvents(w, r, r.PathValue("tid"), r.PathValue("id"), func() {
+	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
 		http.NotFound(w, r)
 	}, func(name, line, text, err string) bool {
 		switch name {
