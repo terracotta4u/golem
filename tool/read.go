@@ -8,8 +8,7 @@ import (
 	"strings"
 )
 
-// TODO: make these configurable
-const maxReadOutput = 32 * 1024
+const defaultMaxReadOutput = 32 * 1024
 
 type Read struct{}
 
@@ -36,6 +35,10 @@ func (Read) Spec() Spec {
 					"type":        "integer",
 					"description": "Maximum number of lines to return",
 				},
+				"max_output": map[string]any{
+					"type":        "integer",
+					"description": "Maximum number of output bytes to return. Defaults to 32768.",
+				},
 			},
 			"required": []string{"path"},
 		},
@@ -44,9 +47,10 @@ func (Read) Spec() Spec {
 
 func (Read) Call(_ context.Context, args json.RawMessage) (string, error) {
 	var input struct {
-		Path   string `json:"path"`
-		Offset int    `json:"offset"`
-		Limit  int    `json:"limit"`
+		Path      string `json:"path"`
+		Offset    int    `json:"offset"`
+		Limit     int    `json:"limit"`
+		MaxOutput int    `json:"max_output"`
 	}
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -84,7 +88,11 @@ func (Read) Call(_ context.Context, args json.RawMessage) (string, error) {
 	if b.Len() == 0 {
 		return "(empty file)", nil
 	}
-	return truncate(b.String(), maxReadOutput), nil
+	maxOutput := defaultMaxReadOutput
+	if input.MaxOutput > 0 {
+		maxOutput = input.MaxOutput
+	}
+	return truncate(b.String(), maxOutput), nil
 }
 
 func truncate(s string, n int) string {
