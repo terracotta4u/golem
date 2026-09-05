@@ -8,7 +8,9 @@
   <link rel="stylesheet" href="/static/css/base.css">
 </head>
 <body class="stack gap-0">
-<nav class="topbar">
+<nav class="topbar cluster gap-0">
+  <input type="checkbox" id="sidebar-open" class="sidebar-toggle">
+  <label class="topbar-menu py-3 px-5" for="sidebar-open">Menu</label>
   <a class="topbar-home py-3 px-5" href="/">Golem</a>
 </nav>
 <div class="shell grow">
@@ -28,6 +30,7 @@
   <p class="sidebar-empty px-5 py-3">No conversations</p>
   {{end}}
 </aside>
+<label class="sidebar-backdrop" for="sidebar-open"></label>
 <div class="workspace grow">
 {{end}}
 {{define "layout-end"}}

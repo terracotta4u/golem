@@ -3,7 +3,8 @@
   --container-md: 48rem;
   --container-lg: 64rem;
   --container: var(--container-sm);
-  --sidebar: 16rem;
+  --sidebar-width: 16rem;
+  --sidebar: var(--sidebar-width);
   --grid-columns: 12;
 }
 

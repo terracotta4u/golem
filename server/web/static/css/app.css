@@ -27,8 +27,22 @@ h1 {
 
 .topbar {
   flex-shrink: 0;
+  z-index: 4;
   background: var(--accent);
   color: var(--surface);
+}
+
+.sidebar-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.topbar-menu {
+  display: none;
+  cursor: pointer;
 }
 
 .topbar-home {
@@ -38,6 +52,7 @@ h1 {
 }
 
 .shell {
+  position: relative;
   display: flex;
   min-height: 0;
 }
@@ -48,6 +63,10 @@ h1 {
   overflow-y: auto;
   background: var(--surface);
   border-right: 1px solid var(--line);
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .sidebar-new {
@@ -68,6 +87,43 @@ h1 {
 .workspace {
   min-width: 0;
   overflow-y: auto;
+}
+
+@media (max-width: 48rem) {
+  :root {
+    --sidebar: 0;
+  }
+
+  .topbar-menu {
+    display: inline-block;
+  }
+
+  .sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    flex: none;
+    width: var(--sidebar-width);
+    translate: -100%;
+    transition: translate 0.2s ease;
+  }
+
+  .sidebar-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: color-mix(in srgb, var(--fg) 40%, transparent);
+  }
+
+  body:has(.sidebar-toggle:checked) .sidebar {
+    translate: 0;
+  }
+
+  body:has(.sidebar-toggle:checked) .sidebar-backdrop {
+    display: block;
+  }
 }
 
 a {

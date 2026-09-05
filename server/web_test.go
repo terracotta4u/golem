@@ -31,6 +31,9 @@ func TestHomeEmpty(t *testing.T) {
 	if !strings.Contains(body, `href="/">Golem</a>`) {
 		t.Fatalf("home = %q, want Golem nav", body)
 	}
+	if !strings.Contains(body, `for="sidebar-open"`) {
+		t.Fatalf("home = %q, want sidebar menu", body)
+	}
 	if !strings.Contains(body, "No conversations") {
 		t.Fatalf("home = %q, want empty state", body)
 	}
