@@ -1,20 +1,5 @@
 {{define "home"}}
 {{template "layout-start" .}}
-<main class="stack gap-6">
-  <form method="post" action="/conversations">
-    <button type="submit">New conversation</button>
-  </form>
-  {{if .Conversations}}
-  <ul class="conversation-list">
-    {{range .Conversations}}
-    <li>
-      <a class="py-3" href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
-    </li>
-    {{end}}
-  </ul>
-  {{else}}
-  <p>No conversations</p>
-  {{end}}
-</main>
+<main></main>
 {{template "layout-end" .}}
 {{end}}

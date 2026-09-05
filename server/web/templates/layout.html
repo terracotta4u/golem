@@ -11,9 +11,27 @@
 <nav class="topbar">
   <a class="topbar-home py-3 px-5" href="/">Golem</a>
 </nav>
-<div class="container stack gap-6 grow">
+<div class="shell grow">
+<aside class="sidebar">
+  <form method="post" action="/conversations">
+    <button class="sidebar-new" type="submit">New chat</button>
+  </form>
+  {{if .Conversations}}
+  <ul class="conversation-list">
+    {{range .Conversations}}
+    <li>
+      <a class="py-3 px-5{{if eq .ID $.ID}} current{{end}}" href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="sidebar-empty px-5 py-3">No conversations</p>
+  {{end}}
+</aside>
+<div class="workspace grow">
 {{end}}
 {{define "layout-end"}}
+</div>
 </div>
 <script src="/static/htmx-4.0.0/htmx.min.js"></script>
 <script src="/static/htmx-4.0.0/hx-sse.min.js"></script>

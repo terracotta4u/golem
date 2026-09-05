@@ -68,6 +68,36 @@ func TestHomeListsWebConversations(t *testing.T) {
 	}
 }
 
+func TestConversationShowsSidebarList(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(store.Conversation{ID: "web-1", Channel: "web", Title: "Dinner plans"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(store.Conversation{ID: "web-2", Channel: "web", Title: "Lunch plans"}); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/conversations/web-1")
+	if !strings.Contains(body, "Dinner plans") {
+		t.Fatalf("conversation = %q, want current in sidebar", body)
+	}
+	if !strings.Contains(body, "Lunch plans") {
+		t.Fatalf("conversation = %q, want recent list in sidebar", body)
+	}
+	if !strings.Contains(body, `class="sidebar-new"`) {
+		t.Fatalf("conversation = %q, want new chat button", body)
+	}
+	if !strings.Contains(body, `px-5 current"`) {
+		t.Fatalf("conversation = %q, want current conversation marked", body)
+	}
+}
+
 func TestConversationShowsMessages(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {
@@ -249,6 +279,9 @@ func TestStaticCSS(t *testing.T) {
 	layout := getStatic(t, ts.URL+"/static/css/layout.css")
 	if !strings.Contains(layout, ".row") || !strings.Contains(layout, ".col-6") {
 		t.Fatalf("layout = %q, want grid classes", layout)
+	}
+	if !strings.Contains(layout, "--sidebar") {
+		t.Fatalf("layout = %q, want sidebar width", layout)
 	}
 
 	for _, path := range []string{

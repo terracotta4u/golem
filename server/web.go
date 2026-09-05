@@ -37,21 +37,30 @@ func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
 	mux.HandleFunc("GET /turns/{id}", s.handleWebTurn)
 }
 
-func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+func (s *Server) webConversations() ([]store.Conversation, error) {
+	if s.opts.Store == nil {
+		return nil, nil
+	}
+	all, err := s.opts.Store.List()
+	if err != nil {
+		return nil, err
+	}
 	var list []store.Conversation
-	if s.opts.Store != nil {
-		all, err := s.opts.Store.List()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		for _, c := range all {
-			if c.Channel == webChannel {
-				list = append(list, c)
-			}
+	for _, c := range all {
+		if c.Channel == webChannel {
+			list = append(list, c)
 		}
 	}
-	s.render(w, "home", map[string]any{"Conversations": list})
+	return list, nil
+}
+
+func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+	list, err := s.webConversations()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "home", map[string]any{"Conversations": list, "ID": ""})
 }
 
 func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +143,17 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 			conv = c
 		}
 	}
-	s.render(w, "conversation", conv)
+	list, err := s.webConversations()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "conversation", map[string]any{
+		"Title":         conv.Title,
+		"ID":            conv.ID,
+		"Messages":      conv.Messages,
+		"Conversations": list,
+	})
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data any) {

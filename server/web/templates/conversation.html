@@ -1,6 +1,6 @@
 {{define "conversation"}}
 {{template "layout-start" .}}
-<main class="stack grow">
+<main class="container stack grow">
   <section id="messages" class="stack gap-3 grow pb-40">
     {{range .Messages}}
       {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
