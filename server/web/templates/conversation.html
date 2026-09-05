@@ -4,10 +4,10 @@
   <a href="/">All conversations</a>
 </header>
 <main class="stack grow">
-  <section id="messages" class="stack gap-3 grow">
+  <section id="messages" class="stack gap-3 grow pb-40">
     {{range .Messages}}
       {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
-        <div class="message {{.Role}}">
+        <div class="message {{.Role}}{{if eq .Role "user"}} my-6{{end}}">
           <p>{{.Content}}</p>
         </div>
       {{end}}
@@ -23,6 +23,7 @@
     hx-on::after:request="this.reset()"
   >
     <textarea
+      class="p-3"
       name="message"
       rows="3"
       required
@@ -30,7 +31,7 @@
       hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
     ></textarea>
     <div class="composer-bar">
-      <button type="submit">Send</button>
+      <button class="m-0" type="submit">Send</button>
     </div>
   </form>
 </main>

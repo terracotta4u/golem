@@ -1,5 +1,5 @@
 {{define "turn"}}
-<div class="message user">
+<div class="message user my-6">
   <p>{{.User}}</p>
 </div>
 <div
@@ -9,7 +9,7 @@
   hx-sse:close="close"
   hx-swap="none"
 >
-  <div class="tool-log"></div>
+  <div class="tool-log mb-2"></div>
   <div class="reply"><p>Thinking...</p></div>
 </div>
 {{end}}

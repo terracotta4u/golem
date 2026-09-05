@@ -230,8 +230,11 @@ func TestStaticCSS(t *testing.T) {
 	}
 
 	spacing := getStatic(t, ts.URL+"/static/css/spacing.css")
-	if !strings.Contains(spacing, "--space-4") {
+	if !strings.Contains(spacing, "--space-4") || !strings.Contains(spacing, "--space-40") {
 		t.Fatalf("spacing = %q, want space scale", spacing)
+	}
+	if !strings.Contains(spacing, ".mt-6") || !strings.Contains(spacing, ".p-4") {
+		t.Fatalf("spacing = %q, want padding and margin utilities", spacing)
 	}
 
 	layout := getStatic(t, ts.URL+"/static/css/layout.css")

@@ -11,7 +11,7 @@
   <ul class="conversation-list">
     {{range .Conversations}}
     <li>
-      <a href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
+      <a class="py-3" href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
     </li>
     {{end}}
   </ul>

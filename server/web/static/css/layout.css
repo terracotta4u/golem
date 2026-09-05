@@ -101,6 +101,10 @@
 .gap-8 { --gap: var(--space-8); gap: var(--space-8); }
 .gap-10 { --gap: var(--space-10); gap: var(--space-10); }
 .gap-12 { --gap: var(--space-12); gap: var(--space-12); }
+.gap-16 { --gap: var(--space-16); gap: var(--space-16); }
+.gap-24 { --gap: var(--space-24); gap: var(--space-24); }
+.gap-32 { --gap: var(--space-32); gap: var(--space-32); }
+.gap-40 { --gap: var(--space-40); gap: var(--space-40); }
 
 .items-start { align-items: start; }
 .items-center { align-items: center; }
