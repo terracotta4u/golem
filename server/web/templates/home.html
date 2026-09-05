@@ -1,12 +1,9 @@
 {{define "home"}}
 {{template "layout-start" .}}
-<header class="cluster justify-between">
-  <h1>Golem</h1>
+<main class="stack gap-6">
   <form method="post" action="/conversations">
     <button type="submit">New conversation</button>
   </form>
-</header>
-<main>
   {{if .Conversations}}
   <ul class="conversation-list">
     {{range .Conversations}}

@@ -28,6 +28,9 @@ func TestHomeEmpty(t *testing.T) {
 	if !strings.Contains(body, "<title>Golem</title>") {
 		t.Fatalf("home = %q, want Golem page title", body)
 	}
+	if !strings.Contains(body, `href="/">Golem</a>`) {
+		t.Fatalf("home = %q, want Golem nav", body)
+	}
 	if !strings.Contains(body, "No conversations") {
 		t.Fatalf("home = %q, want empty state", body)
 	}
@@ -92,6 +95,12 @@ func TestConversationShowsMessages(t *testing.T) {
 	}
 	if strings.Contains(body, "<h1>Dinner plans</h1>") {
 		t.Fatalf("conversation = %q, want title off the page", body)
+	}
+	if !strings.Contains(body, `href="/">Golem</a>`) {
+		t.Fatalf("conversation = %q, want Golem nav", body)
+	}
+	if strings.Contains(body, "All conversations") {
+		t.Fatalf("conversation = %q, want no in-page nav", body)
 	}
 	if !strings.Contains(body, "What is for dinner?") {
 		t.Fatalf("conversation = %q, want user message", body)

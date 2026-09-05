@@ -24,6 +24,17 @@ h1 {
   font-size: 1.15rem;
 }
 
+.topbar {
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.topbar-home {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 1.15rem;
+}
+
 a {
   color: inherit;
 }
