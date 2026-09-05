@@ -1,9 +1,10 @@
 :root {
-  --bg: var(--neutral-50);
-  --fg: var(--neutral-950);
-  --muted: var(--neutral-500);
-  --line: var(--neutral-200);
-  --accent: var(--neutral-900);
+  --bg: var(--stone-100);
+  --fg: var(--stone-950);
+  --muted: var(--stone-500);
+  --line: var(--stone-200);
+  --accent: var(--stone-800);
+  --surface: var(--stone-50);
 }
 
 * {
@@ -59,7 +60,11 @@ a {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--space-2);
   background: var(--accent);
-  color: var(--neutral-50);
+  color: var(--surface);
+}
+
+.message.assistant {
+  color: var(--accent);
 }
 
 .message p.error {
@@ -111,7 +116,7 @@ textarea {
   padding: var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--space-2);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--fg);
   resize: vertical;
 }
@@ -121,7 +126,7 @@ button {
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--space-2);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--fg);
   cursor: pointer;
 }
