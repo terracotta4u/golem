@@ -67,7 +67,7 @@ a {
 }
 
 #messages {
-  padding-bottom: 10rem;
+  padding-bottom: 8rem;
 }
 
 .composer {
@@ -78,7 +78,13 @@ a {
   width: min(100%, var(--container));
   translate: -50% 0;
   padding: var(--space-4) var(--space-5) var(--space-5);
-  background: var(--bg);
+  background: transparent;
+}
+
+.composer textarea {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .tool-log:empty {
