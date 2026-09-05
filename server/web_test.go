@@ -193,39 +193,27 @@ func TestStaticCSS(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/static/app.css")
-	if err != nil {
-		t.Fatal(err)
+	home := getHTML(t, ts.URL+"/")
+	if !strings.Contains(home, `/static/css/base.css`) {
+		t.Fatalf("home = %q, want base stylesheet", home)
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
+
+	base := getStatic(t, ts.URL+"/static/css/base.css")
+	if !strings.Contains(base, `url("colors.css")`) {
+		t.Fatalf("css = %q, want colors import", base)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200", resp.StatusCode)
-	}
-	if !strings.Contains(string(body), "body") {
-		t.Fatalf("css = %q, want stylesheet", body)
+
+	colors := getStatic(t, ts.URL+"/static/css/colors.css")
+	if !strings.Contains(colors, "--neutral-50") || !strings.Contains(colors, "--neutral-950") {
+		t.Fatalf("colors = %q, want neutral scale", colors)
 	}
 
 	for _, path := range []string{
+		"/static/css/app.css",
 		"/static/htmx-4.0.0/htmx.min.js",
 		"/static/htmx-4.0.0/hx-sse.min.js",
 	} {
-		resp, err := http.Get(ts.URL + path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("%s status = %d, want 200", path, resp.StatusCode)
-		}
-		if len(body) == 0 {
+		if getStatic(t, ts.URL+path) == "" {
 			t.Fatalf("%s empty", path)
 		}
 	}
@@ -579,6 +567,21 @@ func turnID(t *testing.T, body string) string {
 
 func getHTML(t *testing.T, url string) string {
 	t.Helper()
+	body, ct := getOK(t, url)
+	if !strings.HasPrefix(ct, "text/html") {
+		t.Fatalf("GET %s Content-Type = %q, want text/html", url, ct)
+	}
+	return body
+}
+
+func getStatic(t *testing.T, url string) string {
+	t.Helper()
+	body, _ := getOK(t, url)
+	return body
+}
+
+func getOK(t *testing.T, url string) (string, string) {
+	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatal(err)
@@ -591,8 +594,5 @@ func getHTML(t *testing.T, url string) string {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET %s status = %d: %s", url, resp.StatusCode, body)
 	}
-	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
-		t.Fatalf("GET %s Content-Type = %q, want text/html", url, ct)
-	}
-	return string(body)
+	return string(body), resp.Header.Get("Content-Type")
 }

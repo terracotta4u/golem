@@ -1,10 +1,9 @@
 :root {
-  color-scheme: light dark;
-  --bg: Canvas;
-  --fg: CanvasText;
-  --muted: color-mix(in srgb, CanvasText 55%, Canvas);
-  --line: color-mix(in srgb, CanvasText 16%, Canvas);
-  --accent: Highlight;
+  --bg: var(--neutral-50);
+  --fg: var(--neutral-950);
+  --muted: var(--neutral-500);
+  --line: var(--neutral-200);
+  --accent: var(--neutral-900);
 }
 
 * {
@@ -84,7 +83,7 @@ a {
 
 .message.user p {
   background: var(--accent);
-  color: HighlightText;
+  color: var(--neutral-50);
   border-color: transparent;
 }
 
