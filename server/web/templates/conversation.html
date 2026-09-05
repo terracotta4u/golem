@@ -1,11 +1,11 @@
 {{define "conversation"}}
 {{template "layout-start" .}}
-<header class="bar">
+<header class="cluster justify-between">
   <a href="/">All conversations</a>
   <h1>{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</h1>
 </header>
-<main class="thread">
-  <section id="messages">
+<main class="stack grow">
+  <section id="messages" class="stack gap-3 grow">
     {{range .Messages}}
       {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
         <div class="message {{.Role}}">
@@ -15,7 +15,7 @@
     {{end}}
   </section>
   <form
-    class="composer"
+    class="composer stack gap-2"
     method="post"
     action="/conversations/{{.ID}}/turns"
     hx-post="/conversations/{{.ID}}/turns"

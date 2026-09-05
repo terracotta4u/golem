@@ -202,10 +202,26 @@ func TestStaticCSS(t *testing.T) {
 	if !strings.Contains(base, `url("colors.css")`) {
 		t.Fatalf("css = %q, want colors import", base)
 	}
+	if !strings.Contains(base, `url("spacing.css")`) {
+		t.Fatalf("css = %q, want spacing import", base)
+	}
+	if !strings.Contains(base, `url("layout.css")`) {
+		t.Fatalf("css = %q, want layout import", base)
+	}
 
 	colors := getStatic(t, ts.URL+"/static/css/colors.css")
 	if !strings.Contains(colors, "--neutral-50") || !strings.Contains(colors, "--neutral-950") {
 		t.Fatalf("colors = %q, want neutral scale", colors)
+	}
+
+	spacing := getStatic(t, ts.URL+"/static/css/spacing.css")
+	if !strings.Contains(spacing, "--space-4") {
+		t.Fatalf("spacing = %q, want space scale", spacing)
+	}
+
+	layout := getStatic(t, ts.URL+"/static/css/layout.css")
+	if !strings.Contains(layout, ".row") || !strings.Contains(layout, ".col-6") {
+		t.Fatalf("layout = %q, want grid classes", layout)
 	}
 
 	for _, path := range []string{
