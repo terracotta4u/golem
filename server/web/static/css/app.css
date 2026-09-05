@@ -90,8 +90,9 @@ h1 {
 }
 
 @media (max-width: 48rem) {
-  :root {
-    --sidebar: 0;
+  :root,
+  body {
+    --sidebar: 0rem;
   }
 
   .topbar-menu {
@@ -123,6 +124,14 @@ h1 {
 
   body:has(.sidebar-toggle:checked) .sidebar-backdrop {
     display: block;
+  }
+
+  .composer {
+    left: var(--space-5);
+    right: var(--space-5);
+    width: auto;
+    max-width: none;
+    margin-inline: 0;
   }
 }
 
@@ -174,11 +183,13 @@ a {
 
 .composer {
   position: fixed;
-  bottom: var(--space-5);
-  left: calc(var(--sidebar) + (100% - var(--sidebar)) / 2);
   z-index: 1;
-  width: min(calc(100% - var(--sidebar) - 2 * var(--space-5)), calc(var(--container) - 2 * var(--space-5)));
-  translate: -50% 0;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  left: calc(var(--sidebar) + var(--space-5));
+  width: auto;
+  max-width: calc(var(--container) - 2 * var(--space-5));
+  margin-inline: auto;
   background: var(--surface);
   border: 1px solid var(--line);
 }
