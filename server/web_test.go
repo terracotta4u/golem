@@ -99,6 +99,9 @@ func TestConversationShowsMessages(t *testing.T) {
 	if !strings.Contains(body, `hx-target="#messages"`) {
 		t.Fatalf("conversation = %q, want hx-target", body)
 	}
+	if !strings.Contains(body, `hx-on:keydown`) {
+		t.Fatalf("conversation = %q, want enter-to-send", body)
+	}
 	if !strings.Contains(body, "/static/htmx-4.0.0/htmx.min.js") {
 		t.Fatalf("conversation = %q, want htmx", body)
 	}

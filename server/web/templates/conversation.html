@@ -23,7 +23,13 @@
     hx-swap="beforeend"
     hx-on::after:request="this.reset()"
   >
-    <textarea name="message" rows="3" required placeholder="Message"></textarea>
+    <textarea
+      name="message"
+      rows="3"
+      required
+      placeholder="Message"
+      hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
+    ></textarea>
     <button type="submit">Send</button>
   </form>
 </main>
