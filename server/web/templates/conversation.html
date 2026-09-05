@@ -14,7 +14,7 @@
     {{end}}
   </section>
   <form
-    class="composer cluster gap-2 items-end"
+    class="composer"
     method="post"
     action="/conversations/{{.ID}}/turns"
     hx-post="/conversations/{{.ID}}/turns"
@@ -29,7 +29,9 @@
       placeholder="Message"
       hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
     ></textarea>
-    <button type="submit">Send</button>
+    <div class="composer-bar">
+      <button type="submit">Send</button>
+    </div>
   </form>
 </main>
 {{template "layout-end" .}}
