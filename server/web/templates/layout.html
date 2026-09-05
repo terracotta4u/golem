@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Golem</title>
+  <title>{{if .Title}}{{.Title}}{{else if .ID}}New conversation{{else}}Golem{{end}}</title>
   <link rel="stylesheet" href="/static/css/base.css">
 </head>
 <body class="container stack gap-6">

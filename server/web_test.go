@@ -25,6 +25,9 @@ func TestHomeEmpty(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/")
+	if !strings.Contains(body, "<title>Golem</title>") {
+		t.Fatalf("home = %q, want Golem page title", body)
+	}
 	if !strings.Contains(body, "No conversations") {
 		t.Fatalf("home = %q, want empty state", body)
 	}
@@ -84,6 +87,12 @@ func TestConversationShowsMessages(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/web-1")
+	if !strings.Contains(body, "<title>Dinner plans</title>") {
+		t.Fatalf("conversation = %q, want title in page title", body)
+	}
+	if strings.Contains(body, "<h1>Dinner plans</h1>") {
+		t.Fatalf("conversation = %q, want title off the page", body)
+	}
 	if !strings.Contains(body, "What is for dinner?") {
 		t.Fatalf("conversation = %q, want user message", body)
 	}
@@ -119,6 +128,9 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/brand-new")
+	if !strings.Contains(body, "<title>New conversation</title>") {
+		t.Fatalf("conversation = %q, want untitled page title", body)
+	}
 	if !strings.Contains(body, `name="message"`) {
 		t.Fatalf("conversation = %q, want composer", body)
 	}

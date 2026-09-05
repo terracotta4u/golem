@@ -1,8 +1,7 @@
 {{define "conversation"}}
 {{template "layout-start" .}}
-<header class="cluster justify-between">
+<header>
   <a href="/">All conversations</a>
-  <h1>{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</h1>
 </header>
 <main class="stack grow">
   <section id="messages" class="stack gap-3 grow">
