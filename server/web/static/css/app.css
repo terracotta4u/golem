@@ -86,7 +86,10 @@ h1 {
 }
 
 .workspace {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -182,6 +185,21 @@ a {
   color: maroon;
 }
 
+.empty-chat {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+#messages:not(:has(.message)) {
+  justify-content: center;
+  align-items: center;
+}
+
+#messages:has(.message) .empty-chat {
+  display: none;
+}
+
 .composer {
   position: fixed;
   z-index: 1;
@@ -208,6 +226,10 @@ a {
   color: var(--fg);
   resize: vertical;
   outline: none;
+}
+
+.composer textarea::placeholder {
+  color: var(--muted);
 }
 
 .composer-bar {

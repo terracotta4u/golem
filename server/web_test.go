@@ -43,6 +43,15 @@ func TestHomeEmpty(t *testing.T) {
 	if !strings.Contains(body, `name="message"`) {
 		t.Fatalf("home = %q, want composer", body)
 	}
+	if !strings.Contains(body, `placeholder="How can I help you today?"`) {
+		t.Fatalf("home = %q, want composer prompt", body)
+	}
+	if !strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("home = %q, want empty chat prompt", body)
+	}
+	if !strings.Contains(body, "autofocus") {
+		t.Fatalf("home = %q, want composer focused", body)
+	}
 	if !regexp.MustCompile(`/conversations/[0-9a-f-]{36}/turns`).MatchString(body) {
 		t.Fatalf("home = %q, want new conversation turn URL", body)
 	}
@@ -147,6 +156,12 @@ func TestConversationShowsMessages(t *testing.T) {
 	if !strings.Contains(body, `href="/">Golem</a>`) {
 		t.Fatalf("conversation = %q, want Golem nav", body)
 	}
+	if strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("conversation = %q, want empty chat prompt only on new chats", body)
+	}
+	if strings.Contains(body, "autofocus") {
+		t.Fatalf("conversation = %q, want autofocus only on new chats", body)
+	}
 	if strings.Contains(body, "All conversations") {
 		t.Fatalf("conversation = %q, want no in-page nav", body)
 	}
@@ -196,6 +211,9 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 	}
 	if !strings.Contains(body, `name="message"`) {
 		t.Fatalf("conversation = %q, want composer", body)
+	}
+	if !strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("conversation = %q, want empty chat prompt", body)
 	}
 	if strings.Contains(body, "class=\"message\"") {
 		t.Fatalf("conversation = %q, want no messages", body)

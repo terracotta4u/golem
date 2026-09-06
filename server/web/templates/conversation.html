@@ -2,6 +2,9 @@
 {{template "layout-start" .}}
 <main class="container stack grow">
   <section id="messages" class="stack gap-3 grow pb-40">
+    {{if not .Messages}}
+    <p class="empty-chat">Ask Golem anything to get started</p>
+    {{end}}
     {{range .Messages}}
       {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
         <div class="message {{.Role}}{{if eq .Role "user"}} my-6{{end}}">
@@ -25,7 +28,8 @@
       name="message"
       rows="3"
       required
-      placeholder="Message"
+      placeholder="How can I help you today?"
+      {{if not .Messages}}autofocus{{end}}
       hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
     ></textarea>
     <div class="composer-bar">
