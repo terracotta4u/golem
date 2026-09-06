@@ -144,6 +144,9 @@ func TestConversationShowsMessages(t *testing.T) {
 	if !strings.Contains(body, `name="message"`) {
 		t.Fatalf("conversation = %q, want composer", body)
 	}
+	if !strings.Contains(body, `class="composer shadow-lg"`) {
+		t.Fatalf("conversation = %q, want composer drop shadow", body)
+	}
 	if !strings.Contains(body, `hx-post="/conversations/web-1/turns"`) {
 		t.Fatalf("conversation = %q, want hx-post", body)
 	}
@@ -262,8 +265,8 @@ func TestStaticCSS(t *testing.T) {
 	if !strings.Contains(base, `url("spacing.css")`) {
 		t.Fatalf("css = %q, want spacing import", base)
 	}
-	if !strings.Contains(base, `url("layout.css")`) {
-		t.Fatalf("css = %q, want layout import", base)
+	if !strings.Contains(base, `url("shadows.css")`) {
+		t.Fatalf("css = %q, want shadows import", base)
 	}
 
 	colors := getStatic(t, ts.URL+"/static/css/colors.css")
@@ -277,6 +280,14 @@ func TestStaticCSS(t *testing.T) {
 	}
 	if !strings.Contains(spacing, ".mt-6") || !strings.Contains(spacing, ".p-4") {
 		t.Fatalf("spacing = %q, want padding and margin utilities", spacing)
+	}
+
+	shadows := getStatic(t, ts.URL+"/static/css/shadows.css")
+	if !strings.Contains(shadows, "--shadow-xs") || !strings.Contains(shadows, "--shadow-xl") {
+		t.Fatalf("shadows = %q, want xs-xl scale", shadows)
+	}
+	if !strings.Contains(shadows, ".shadow-md") {
+		t.Fatalf("shadows = %q, want shadow utilities", shadows)
 	}
 
 	layout := getStatic(t, ts.URL+"/static/css/layout.css")
