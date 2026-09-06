@@ -205,7 +205,7 @@ a {
 
 .composer-spacer {
   flex-shrink: 0;
-  height: var(--composer-height);
+  height: calc(var(--composer-height) + var(--space-8));
 }
 
 .composer {
