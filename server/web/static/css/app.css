@@ -5,6 +5,7 @@
   --line: var(--stone-200);
   --accent: var(--stone-800);
   --surface: var(--stone-50);
+  --composer-height: 10rem;
 }
 
 * {
@@ -86,11 +87,13 @@ h1 {
 }
 
 .workspace {
-  display: flex;
-  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+}
+
+.workspace > .container {
+  min-height: 100%;
 }
 
 @media (max-width: 48rem) {
@@ -198,6 +201,11 @@ a {
 
 #messages:has(.message) .empty-chat {
   display: none;
+}
+
+.composer-spacer {
+  flex-shrink: 0;
+  height: var(--composer-height);
 }
 
 .composer {

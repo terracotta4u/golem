@@ -1,7 +1,7 @@
 {{define "conversation"}}
 {{template "layout-start" .}}
 <main class="container stack grow">
-  <section id="messages" class="stack gap-3 grow pb-40">
+  <section id="messages" class="stack gap-3 grow">
     {{if not .Messages}}
     <p class="empty-chat">Ask Golem anything to get started</p>
     {{end}}
@@ -13,15 +13,16 @@
       {{end}}
     {{end}}
   </section>
+  <div class="composer-spacer" aria-hidden="true"></div>
   <form
     class="composer shadow-lg"
     method="post"
     action="/conversations/{{.ID}}/turns"
     hx-post="/conversations/{{.ID}}/turns"
     hx-target="#messages"
-    hx-swap="beforeend"
+    hx-swap="beforeend scroll:bottom scrollTarget:.workspace"
     hx-push-url="/conversations/{{.ID}}"
-    hx-on::after:request="this.reset()"
+    hx-on::after:request="this.reset(); this.querySelector('textarea').focus()"
   >
     <textarea
       class="p-3"
@@ -29,7 +30,7 @@
       rows="3"
       required
       placeholder="How can I help you today?"
-      {{if not .Messages}}autofocus{{end}}
+      autofocus
       hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
     ></textarea>
     <div class="composer-bar">
@@ -37,5 +38,21 @@
     </div>
   </form>
 </main>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const workspace = document.querySelector(".workspace");
+  const composer = document.querySelector(".composer");
+  const sync = () => {
+    if (composer) {
+      document.documentElement.style.setProperty("--composer-height", composer.offsetHeight + "px");
+    }
+  };
+  if (composer) new ResizeObserver(sync).observe(composer);
+  sync();
+  requestAnimationFrame(() => {
+    if (workspace) workspace.scrollTop = workspace.scrollHeight;
+  });
+});
+</script>
 {{template "layout-end" .}}
 {{end}}

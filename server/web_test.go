@@ -159,8 +159,14 @@ func TestConversationShowsMessages(t *testing.T) {
 	if strings.Contains(body, "Ask Golem anything to get started") {
 		t.Fatalf("conversation = %q, want empty chat prompt only on new chats", body)
 	}
-	if strings.Contains(body, "autofocus") {
-		t.Fatalf("conversation = %q, want autofocus only on new chats", body)
+	if !strings.Contains(body, "autofocus") {
+		t.Fatalf("conversation = %q, want composer focused", body)
+	}
+	if !strings.Contains(body, "composer-spacer") {
+		t.Fatalf("conversation = %q, want space above composer", body)
+	}
+	if !strings.Contains(body, "workspace.scrollTop = workspace.scrollHeight") {
+		t.Fatalf("conversation = %q, want scroll to bottom", body)
 	}
 	if strings.Contains(body, "All conversations") {
 		t.Fatalf("conversation = %q, want no in-page nav", body)
