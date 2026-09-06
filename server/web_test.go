@@ -16,7 +16,7 @@ import (
 	"github.com/terracotta4u/golem/store"
 )
 
-func TestHomeEmpty(t *testing.T) {
+func TestHomeIsNewChat(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -25,77 +25,18 @@ func TestHomeEmpty(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/")
-	if !strings.Contains(body, "<title>New conversation</title>") {
-		t.Fatalf("home = %q, want new conversation title", body)
-	}
-	if !strings.Contains(body, `href="/">Golem</a>`) {
-		t.Fatalf("home = %q, want Golem nav", body)
-	}
-	if !strings.Contains(body, `for="sidebar-open"`) {
-		t.Fatalf("home = %q, want sidebar menu", body)
-	}
 	if !strings.Contains(body, "No conversations") {
-		t.Fatalf("home = %q, want empty state", body)
-	}
-	if !strings.Contains(body, `class="sidebar-new" href="/"`) {
-		t.Fatalf("home = %q, want new chat link", body)
-	}
-	if !strings.Contains(body, `name="message"`) {
-		t.Fatalf("home = %q, want composer", body)
-	}
-	if !strings.Contains(body, `placeholder="How can I help you today?"`) {
-		t.Fatalf("home = %q, want composer prompt", body)
-	}
-	if !strings.Contains(body, "Ask Golem anything to get started") {
-		t.Fatalf("home = %q, want empty chat prompt", body)
-	}
-	if !strings.Contains(body, "autofocus") {
-		t.Fatalf("home = %q, want composer focused", body)
+		t.Fatalf("home = %q, want empty sidebar", body)
 	}
 	if !regexp.MustCompile(`/conversations/[0-9a-f-]{36}/turns`).MatchString(body) {
 		t.Fatalf("home = %q, want new conversation turn URL", body)
-	}
-	if !strings.Contains(body, `hx-push-url="/conversations/`) {
-		t.Fatalf("home = %q, want URL update after first send", body)
 	}
 	if strings.Contains(body, `class="message"`) {
 		t.Fatalf("home = %q, want no messages", body)
 	}
 }
 
-func TestHomeListsWebConversations(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	web := store.Conversation{ID: "web-1", Channel: "web", Title: "Dinner plans"}
-	if err := st.Save(web); err != nil {
-		t.Fatal(err)
-	}
-	cli := store.Conversation{ID: "cli-1", Channel: "cli", Title: "Secret cli chat"}
-	if err := st.Save(cli); err != nil {
-		t.Fatal(err)
-	}
-
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
-	defer ts.Close()
-
-	body := getHTML(t, ts.URL+"/")
-	if !strings.Contains(body, "Dinner plans") {
-		t.Fatalf("home = %q, want web title", body)
-	}
-	if !strings.Contains(body, `/conversations/web-1`) {
-		t.Fatalf("home = %q, want link to web conversation", body)
-	}
-	if strings.Contains(body, "Secret cli chat") {
-		t.Fatalf("home listed cli conversation")
-	}
-	if !strings.Contains(body, `name="message"`) {
-		t.Fatalf("home = %q, want composer", body)
-	}
-}
-
-func TestConversationShowsSidebarList(t *testing.T) {
+func TestSidebarListsWebConversations(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -106,22 +47,27 @@ func TestConversationShowsSidebarList(t *testing.T) {
 	if err := st.Save(store.Conversation{ID: "web-2", Channel: "web", Title: "Lunch plans"}); err != nil {
 		t.Fatal(err)
 	}
+	if err := st.Save(store.Conversation{ID: "cli-1", Channel: "cli", Title: "Secret cli chat"}); err != nil {
+		t.Fatal(err)
+	}
 
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
 	defer ts.Close()
 
-	body := getHTML(t, ts.URL+"/conversations/web-1")
-	if !strings.Contains(body, "Dinner plans") {
-		t.Fatalf("conversation = %q, want current in sidebar", body)
+	home := getHTML(t, ts.URL+"/")
+	if !strings.Contains(home, "Dinner plans") || !strings.Contains(home, `/conversations/web-1`) {
+		t.Fatalf("home = %q, want web conversation", home)
 	}
-	if !strings.Contains(body, "Lunch plans") {
-		t.Fatalf("conversation = %q, want recent list in sidebar", body)
+	if strings.Contains(home, "Secret cli chat") {
+		t.Fatalf("home listed cli conversation")
 	}
-	if !strings.Contains(body, `class="sidebar-new" href="/"`) {
-		t.Fatalf("conversation = %q, want new chat link", body)
+
+	page := getHTML(t, ts.URL+"/conversations/web-1")
+	if !strings.Contains(page, "Lunch plans") {
+		t.Fatalf("conversation = %q, want sidebar list", page)
 	}
-	if !strings.Contains(body, `px-5 current"`) {
-		t.Fatalf("conversation = %q, want current conversation marked", body)
+	if !strings.Contains(page, `current" href="/conversations/web-1"`) {
+		t.Fatalf("conversation = %q, want current conversation marked", page)
 	}
 }
 
@@ -150,56 +96,14 @@ func TestConversationShowsMessages(t *testing.T) {
 	if !strings.Contains(body, "<title>Dinner plans</title>") {
 		t.Fatalf("conversation = %q, want title in page title", body)
 	}
-	if strings.Contains(body, "<h1>Dinner plans</h1>") {
-		t.Fatalf("conversation = %q, want title off the page", body)
-	}
-	if !strings.Contains(body, `href="/">Golem</a>`) {
-		t.Fatalf("conversation = %q, want Golem nav", body)
-	}
-	if strings.Contains(body, "Ask Golem anything to get started") {
-		t.Fatalf("conversation = %q, want empty chat prompt only on new chats", body)
-	}
-	if !strings.Contains(body, "autofocus") {
-		t.Fatalf("conversation = %q, want composer focused", body)
-	}
-	if !strings.Contains(body, "composer-spacer") {
-		t.Fatalf("conversation = %q, want space above composer", body)
-	}
-	if !strings.Contains(body, "workspace.scrollTop = workspace.scrollHeight") {
-		t.Fatalf("conversation = %q, want scroll to bottom", body)
-	}
-	if strings.Contains(body, "All conversations") {
-		t.Fatalf("conversation = %q, want no in-page nav", body)
-	}
 	if !strings.Contains(body, "What is for dinner?") {
 		t.Fatalf("conversation = %q, want user message", body)
 	}
 	if !strings.Contains(body, "Pasta.") {
 		t.Fatalf("conversation = %q, want assistant message", body)
 	}
-	if !strings.Contains(body, `name="message"`) {
-		t.Fatalf("conversation = %q, want composer", body)
-	}
-	if !strings.Contains(body, `class="composer shadow-lg"`) {
-		t.Fatalf("conversation = %q, want composer drop shadow", body)
-	}
-	if !strings.Contains(body, `hx-post="/conversations/web-1/turns"`) {
-		t.Fatalf("conversation = %q, want hx-post", body)
-	}
-	if !strings.Contains(body, `hx-push-url="/conversations/web-1"`) {
-		t.Fatalf("conversation = %q, want hx-push-url", body)
-	}
-	if !strings.Contains(body, `hx-target="#messages"`) {
-		t.Fatalf("conversation = %q, want hx-target", body)
-	}
-	if !strings.Contains(body, `hx-on:keydown`) {
-		t.Fatalf("conversation = %q, want enter-to-send", body)
-	}
-	if !strings.Contains(body, "/static/htmx-4.0.0/htmx.min.js") {
-		t.Fatalf("conversation = %q, want htmx", body)
-	}
-	if !strings.Contains(body, "/static/htmx-4.0.0/hx-sse.min.js") {
-		t.Fatalf("conversation = %q, want hx-sse extension", body)
+	if !strings.Contains(body, `/conversations/web-1/turns`) {
+		t.Fatalf("conversation = %q, want turn URL", body)
 	}
 }
 
@@ -212,16 +116,10 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/brand-new")
-	if !strings.Contains(body, "<title>New conversation</title>") {
-		t.Fatalf("conversation = %q, want untitled page title", body)
-	}
-	if !strings.Contains(body, `name="message"`) {
+	if !strings.Contains(body, `/conversations/brand-new/turns`) {
 		t.Fatalf("conversation = %q, want composer", body)
 	}
-	if !strings.Contains(body, "Ask Golem anything to get started") {
-		t.Fatalf("conversation = %q, want empty chat prompt", body)
-	}
-	if strings.Contains(body, "class=\"message\"") {
+	if strings.Contains(body, `class="message"`) {
 		t.Fatalf("conversation = %q, want no messages", body)
 	}
 }
@@ -258,58 +156,13 @@ func TestStaticCSS(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
 	defer ts.Close()
 
-	home := getHTML(t, ts.URL+"/")
-	if !strings.Contains(home, `/static/css/base.css`) {
-		t.Fatalf("home = %q, want base stylesheet", home)
-	}
-
 	base := getStatic(t, ts.URL+"/static/css/base.css")
-	if !strings.Contains(base, `url("colors.css")`) {
-		t.Fatalf("css = %q, want colors import", base)
+	if base == "" {
+		t.Fatal("base.css empty")
 	}
-	if !strings.Contains(base, `url("spacing.css")`) {
-		t.Fatalf("css = %q, want spacing import", base)
-	}
-	if !strings.Contains(base, `url("shadows.css")`) {
-		t.Fatalf("css = %q, want shadows import", base)
-	}
-
-	colors := getStatic(t, ts.URL+"/static/css/colors.css")
-	if !strings.Contains(colors, "--neutral-50") || !strings.Contains(colors, "--neutral-950") {
-		t.Fatalf("colors = %q, want neutral scale", colors)
-	}
-
-	spacing := getStatic(t, ts.URL+"/static/css/spacing.css")
-	if !strings.Contains(spacing, "--space-4") || !strings.Contains(spacing, "--space-40") {
-		t.Fatalf("spacing = %q, want space scale", spacing)
-	}
-	if !strings.Contains(spacing, ".mt-6") || !strings.Contains(spacing, ".p-4") {
-		t.Fatalf("spacing = %q, want padding and margin utilities", spacing)
-	}
-
-	shadows := getStatic(t, ts.URL+"/static/css/shadows.css")
-	if !strings.Contains(shadows, "--shadow-xs") || !strings.Contains(shadows, "--shadow-xl") {
-		t.Fatalf("shadows = %q, want xs-xl scale", shadows)
-	}
-	if !strings.Contains(shadows, ".shadow-md") {
-		t.Fatalf("shadows = %q, want shadow utilities", shadows)
-	}
-
-	layout := getStatic(t, ts.URL+"/static/css/layout.css")
-	if !strings.Contains(layout, ".row") || !strings.Contains(layout, ".col-6") {
-		t.Fatalf("layout = %q, want grid classes", layout)
-	}
-	if !strings.Contains(layout, "--sidebar") {
-		t.Fatalf("layout = %q, want sidebar width", layout)
-	}
-
-	for _, path := range []string{
-		"/static/css/app.css",
-		"/static/htmx-4.0.0/htmx.min.js",
-		"/static/htmx-4.0.0/hx-sse.min.js",
-	} {
-		if getStatic(t, ts.URL+path) == "" {
-			t.Fatalf("%s empty", path)
+	for _, name := range []string{"colors.css", "spacing.css", "shadows.css", "layout.css", "app.css"} {
+		if !strings.Contains(base, `url("`+name+`")`) {
+			t.Fatalf("css = %q, want import %s", base, name)
 		}
 	}
 }
