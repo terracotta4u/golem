@@ -15,9 +15,7 @@
 </nav>
 <div class="shell grow">
 <aside class="sidebar">
-  <form method="post" action="/conversations">
-    <button class="sidebar-new" type="submit">New chat</button>
-  </form>
+  <a class="sidebar-new" href="/">New chat</a>
   {{if .Conversations}}
   <ul class="conversation-list">
     {{range .Conversations}}

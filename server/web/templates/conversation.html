@@ -17,6 +17,7 @@
     hx-post="/conversations/{{.ID}}/turns"
     hx-target="#messages"
     hx-swap="beforeend"
+    hx-push-url="/conversations/{{.ID}}"
     hx-on::after:request="this.reset()"
   >
     <textarea

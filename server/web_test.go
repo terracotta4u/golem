@@ -25,8 +25,8 @@ func TestHomeEmpty(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/")
-	if !strings.Contains(body, "<title>Golem</title>") {
-		t.Fatalf("home = %q, want Golem page title", body)
+	if !strings.Contains(body, "<title>New conversation</title>") {
+		t.Fatalf("home = %q, want new conversation title", body)
 	}
 	if !strings.Contains(body, `href="/">Golem</a>`) {
 		t.Fatalf("home = %q, want Golem nav", body)
@@ -37,8 +37,20 @@ func TestHomeEmpty(t *testing.T) {
 	if !strings.Contains(body, "No conversations") {
 		t.Fatalf("home = %q, want empty state", body)
 	}
-	if !strings.Contains(body, `action="/conversations"`) {
-		t.Fatalf("home = %q, want new conversation form", body)
+	if !strings.Contains(body, `class="sidebar-new" href="/"`) {
+		t.Fatalf("home = %q, want new chat link", body)
+	}
+	if !strings.Contains(body, `name="message"`) {
+		t.Fatalf("home = %q, want composer", body)
+	}
+	if !regexp.MustCompile(`/conversations/[0-9a-f-]{36}/turns`).MatchString(body) {
+		t.Fatalf("home = %q, want new conversation turn URL", body)
+	}
+	if !strings.Contains(body, `hx-push-url="/conversations/`) {
+		t.Fatalf("home = %q, want URL update after first send", body)
+	}
+	if strings.Contains(body, `class="message"`) {
+		t.Fatalf("home = %q, want no messages", body)
 	}
 }
 
@@ -69,6 +81,9 @@ func TestHomeListsWebConversations(t *testing.T) {
 	if strings.Contains(body, "Secret cli chat") {
 		t.Fatalf("home listed cli conversation")
 	}
+	if !strings.Contains(body, `name="message"`) {
+		t.Fatalf("home = %q, want composer", body)
+	}
 }
 
 func TestConversationShowsSidebarList(t *testing.T) {
@@ -93,8 +108,8 @@ func TestConversationShowsSidebarList(t *testing.T) {
 	if !strings.Contains(body, "Lunch plans") {
 		t.Fatalf("conversation = %q, want recent list in sidebar", body)
 	}
-	if !strings.Contains(body, `class="sidebar-new"`) {
-		t.Fatalf("conversation = %q, want new chat button", body)
+	if !strings.Contains(body, `class="sidebar-new" href="/"`) {
+		t.Fatalf("conversation = %q, want new chat link", body)
 	}
 	if !strings.Contains(body, `px-5 current"`) {
 		t.Fatalf("conversation = %q, want current conversation marked", body)
@@ -149,6 +164,9 @@ func TestConversationShowsMessages(t *testing.T) {
 	}
 	if !strings.Contains(body, `hx-post="/conversations/web-1/turns"`) {
 		t.Fatalf("conversation = %q, want hx-post", body)
+	}
+	if !strings.Contains(body, `hx-push-url="/conversations/web-1"`) {
+		t.Fatalf("conversation = %q, want hx-push-url", body)
 	}
 	if !strings.Contains(body, `hx-target="#messages"`) {
 		t.Fatalf("conversation = %q, want hx-target", body)
@@ -205,43 +223,6 @@ func TestConversationWrongChannelNotFound(t *testing.T) {
 	io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
-	}
-}
-
-func TestNewConversationRedirects(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
-	defer ts.Close()
-
-	client := &http.Client{
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := client.Post(ts.URL+"/conversations", "application/x-www-form-urlencoded", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("status = %d, want 303", resp.StatusCode)
-	}
-	loc := resp.Header.Get("Location")
-	if !strings.HasPrefix(loc, "/conversations/") {
-		t.Fatalf("Location = %q, want /conversations/{id}", loc)
-	}
-	id := strings.TrimPrefix(loc, "/conversations/")
-	if id == "" {
-		t.Fatal("missing conversation id")
-	}
-
-	body := getHTML(t, ts.URL+loc)
-	if !strings.Contains(body, `name="message"`) {
-		t.Fatalf("new conversation = %q, want composer", body)
 	}
 }
 

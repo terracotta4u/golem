@@ -31,7 +31,6 @@ func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
 	}
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	mux.HandleFunc("GET /{$}", s.handleHome)
-	mux.HandleFunc("POST /conversations", s.handleNewConversation)
 	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
 	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
 	mux.HandleFunc("GET /turns/{id}", s.handleWebTurn)
@@ -55,16 +54,7 @@ func (s *Server) webConversations() ([]store.Conversation, error) {
 }
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
-	list, err := s.webConversations()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	s.render(w, "home", map[string]any{"Conversations": list, "ID": ""})
-}
-
-func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/conversations/"+uuid.NewString(), http.StatusSeeOther)
+	s.showConversation(w, r, uuid.NewString())
 }
 
 func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
@@ -127,7 +117,10 @@ func sseEscape(s string) string {
 }
 
 func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	s.showConversation(w, r, r.PathValue("id"))
+}
+
+func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id string) {
 	conv := store.Conversation{ID: id, Channel: webChannel}
 	if s.opts.Store != nil {
 		c, err := s.opts.Store.Load(id)
