@@ -10,12 +10,21 @@
 <body class="stack gap-0">
 <nav class="topbar cluster gap-0">
   <input type="checkbox" id="sidebar-open" class="sidebar-toggle">
-  <label class="topbar-menu py-3 px-5" for="sidebar-open">Menu</label>
+  <label class="topbar-menu py-3 px-5" for="sidebar-open" aria-label="Menu">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/>
+    </svg>
+  </label>
   <a class="topbar-home py-3 px-5" href="/">Golem</a>
 </nav>
 <div class="shell grow">
 <aside class="sidebar">
-  <a class="sidebar-new" href="/">New chat</a>
+  <a class="sidebar-new gap-2" href="/">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+    </svg>
+    New chat
+  </a>
   {{if .Conversations}}
   <ul class="conversation-list">
     {{range .Conversations}}
