@@ -83,6 +83,11 @@ h1 {
   background: var(--accent);
   color: var(--white);
   text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.sidebar-new:hover {
+  background: var(--green-700);
 }
 
 .sidebar-empty {
@@ -288,6 +293,11 @@ a {
   border-left: 1px solid var(--line);
   background: var(--accent);
   color: var(--white);
+  transition: background 0.15s ease;
+}
+
+.composer-bar button:hover {
+  background: var(--green-700);
 }
 
 .tool-log:empty {
