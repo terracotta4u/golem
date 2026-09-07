@@ -16,7 +16,7 @@ func TestInstallFromZip(t *testing.T) {
 
 	destRoot := t.TempDir()
 	stubEchoUV(t)
-	p, err := Install(zipPath, destRoot, false)
+	p, err := Install(zipPath, destRoot, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestInstallFromZipNestedFolder(t *testing.T) {
 
 	destRoot := t.TempDir()
 	stubEchoUV(t)
-	if _, err := Install(zipPath, destRoot, false); err != nil {
+	if _, err := Install(zipPath, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(destRoot, "echo", FileName)); err != nil {
@@ -60,7 +60,7 @@ func TestInstallZipRejectsPathEscape(t *testing.T) {
 		"../outside/pyproject.toml": {body: "[project]\nname = \"x\"\n"},
 	})
 
-	_, err := Install(zipPath, t.TempDir(), false)
+	_, err := Install(zipPath, t.TempDir(), Options{})
 	if err == nil {
 		t.Fatal("expected error")
 	}

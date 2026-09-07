@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/terracotta4u/golem/conf"
@@ -13,7 +12,7 @@ import (
 
 func runExtension(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: golem extension add <path> | golem extension list | golem extension remove <name>")
+		return fmt.Errorf("usage: golem extension add <source> | golem extension list | golem extension remove <name>")
 	}
 	switch args[0] {
 	case "add":
@@ -23,29 +22,29 @@ func runExtension(args []string) error {
 	case "remove":
 		return runExtensionRemove(args[1:])
 	default:
-		return fmt.Errorf("usage: golem extension add <path> | golem extension list | golem extension remove <name>")
+		return fmt.Errorf("usage: golem extension add <source> | golem extension list | golem extension remove <name>")
 	}
 }
 
 func runExtensionAdd(args []string) error {
 	fs := flag.NewFlagSet("golem extension add", flag.ContinueOnError)
 	force := fs.Bool("force", false, "replace an existing install")
+	ref := fs.String("ref", "", "git ref for a GitHub URL (default HEAD)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return fmt.Errorf("usage: golem extension add <path>")
+		return fmt.Errorf("usage: golem extension add <source>")
 	}
 
 	destRoot, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
 	}
-	p, err := extension.Install(fs.Arg(0), destRoot, *force)
-	if err != nil {
-		return err
-	}
-	src, err := filepath.Abs(fs.Arg(0))
+	p, err := extension.Install(fs.Arg(0), destRoot, extension.Options{
+		Force: *force,
+		Ref:   *ref,
+	})
 	if err != nil {
 		return err
 	}
@@ -53,7 +52,7 @@ func runExtensionAdd(args []string) error {
 	if err != nil {
 		return err
 	}
-	conf.SetExtensionOrigin(&cfg, p.Name, src, "", "")
+	conf.SetExtensionOrigin(&cfg, p.Name, p.Origin.Source, p.Origin.Ref, p.Origin.Revision)
 	if err := conf.Save(cfg); err != nil {
 		return err
 	}

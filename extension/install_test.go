@@ -13,7 +13,7 @@ import (
 )
 
 func TestInstallRequiresPyproject(t *testing.T) {
-	_, err := Install(t.TempDir(), t.TempDir(), false)
+	_, err := Install(t.TempDir(), t.TempDir(), Options{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -28,7 +28,7 @@ func TestInstallCopiesByProjectName(t *testing.T) {
 	writePythonSrc(t, src)
 	stubEchoUV(t)
 
-	p, err := Install(src, destRoot, false)
+	p, err := Install(src, destRoot, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,10 +121,10 @@ func TestInstallRefusesExisting(t *testing.T) {
 	destRoot := t.TempDir()
 	writePythonSrc(t, src)
 	stubEchoUV(t)
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Install(src, destRoot, false); err == nil {
+	if _, err := Install(src, destRoot, Options{}); err == nil {
 		t.Fatal("expected error")
 	} else if !strings.Contains(err.Error(), "--force") {
 		t.Errorf("error = %v, want --force", err)
@@ -139,7 +139,7 @@ func TestInstallForceReplaces(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "old.txt"), []byte("old"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(src, "old.txt")); err != nil {
@@ -148,7 +148,7 @@ func TestInstallForceReplaces(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "new.txt"), []byte("new"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Install(src, destRoot, true); err != nil {
+	if _, err := Install(src, destRoot, Options{Force: true}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(destRoot, "echo", "new.txt")); err != nil {
@@ -167,7 +167,7 @@ func TestInstallUvFailureKeepsExisting(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "keep.txt"), []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -178,7 +178,7 @@ func TestInstallUvFailureKeepsExisting(t *testing.T) {
 		return errors.New("uv failed")
 	})
 
-	_, err := Install(src, destRoot, true)
+	_, err := Install(src, destRoot, Options{Force: true})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -200,7 +200,7 @@ func TestRemoveDeletesInstall(t *testing.T) {
 	destRoot := t.TempDir()
 	writePythonSrc(t, src)
 	stubEchoUV(t)
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := Remove(destRoot, "echo"); err != nil {
@@ -274,7 +274,7 @@ func TestInstallSyncsPyproject(t *testing.T) {
 	}
 	t.Cleanup(func() { ensureRuntime = orig })
 
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 3 {
@@ -311,7 +311,7 @@ func TestInstallPyprojectRequiresVenvScript(t *testing.T) {
 	writePythonSrc(t, src)
 	stubUV(t, func(*exec.Cmd) error { return nil })
 
-	_, err := Install(src, t.TempDir(), false)
+	_, err := Install(src, t.TempDir(), Options{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -329,7 +329,7 @@ func TestInstallPyprojectAcceptsVenvScript(t *testing.T) {
 		return nil
 	})
 
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	script := venvScript(filepath.Join(destRoot, "echo"), "echo")
@@ -374,7 +374,7 @@ func TestInstallVenvUsesFinalPath(t *testing.T) {
 		return os.WriteFile(path, []byte(shebang), 0o700)
 	})
 
-	if _, err := Install(src, destRoot, false); err != nil {
+	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(venvScript(dest, "echo"))
@@ -409,7 +409,7 @@ func TestInstallPrintsCreatingVenv(t *testing.T) {
 	stubEchoUV(t)
 
 	stderr := captureStderr(t, func() {
-		if _, err := Install(src, t.TempDir(), false); err != nil {
+		if _, err := Install(src, t.TempDir(), Options{}); err != nil {
 			t.Fatal(err)
 		}
 	})

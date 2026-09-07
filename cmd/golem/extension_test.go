@@ -2,7 +2,11 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
+	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -192,6 +196,131 @@ func TestRunExtensionAddFromZip(t *testing.T) {
 	}
 }
 
+func TestRunExtensionAddFromGitHub(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	sha := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	stubGitHub(t, "terracotta4u", "golem-telegram", "HEAD", sha)
+	stubEchoRuntime(t)
+
+	if err := run([]string{"extension", "add", "https://github.com/terracotta4u/golem-telegram"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cfg.Extensions["echo"]
+	if got.Source != "https://github.com/terracotta4u/golem-telegram" {
+		t.Errorf("source = %q", got.Source)
+	}
+	if got.Ref != "HEAD" || got.Revision != sha {
+		t.Errorf("origin = %+v", got)
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdout
+	os.Stdout = w
+	err = run([]string{"extension", "list"})
+	w.Close()
+	os.Stdout = old
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotList := strings.TrimSpace(string(data))
+	want := "echo  0.1.0  https://github.com/terracotta4u/golem-telegram"
+	if gotList != want {
+		t.Errorf("list = %q, want %q", gotList, want)
+	}
+}
+
+func TestRunExtensionAddGitHubRef(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	sha := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	stubGitHub(t, "terracotta4u", "golem-telegram", "v1.2.0", sha)
+	stubEchoRuntime(t)
+
+	if err := run([]string{"extension", "add", "--ref", "v1.2.0", "https://github.com/terracotta4u/golem-telegram"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cfg.Extensions["echo"]
+	if got.Ref != "v1.2.0" || got.Revision != sha {
+		t.Errorf("origin = %+v", got)
+	}
+}
+
+func TestRunExtensionAddGitHubForceKeepsSecrets(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	writeConf(t, conf.Conf{
+		Model: "openai/gpt-4o-mini",
+		Extensions: map[string]conf.Extension{
+			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
+		},
+	})
+	sha := "cccccccccccccccccccccccccccccccccccccccc"
+	stubGitHub(t, "terracotta4u", "golem-telegram", "HEAD", sha)
+	stubEchoRuntime(t)
+	dir, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "echo"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"extension", "add", "--force", "https://github.com/terracotta4u/golem-telegram"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cfg.Extensions["echo"]
+	if got.Env["ECHO_TOKEN"] != "secret" {
+		t.Errorf("wiped secret: %+v", got)
+	}
+	if got.Revision != sha {
+		t.Errorf("revision = %q, want %s", got.Revision, sha)
+	}
+}
+
+func TestRunExtensionAddRefRequiresGitHub(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	writePythonExt(t, src)
+	err := run([]string{"extension", "add", "--ref", "HEAD", src})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "GitHub") {
+		t.Errorf("error = %v, want GitHub", err)
+	}
+}
+
+func TestRunExtensionAddRejectsTreeURL(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	err := run([]string{"extension", "add", "https://github.com/terracotta4u/golem-telegram/tree/main"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "GitHub") {
+		t.Errorf("error = %v, want GitHub", err)
+	}
+}
+
 func TestRunExtensionList(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
@@ -314,4 +443,34 @@ func captureStderr(t *testing.T, fn func()) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func stubGitHub(t *testing.T, owner, repo, ref, sha string) *httptest.Server {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, err := zw.Create(repo + "-" + sha[:7] + "/pyproject.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fw.Write([]byte(echoPyproject)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	zipBytes := buf.Bytes()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/"+owner+"/"+repo+"/commits/"+ref, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{"sha": sha})
+	})
+	mux.HandleFunc("/repos/"+owner+"/"+repo+"/zipball/"+sha, func(w http.ResponseWriter, r *http.Request) {
+		w.Write(zipBytes)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	restore := extension.StubGitHub(srv.Client(), srv.URL)
+	t.Cleanup(restore)
+	return srv
 }

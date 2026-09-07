@@ -8,29 +8,39 @@ import (
 	"strings"
 )
 
-func Install(src, destRoot string, force bool) (Project, error) {
+func Install(src, destRoot string, opts Options) (Result, error) {
+	if isRemoteSource(src) {
+		return installGitHub(src, destRoot, opts)
+	}
+	if strings.TrimSpace(opts.Ref) != "" {
+		return Result{}, fmt.Errorf("ref is only valid for a GitHub URL")
+	}
 	src, err := filepath.Abs(src)
 	if err != nil {
-		return Project{}, err
+		return Result{}, err
 	}
 	info, err := os.Stat(src)
 	if err != nil {
-		return Project{}, err
+		return Result{}, err
 	}
 
 	dir := src
 	if !info.IsDir() {
 		if !isZipPath(src) {
-			return Project{}, fmt.Errorf("%s is not a directory or zip file", src)
+			return Result{}, fmt.Errorf("%s is not a directory or zip file", src)
 		}
 		staged, cleanup, err := stageZip(src)
 		if err != nil {
-			return Project{}, err
+			return Result{}, err
 		}
 		defer cleanup()
 		dir = staged
 	}
-	return installDir(dir, destRoot, force)
+	p, err := installDir(dir, destRoot, opts.Force)
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{Project: p, Origin: Origin{Source: src}}, nil
 }
 
 func installDir(src, destRoot string, force bool) (Project, error) {
