@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -45,8 +44,6 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > "+strconv.Quote(out)+"\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeConf(t, conf.Conf{Listen: addr})
-
 	app, err := loadApp()
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +52,7 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errc := make(chan error, 1)
-	go func() { errc <- serve(ctx, app, addr) }()
+	go func() { errc <- serve(ctx, app, addr, "secret") }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	var got string
@@ -64,12 +61,12 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 		if err == nil {
 			got = strings.TrimSpace(string(data))
 			parts := strings.SplitN(got, " ", 2)
-			if len(parts) == 2 && parts[0] == "http://"+addr && parts[1] != "" {
+			if len(parts) == 2 && parts[0] == "http://"+addr && parts[1] == "secret" {
 				break
 			}
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("extension env = %q (%v), want GOLEM_URL=http://%s and a token", got, err, addr)
+			t.Fatalf("extension env = %q (%v), want GOLEM_URL=http://%s GOLEM_TOKEN=secret", got, err, addr)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
@@ -221,8 +218,6 @@ func TestServeStartsVenvExtension(t *testing.T) {
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeConf(t, conf.Conf{Listen: addr})
-
 	app, err := loadApp()
 	if err != nil {
 		t.Fatal(err)
@@ -231,7 +226,7 @@ func TestServeStartsVenvExtension(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errc := make(chan error, 1)
-	go func() { errc <- serve(ctx, app, addr) }()
+	go func() { errc <- serve(ctx, app, addr, "") }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	var got string
@@ -282,22 +277,4 @@ func writeVenvEcho(t *testing.T, dir string) string {
 
 func projectTOML(name string) string {
 	return "[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\n\n[project.scripts]\n" + name + " = \"" + name + ":main\"\n"
-}
-
-func writeConf(t *testing.T, cfg conf.Conf) {
-	t.Helper()
-	dir, err := conf.EtcDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "conf.json"), append(data, '\n'), 0o600); err != nil {
-		t.Fatal(err)
-	}
 }

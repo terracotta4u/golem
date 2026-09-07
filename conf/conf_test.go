@@ -17,7 +17,7 @@ func TestLoadCreatesConf(t *testing.T) {
 	if !created {
 		t.Fatal("expected first load to create conf")
 	}
-	if cfg.Provider != "openrouter" || cfg.Model != "openai/gpt-4o-mini" || cfg.Listen != DefaultListen {
+	if cfg.Provider != "openrouter" || cfg.Model != "openai/gpt-4o-mini" {
 		t.Errorf("cfg = %+v", cfg)
 	}
 
@@ -36,7 +36,7 @@ func TestLoadCreatesConf(t *testing.T) {
 	if created2 {
 		t.Fatal("second load should not create conf")
 	}
-	if cfg2.Provider != cfg.Provider || cfg2.Model != cfg.Model || cfg2.Listen != cfg.Listen {
+	if cfg2.Provider != cfg.Provider || cfg2.Model != cfg.Model {
 		t.Errorf("cfg2 = %+v", cfg2)
 	}
 
@@ -53,6 +53,9 @@ func TestLoadCreatesConf(t *testing.T) {
 	}
 	if strings.Contains(string(data), "max_tool_rounds") {
 		t.Errorf("default conf should omit max_tool_rounds: %s", data)
+	}
+	if strings.Contains(string(data), "listen") {
+		t.Errorf("default conf should omit listen: %s", data)
 	}
 }
 

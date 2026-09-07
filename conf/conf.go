@@ -8,18 +8,16 @@ import (
 )
 
 const (
-	dirName       = ".golem"
-	fileName      = "conf.json"
-	SoulFile      = "SOUL.md"
-	UserFile      = "USER.md"
-	DefaultListen = "127.0.0.1:8743"
+	dirName  = ".golem"
+	fileName = "conf.json"
+	SoulFile = "SOUL.md"
+	UserFile = "USER.md"
 )
 
 type Conf struct {
 	Provider      string               `json:"provider,omitempty"`
 	Model         string               `json:"model"`
 	APIKey        string               `json:"api_key,omitempty"`
-	Listen        string               `json:"listen,omitempty"`
 	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
 	Extensions    map[string]Extension `json:"extensions,omitempty"`
 }
@@ -35,7 +33,6 @@ func defaults() Conf {
 	return Conf{
 		Provider: "openrouter",
 		Model:    "openai/gpt-4o-mini",
-		Listen:   DefaultListen,
 	}
 }
 
@@ -146,9 +143,6 @@ func Load() (cfg Conf, created bool, err error) {
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = defaults().Provider
-	}
-	if cfg.Listen == "" {
-		cfg.Listen = DefaultListen
 	}
 	return cfg, false, nil
 }

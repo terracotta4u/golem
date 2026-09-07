@@ -13,9 +13,12 @@ import (
 	"github.com/terracotta4u/golem/supervisor"
 )
 
+const defaultListen = "127.0.0.1:8743"
+
 func runServe(args []string) error {
 	fs := flag.NewFlagSet("golem", flag.ContinueOnError)
-	addr := fs.String("addr", "", "listen address (default from conf)")
+	addr := fs.String("addr", defaultListen, "listen address")
+	token := fs.String("token", "", "auth token (generated if empty)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -25,18 +28,15 @@ func runServe(args []string) error {
 		return err
 	}
 
-	listen := *addr
-	if listen == "" {
-		listen = app.cfg.Listen
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	return serve(ctx, app, listen)
+	return serve(ctx, app, *addr, *token)
 }
 
-func serve(ctx context.Context, app *app, listen string) error {
-	token := server.NewToken()
+func serve(ctx context.Context, app *app, listen, token string) error {
+	if token == "" {
+		token = server.NewToken()
+	}
 	fmt.Fprintf(os.Stderr, "token: %s\n", token)
 
 	extRoot, err := conf.ExtensionsDir()
