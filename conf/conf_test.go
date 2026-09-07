@@ -221,20 +221,6 @@ func TestUVPythonDir(t *testing.T) {
 	}
 }
 
-func TestExtensionIsEnabled(t *testing.T) {
-	off := false
-	on := true
-	if !(Extension{}).IsEnabled() {
-		t.Error("omitted enabled should be true")
-	}
-	if !(Extension{Enabled: &on}).IsEnabled() {
-		t.Error("enabled true should be true")
-	}
-	if (Extension{Enabled: &off}).IsEnabled() {
-		t.Error("enabled false should be false")
-	}
-}
-
 func TestSaveRoundTrip(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := Load(); err != nil {
@@ -251,8 +237,11 @@ func TestSaveRoundTrip(t *testing.T) {
 	if created {
 		t.Fatal("Save should not look like first-run create")
 	}
-	if got.Model != "test-model" || !got.Extensions["echo"].IsEnabled() {
+	if got.Model != "test-model" {
 		t.Errorf("got = %+v", got)
+	}
+	if _, ok := got.Extensions["echo"]; !ok {
+		t.Errorf("got = %+v, want echo", got)
 	}
 }
 

@@ -179,23 +179,6 @@ func TestRunningExtensionsIgnoresConfWithoutInstall(t *testing.T) {
 	}
 }
 
-func TestRunningExtensionsSkipsDisabled(t *testing.T) {
-	root := t.TempDir()
-	writeProject(t, root, "echo")
-	off := false
-	got, err := runningExtensions(conf.Conf{
-		Extensions: map[string]conf.Extension{
-			"echo": {Enabled: &off},
-		},
-	}, root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 0 {
-		t.Errorf("extensions = %+v, want none", got)
-	}
-}
-
 func TestRunningExtensionsNameMismatch(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "echo")

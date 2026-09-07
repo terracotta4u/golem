@@ -25,12 +25,7 @@ type Conf struct {
 }
 
 type Extension struct {
-	Enabled *bool             `json:"enabled,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
-}
-
-func (e Extension) IsEnabled() bool {
-	return e.Enabled == nil || *e.Enabled
+	Env map[string]string `json:"env,omitempty"`
 }
 
 func defaults() Conf {

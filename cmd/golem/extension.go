@@ -60,17 +60,9 @@ func runExtensionList(args []string) error {
 	if err != nil {
 		return err
 	}
-	cfg, _, err := conf.Load()
-	if err != nil {
-		return err
-	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, p := range list {
-		status := "enabled"
-		if !cfg.Extensions[p.Name].IsEnabled() {
-			status = "disabled"
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, p.Version, status)
+		fmt.Fprintf(w, "%s\t%s\n", p.Name, p.Version)
 	}
 	return w.Flush()
 }

@@ -168,53 +168,7 @@ func TestRunExtensionList(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.TrimSpace(string(data))
-	if got != "echo  0.1.0  enabled" {
-		t.Errorf("list = %q", got)
-	}
-}
-
-func TestRunExtensionListMarksDisabled(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
-		t.Fatal(err)
-	}
-	dir, err := conf.ExtensionsDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(dir, "echo")
-	if err := os.MkdirAll(path, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(path, "pyproject.toml"), []byte(echoPyproject), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	off := false
-	writeConf(t, conf.Conf{
-		Model: "openai/gpt-4o-mini",
-		Extensions: map[string]conf.Extension{
-			"echo": {Enabled: &off},
-		},
-	})
-
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	old := os.Stdout
-	os.Stdout = w
-	err = run([]string{"extension", "list"})
-	w.Close()
-	os.Stdout = old
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := strings.TrimSpace(string(data))
-	if got != "echo  0.1.0  disabled" {
+	if got != "echo  0.1.0" {
 		t.Errorf("list = %q", got)
 	}
 }
