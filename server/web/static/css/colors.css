@@ -1,25 +1,23 @@
 /*
-Palette based on Flexoki:
+Accents based on Flexoki:
 https://stephango.com/flexoki
 */
 
 :root {
-  --black:       #100F0F;
-  --paper:       #FFFCF0;
+  --white:       #FFFFFF;
+  --black:       #000000;
 
-  --gray-50:     #F2F0E5;
-  --gray-100:    #E6E4D9;
-  --gray-150:    #DAD8CE;
-  --gray-200:    #CECDC3;
-  --gray-300:    #B7B5AC;
-  --gray-400:    #9F9D96;
-  --gray-500:    #878580;
-  --gray-600:    #6F6E69;
-  --gray-700:    #575653;
-  --gray-800:    #403E3C;
-  --gray-850:    #343331;
-  --gray-900:    #282726;
-  --gray-950:    #1C1B1A;
+  --stone-50:    #FAFAF9;
+  --stone-100:   #F5F5F4;
+  --stone-200:   #E7E5E4;
+  --stone-300:   #D6D3D1;
+  --stone-400:   #A6A09B;
+  --stone-500:   #79716B;
+  --stone-600:   #57534D;
+  --stone-700:   #44403B;
+  --stone-800:   #292524;
+  --stone-900:   #1C1917;
+  --stone-950:   #0C0A09;
 
   --red-50:      #FFE1D5;
   --red-100:     #FFCABB;

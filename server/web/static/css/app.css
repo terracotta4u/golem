@@ -1,10 +1,10 @@
 :root {
-  --bg: var(--stone-100);
-  --fg: var(--stone-950);
-  --muted: var(--stone-500);
+  --bg: var(--stone-50);
+  --fg: var(--black);
+  --muted: var(--stone-600);
   --line: var(--stone-200);
-  --accent: var(--stone-800);
-  --surface: var(--stone-50);
+  --accent: var(--green-600);
+  --surface: var(--white);
   --composer-height: 10rem;
 }
 
@@ -29,8 +29,8 @@ h1 {
 .topbar {
   flex-shrink: 0;
   z-index: 4;
-  background: var(--accent);
-  color: var(--surface);
+  background: var(--black);
+  color: var(--white);
 }
 
 .sidebar-toggle {
@@ -79,7 +79,7 @@ h1 {
   border: 0;
   border-radius: 0;
   background: var(--accent);
-  color: var(--surface);
+  color: var(--white);
   text-decoration: none;
 }
 
@@ -160,7 +160,7 @@ a {
 }
 
 .conversation-list a.current {
-  background: var(--bg);
+  background: var(--green-50);
 }
 
 .message p {
@@ -178,16 +178,16 @@ a {
   max-width: 100%;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--space-2) var(--space-2) 0 var(--space-2);
-  background: var(--accent);
-  color: var(--surface);
+  background: var(--black);
+  color: var(--white);
 }
 
 .message.assistant {
-  color: var(--accent);
+  color: var(--fg);
 }
 
 .message p.error {
-  color: maroon;
+  color: var(--red-600);
 }
 
 .empty-chat {
@@ -224,7 +224,7 @@ a {
 }
 
 .composer:focus-within {
-  border-color: var(--accent);
+  border-color: var(--stone-800);
 }
 
 .composer textarea {
@@ -257,7 +257,7 @@ a {
   border-radius: 0;
   border-left: 1px solid var(--line);
   background: var(--accent);
-  color: var(--surface);
+  color: var(--white);
 }
 
 .tool-log:empty {
