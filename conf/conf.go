@@ -25,12 +25,10 @@ type Conf struct {
 }
 
 type Extension struct {
-	Enabled *bool             `json:"enabled,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
-}
-
-func (e Extension) IsEnabled() bool {
-	return e.Enabled == nil || *e.Enabled
+	Source   string            `json:"source,omitempty"`
+	Ref      string            `json:"ref,omitempty"`
+	Revision string            `json:"revision,omitempty"`
+	Env      map[string]string `json:"env,omitempty"`
 }
 
 func defaults() Conf {
@@ -194,4 +192,15 @@ func Save(cfg Conf) error {
 
 func RemoveExtension(cfg *Conf, name string) {
 	delete(cfg.Extensions, name)
+}
+
+func SetExtensionOrigin(cfg *Conf, name, source, ref, revision string) {
+	if cfg.Extensions == nil {
+		cfg.Extensions = make(map[string]Extension)
+	}
+	e := cfg.Extensions[name]
+	e.Source = source
+	e.Ref = ref
+	e.Revision = revision
+	cfg.Extensions[name] = e
 }

@@ -221,26 +221,14 @@ func TestUVPythonDir(t *testing.T) {
 	}
 }
 
-func TestExtensionIsEnabled(t *testing.T) {
-	off := false
-	on := true
-	if !(Extension{}).IsEnabled() {
-		t.Error("omitted enabled should be true")
-	}
-	if !(Extension{Enabled: &on}).IsEnabled() {
-		t.Error("enabled true should be true")
-	}
-	if (Extension{Enabled: &off}).IsEnabled() {
-		t.Error("enabled false should be false")
-	}
-}
-
 func TestSaveRoundTrip(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	cfg := Conf{Model: "test-model", Extensions: map[string]Extension{"echo": {}}}
+	cfg := Conf{Model: "test-model", Extensions: map[string]Extension{
+		"echo": {Source: "/tmp/echo", Ref: "HEAD", Revision: "abc123"},
+	}}
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -251,8 +239,12 @@ func TestSaveRoundTrip(t *testing.T) {
 	if created {
 		t.Fatal("Save should not look like first-run create")
 	}
-	if got.Model != "test-model" || !got.Extensions["echo"].IsEnabled() {
+	if got.Model != "test-model" {
 		t.Errorf("got = %+v", got)
+	}
+	e := got.Extensions["echo"]
+	if e.Source != "/tmp/echo" || e.Ref != "HEAD" || e.Revision != "abc123" {
+		t.Errorf("origin = %+v", e)
 	}
 }
 
@@ -289,5 +281,30 @@ func TestRemoveExtensionDeletesEntry(t *testing.T) {
 	}
 	if _, ok := cfg.Extensions["telegram"]; !ok {
 		t.Fatal("removed telegram")
+	}
+}
+
+func TestSetExtensionOriginWritesFields(t *testing.T) {
+	var cfg Conf
+	SetExtensionOrigin(&cfg, "echo", "/tmp/echo", "HEAD", "abc123")
+	got := cfg.Extensions["echo"]
+	if got.Source != "/tmp/echo" || got.Ref != "HEAD" || got.Revision != "abc123" {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestSetExtensionOriginKeepsEnv(t *testing.T) {
+	cfg := Conf{
+		Extensions: map[string]Extension{
+			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
+		},
+	}
+	SetExtensionOrigin(&cfg, "echo", "/tmp/echo", "", "")
+	got := cfg.Extensions["echo"]
+	if got.Source != "/tmp/echo" {
+		t.Errorf("source = %q", got.Source)
+	}
+	if got.Env["ECHO_TOKEN"] != "secret" {
+		t.Errorf("wiped env: %+v", got)
 	}
 }

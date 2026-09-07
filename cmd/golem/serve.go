@@ -74,9 +74,6 @@ func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, e
 	out := make([]supervisor.Extension, 0, len(list))
 	for _, p := range list {
 		entry := cfg.Extensions[p.Name]
-		if !entry.IsEnabled() {
-			continue
-		}
 		if err := extension.EnsureVenv(p.Dir, p); err != nil {
 			return nil, err
 		}
