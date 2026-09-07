@@ -31,31 +31,30 @@ func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
 	}
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	mux.HandleFunc("GET /{$}", s.handleHome)
-	mux.HandleFunc("POST /conversations", s.handleNewConversation)
 	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
 	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
 	mux.HandleFunc("GET /turns/{id}", s.handleWebTurn)
 }
 
-func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+func (s *Server) webConversations() ([]store.Conversation, error) {
+	if s.opts.Store == nil {
+		return nil, nil
+	}
+	all, err := s.opts.Store.List()
+	if err != nil {
+		return nil, err
+	}
 	var list []store.Conversation
-	if s.opts.Store != nil {
-		all, err := s.opts.Store.List()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		for _, c := range all {
-			if c.Channel == webChannel {
-				list = append(list, c)
-			}
+	for _, c := range all {
+		if c.Channel == webChannel {
+			list = append(list, c)
 		}
 	}
-	s.render(w, "home", map[string]any{"Conversations": list})
+	return list, nil
 }
 
-func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/conversations/"+uuid.NewString(), http.StatusSeeOther)
+func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+	s.showConversation(w, r, uuid.NewString())
 }
 
 func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
@@ -118,7 +117,10 @@ func sseEscape(s string) string {
 }
 
 func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	s.showConversation(w, r, r.PathValue("id"))
+}
+
+func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id string) {
 	conv := store.Conversation{ID: id, Channel: webChannel}
 	if s.opts.Store != nil {
 		c, err := s.opts.Store.Load(id)
@@ -134,7 +136,17 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 			conv = c
 		}
 	}
-	s.render(w, "conversation", conv)
+	list, err := s.webConversations()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "conversation", map[string]any{
+		"Title":         conv.Title,
+		"ID":            conv.ID,
+		"Messages":      conv.Messages,
+		"Conversations": list,
+	})
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data any) {

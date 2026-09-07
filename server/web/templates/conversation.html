@@ -1,31 +1,62 @@
 {{define "conversation"}}
 {{template "layout-start" .}}
-<header class="bar">
-  <a href="/">All conversations</a>
-  <h1>{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</h1>
-</header>
-<main class="thread">
-  <section id="messages">
+<main class="container container-md stack grow">
+  <section id="messages" class="stack gap-3 grow">
+    {{if not .Messages}}
+    <p class="empty-chat">Ask Golem anything to get started</p>
+    {{end}}
     {{range .Messages}}
       {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
-        <div class="message {{.Role}}">
+        <div class="message {{.Role}}{{if eq .Role "user"}} my-6{{end}}">
           <p>{{.Content}}</p>
         </div>
       {{end}}
     {{end}}
   </section>
+  <div class="composer-spacer" aria-hidden="true"></div>
   <form
-    class="composer"
+    class="composer shadow-lg"
     method="post"
     action="/conversations/{{.ID}}/turns"
     hx-post="/conversations/{{.ID}}/turns"
     hx-target="#messages"
-    hx-swap="beforeend"
-    hx-on::after:request="this.reset()"
+    hx-swap="beforeend scroll:bottom scrollTarget:.workspace"
+    hx-push-url="/conversations/{{.ID}}"
+    hx-on::after:request="this.reset(); this.querySelector('textarea').focus()"
   >
-    <textarea name="message" rows="3" required placeholder="Message"></textarea>
-    <button type="submit">Send</button>
+    <textarea
+      class="p-3"
+      name="message"
+      rows="3"
+      required
+      placeholder="How can I help you today?"
+      autofocus
+      hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
+    ></textarea>
+    <div class="composer-bar">
+      <button class="m-0" type="submit" aria-label="Send">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill-rule="evenodd" d="M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5"/>
+        </svg>
+      </button>
+    </div>
   </form>
 </main>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const workspace = document.querySelector(".workspace");
+  const composer = document.querySelector(".composer");
+  const sync = () => {
+    if (composer) {
+      document.documentElement.style.setProperty("--composer-height", composer.offsetHeight + "px");
+    }
+  };
+  if (composer) new ResizeObserver(sync).observe(composer);
+  sync();
+  requestAnimationFrame(() => {
+    if (workspace) workspace.scrollTop = workspace.scrollHeight;
+  });
+});
+</script>
 {{template "layout-end" .}}
 {{end}}
