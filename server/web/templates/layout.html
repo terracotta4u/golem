@@ -29,7 +29,7 @@
   <ul class="conversation-list">
     {{range .Conversations}}
     <li>
-      <a class="py-3 px-5{{if eq .ID $.ID}} current{{end}}" href="/conversations/{{.ID}}">{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</a>
+      <a class="py-3 px-5{{if eq .ID $.ID}} current{{end}}" href="/conversations/{{.ID}}"><span>{{if .Title}}{{.Title}}{{else}}New conversation{{end}}</span></a>
     </li>
     {{end}}
   </ul>

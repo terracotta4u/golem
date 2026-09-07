@@ -16,7 +16,9 @@ body {
   margin: 0;
   height: 100dvh;
   overflow: hidden;
-  font: 16px/1.45 system-ui, sans-serif;
+  font:
+    16px/1.45 system-ui,
+    sans-serif;
   background: var(--bg);
   color: var(--fg);
 }
@@ -156,11 +158,39 @@ a {
 
 .conversation-list a {
   display: block;
+  overflow: hidden;
   text-decoration: none;
+}
+
+.conversation-list a span {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  transition: transform 0.8s ease;
+}
+
+.conversation-list a:hover {
+  background: var(--green-50);
+}
+
+.conversation-list a:hover span {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  transform: translateX(min(0px, calc(var(--sidebar-width) - 2 * var(--space-5) - 100%)));
+  transition: transform 4s linear;
 }
 
 .conversation-list a.current {
   background: var(--green-50);
+  font-weight: 700;
+}
+
+.conversation-list a.current:hover {
+  background: var(--green-100);
 }
 
 .message p {
@@ -265,7 +295,9 @@ a {
 }
 
 .tool-log {
-  font: 0.82rem/1.4 ui-monospace, monospace;
+  font:
+    0.82rem/1.4 ui-monospace,
+    monospace;
   color: var(--muted);
 }
 
