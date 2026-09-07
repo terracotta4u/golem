@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/terracotta4u/golem/conf"
@@ -44,6 +45,18 @@ func runExtensionAdd(args []string) error {
 	if err != nil {
 		return err
 	}
+	src, err := filepath.Abs(fs.Arg(0))
+	if err != nil {
+		return err
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		return err
+	}
+	conf.SetExtensionOrigin(&cfg, p.Name, src, "", "")
+	if err := conf.Save(cfg); err != nil {
+		return err
+	}
 	fmt.Fprintf(os.Stderr, "installed %s\n", p.Name)
 	return nil
 }
@@ -60,9 +73,13 @@ func runExtensionList(args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		return err
+	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, p := range list {
-		fmt.Fprintf(w, "%s\t%s\n", p.Name, p.Version)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, p.Version, cfg.Extensions[p.Name].Source)
 	}
 	return w.Flush()
 }
