@@ -79,6 +79,10 @@ h2 {
   min-height: 0;
 }
 
+body:not(:has(.sidebar)) {
+  --sidebar: 0rem;
+}
+
 .sidebar {
   flex: 0 0 var(--sidebar);
   width: var(--sidebar);

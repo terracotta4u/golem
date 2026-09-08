@@ -23,6 +23,9 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<h1>Settings</h1>") {
 		t.Fatalf("settings = %q, want Settings heading", body)
 	}
+	if strings.Contains(body, `class="sidebar"`) || strings.Contains(body, "New chat") {
+		t.Fatalf("settings = %q, want no conversations sidebar", body)
+	}
 	if !strings.Contains(body, `class="topbar-settings`) {
 		t.Fatalf("settings = %q, want settings gear", body)
 	}

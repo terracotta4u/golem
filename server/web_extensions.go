@@ -36,11 +36,6 @@ func (s *Server) handleExtensions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	convs, err := s.webConversations()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	type row struct {
 		Name    string
@@ -56,9 +51,8 @@ func (s *Server) handleExtensions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	s.render(w, "extensions", map[string]any{
-		"Title":         "Extensions",
-		"Conversations": convs,
-		"Extensions":    list,
+		"Title":      "Extensions",
+		"Extensions": list,
 	})
 }
 
@@ -87,21 +81,15 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	convs, err := s.webConversations()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	origin := cfg.Extensions[name]
 	s.render(w, "extension", map[string]any{
-		"Title":         p.Name,
-		"Conversations": convs,
-		"Name":          p.Name,
-		"Version":       p.Version,
-		"Description":   p.Description,
-		"Source":        origin.Source,
-		"Ref":           origin.Ref,
-		"Revision":      origin.Revision,
+		"Title":       p.Name,
+		"Name":        p.Name,
+		"Version":     p.Version,
+		"Description": p.Description,
+		"Source":      origin.Source,
+		"Ref":         origin.Ref,
+		"Revision":    origin.Revision,
 	})
 }
 
@@ -142,15 +130,9 @@ func (s *Server) handleExtensionAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "from must be url or archive", http.StatusBadRequest)
 		return
 	}
-	convs, err := s.webConversations()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	s.render(w, "extension-add", map[string]any{
-		"Title":         "Add extension",
-		"Conversations": convs,
-		"From":          from,
+		"Title": "Add extension",
+		"From":  from,
 	})
 }
 

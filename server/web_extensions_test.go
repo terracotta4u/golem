@@ -38,6 +38,9 @@ func TestExtensionsPage(t *testing.T) {
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
 		t.Fatalf("extensions = %q, want settings breadcrumb", body)
 	}
+	if strings.Contains(body, `class="sidebar"`) || strings.Contains(body, "New chat") {
+		t.Fatalf("extensions = %q, want no conversations sidebar", body)
+	}
 	if !strings.Contains(body, "<th>Name</th>") || !strings.Contains(body, "<th>Version</th>") {
 		t.Fatalf("extensions = %q, want name and version columns", body)
 	}
@@ -51,7 +54,7 @@ func TestExtensionsPage(t *testing.T) {
 		t.Fatalf("extensions = %q, want no add dropdown", body)
 	}
 	plus := `d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"`
-	if strings.Count(body, plus) < 2 {
+	if strings.Count(body, plus) < 1 {
 		t.Fatalf("extensions = %q, want plus icon on add extension", body)
 	}
 }
