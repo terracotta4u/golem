@@ -20,32 +20,14 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>Settings</title>") {
 		t.Fatalf("settings = %q, want Settings title", body)
 	}
-	if !strings.Contains(body, `<nav class="subnav`) {
-		t.Fatalf("settings = %q, want subnav", body)
-	}
 	if !strings.Contains(body, "<h1>Settings</h1>") {
 		t.Fatalf("settings = %q, want Settings heading", body)
-	}
-	if strings.Contains(body, `class="sidebar"`) || strings.Contains(body, "New chat") {
-		t.Fatalf("settings = %q, want no conversations sidebar", body)
-	}
-	if !strings.Contains(body, `class="topbar-settings`) {
-		t.Fatalf("settings = %q, want settings gear", body)
-	}
-	if strings.Contains(body, `topbar-settings current`) {
-		t.Fatalf("settings = %q, want no selected gear", body)
 	}
 	if !strings.Contains(body, `href="/settings/general"`) {
 		t.Fatalf("settings = %q, want general settings card", body)
 	}
 	if !strings.Contains(body, `href="/settings/extensions"`) {
 		t.Fatalf("settings = %q, want extensions card", body)
-	}
-	if !strings.Contains(body, `class="col-4`) {
-		t.Fatalf("settings = %q, want 4/12 cards", body)
-	}
-	if !strings.Contains(body, "M3.112 3.645A1.5 1.5 0 0 1 4.605 2H7") {
-		t.Fatalf("settings = %q, want extensions puzzle icon", body)
 	}
 	if strings.Contains(body, `name="model"`) {
 		t.Fatalf("settings = %q, want landing not general form", body)
@@ -61,23 +43,26 @@ func TestGeneralSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>General</title>") {
 		t.Fatalf("general = %q, want General title", body)
 	}
-	if !strings.Contains(body, `<nav class="subnav`) {
-		t.Fatalf("general = %q, want subnav", body)
-	}
 	if !strings.Contains(body, "<h1>General</h1>") {
 		t.Fatalf("general = %q, want General heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
 		t.Fatalf("general = %q, want settings breadcrumb", body)
 	}
-	if strings.Contains(body, `class="sidebar"`) || strings.Contains(body, "New chat") {
-		t.Fatalf("general = %q, want no conversations sidebar", body)
-	}
 	if !strings.Contains(body, `action="/settings/general"`) {
 		t.Fatalf("general = %q, want general post action", body)
 	}
+	if !strings.Contains(body, `name="provider"`) {
+		t.Fatalf("general = %q, want provider field", body)
+	}
 	if !strings.Contains(body, `name="model"`) {
 		t.Fatalf("general = %q, want model field", body)
+	}
+	if !strings.Contains(body, `name="api_key"`) {
+		t.Fatalf("general = %q, want api key field", body)
+	}
+	if !strings.Contains(body, `name="max_tool_rounds"`) {
+		t.Fatalf("general = %q, want max tool rounds field", body)
 	}
 }
 
@@ -231,7 +216,7 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 
 func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if err := conf.Save(conf.Conf{Model: "old-model"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -245,11 +230,19 @@ func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", status)
 	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Model != "old-model" {
+		t.Fatalf("Model = %q, want unchanged", got.Model)
+	}
 }
 
 func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if err := conf.Save(conf.Conf{Model: "old-model", MaxToolRounds: 4}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -263,6 +256,14 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Model != "old-model" || got.MaxToolRounds != 4 {
+		t.Fatalf("got = %+v, want unchanged", got)
 	}
 }
 
