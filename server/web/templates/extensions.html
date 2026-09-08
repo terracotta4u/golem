@@ -6,7 +6,7 @@
   <ul class="stack gap-3">
     {{range .Extensions}}
     <li class="stack gap-1">
-      <strong>{{.Name}}</strong>
+      <a href="/settings/extensions/{{.Name}}"><strong>{{.Name}}</strong></a>
       <span>{{.Version}}</span>
       {{if .Source}}<span class="field-hint">{{.Source}}</span>{{end}}
     </li>

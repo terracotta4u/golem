@@ -1,0 +1,15 @@
+{{define "extension"}}
+{{template "layout-start" .}}
+<main class="container stack grow">
+  <h1>{{.Name}}</h1>
+  <p>Version {{.Version}}</p>
+  {{if .Source}}<p class="field-hint">{{.Source}}</p>{{end}}
+  {{if .Ref}}<p class="field-hint">{{.Ref}}</p>{{end}}
+  {{if .Revision}}<p class="field-hint">{{.Revision}}</p>{{end}}
+  <form method="post" action="/settings/extensions/{{.Name}}/remove">
+    <button type="submit">Remove</button>
+  </form>
+  <p class="field-hint">Takes effect after restart.</p>
+</main>
+{{template "layout-end" .}}
+{{end}}
