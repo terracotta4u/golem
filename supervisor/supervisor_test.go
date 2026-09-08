@@ -253,6 +253,124 @@ func TestStartSetsChildCwdToDir(t *testing.T) {
 	}
 }
 
+func TestAddAfterStartRunsChild(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "ran")
+	s := New(Options{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.Start(ctx)
+
+	if err := s.Add(Extension{
+		Name:    "echo",
+		Command: "sh",
+		Args:    []string{"-c", "printf ok > " + strconv.Quote(out)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+	if got != "ok" {
+		t.Fatalf("got = %q, want ok", got)
+	}
+}
+
+func TestAddBeforeStartErrors(t *testing.T) {
+	s := New(Options{})
+	err := s.Add(Extension{Name: "echo", Command: "true"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestAddDuplicateErrors(t *testing.T) {
+	s := New(Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
+	ext := Extension{
+		Name:    "echo",
+		Command: "sh",
+		Args:    []string{"-c", "sleep 30"},
+	}
+	if err := s.Add(ext); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Add(ext); err == nil {
+		t.Fatal("expected duplicate error")
+	}
+	cancel()
+	s.Wait()
+}
+
+func TestStopKillsChild(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "runs")
+	s := New(Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
+
+	if err := s.Add(Extension{
+		Name:    "echo",
+		Command: "sh",
+		Args:    []string{"-c", "echo x >> " + strconv.Quote(out) + "; sleep 30"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	waitFile(t, out, time.Second)
+	if err := s.Stop("echo"); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(minBackoff + 200*time.Millisecond)
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(data), "x") != 1 {
+		t.Fatalf("runs = %q, want one run after Stop", data)
+	}
+	cancel()
+	s.Wait()
+}
+
+func TestStopUnknownIsNoop(t *testing.T) {
+	s := New(Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
+	if err := s.Stop("missing"); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	s.Wait()
+}
+
+func TestParentCancelStopsAdded(t *testing.T) {
+	s := New(Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	s.Start(ctx)
+	if err := s.Add(Extension{
+		Name:    "echo",
+		Command: "sh",
+		Args:    []string{"-c", "sleep 30"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cancel()
+	done := make(chan struct{})
+	go func() {
+		s.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Wait did not return after parent cancel")
+	}
+}
+
 func writeScript(t *testing.T, dir, name, body string) {
 	t.Helper()
 	path := filepath.Join(dir, name)
