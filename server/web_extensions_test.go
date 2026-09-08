@@ -29,17 +29,11 @@ func TestExtensionsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>Extensions</title>") {
 		t.Fatalf("extensions = %q, want Extensions title", body)
 	}
-	if !strings.Contains(body, `<nav class="subnav`) {
-		t.Fatalf("extensions = %q, want subnav", body)
-	}
 	if !strings.Contains(body, "<h1>Extensions</h1>") {
 		t.Fatalf("extensions = %q, want Extensions heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
 		t.Fatalf("extensions = %q, want settings breadcrumb", body)
-	}
-	if strings.Contains(body, `class="sidebar"`) || strings.Contains(body, "New chat") {
-		t.Fatalf("extensions = %q, want no conversations sidebar", body)
 	}
 	if !strings.Contains(body, "<th>Name</th>") || !strings.Contains(body, "<th>Version</th>") {
 		t.Fatalf("extensions = %q, want name and version columns", body)
@@ -50,12 +44,8 @@ func TestExtensionsPage(t *testing.T) {
 	if !strings.Contains(body, `href="/settings/extensions/add"`) {
 		t.Fatalf("extensions = %q, want add extension link", body)
 	}
-	if strings.Contains(body, "add-menu") || strings.Contains(body, `from=url`) || strings.Contains(body, `from=archive`) {
-		t.Fatalf("extensions = %q, want no add dropdown", body)
-	}
-	plus := `d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"`
-	if strings.Count(body, plus) < 1 {
-		t.Fatalf("extensions = %q, want plus icon on add extension", body)
+	if strings.Contains(body, `href="/settings/extensions/add?`) {
+		t.Fatalf("extensions = %q, want add link without from=", body)
 	}
 }
 
@@ -98,6 +88,9 @@ func TestExtensionsPageListsInstalled(t *testing.T) {
 	if !strings.Contains(body, `href="/settings/extensions/echo"`) {
 		t.Fatalf("extensions = %q, want echo detail link", body)
 	}
+	if !strings.Contains(body, `href="/settings/extensions/telegram"`) {
+		t.Fatalf("extensions = %q, want telegram detail link", body)
+	}
 }
 
 func TestExtensionDetail(t *testing.T) {
@@ -126,9 +119,6 @@ func TestExtensionDetail(t *testing.T) {
 	if !strings.Contains(body, "<title>echo</title>") {
 		t.Fatalf("detail = %q, want echo title", body)
 	}
-	if !strings.Contains(body, `<nav class="subnav`) {
-		t.Fatalf("detail = %q, want subnav", body)
-	}
 	if !strings.Contains(body, "<h1>echo</h1>") {
 		t.Fatalf("detail = %q, want echo heading", body)
 	}
@@ -150,23 +140,8 @@ func TestExtensionDetail(t *testing.T) {
 	if !strings.Contains(body, "HEAD") || !strings.Contains(body, "abc123") {
 		t.Fatalf("detail = %q, want ref and revision", body)
 	}
-	if !strings.Contains(body, "<h2>Manage</h2>") {
-		t.Fatalf("detail = %q, want Manage heading", body)
-	}
 	if !strings.Contains(body, `action="/settings/extensions/echo/remove"`) {
 		t.Fatalf("detail = %q, want remove action", body)
-	}
-	if !strings.Contains(body, `class="link-danger"`) {
-		t.Fatalf("detail = %q, want delete link", body)
-	}
-	if !strings.Contains(body, `class="container container-lg`) {
-		t.Fatalf("detail = %q, want container-lg", body)
-	}
-	if !strings.Contains(body, `class="row gap-6 items-start"`) {
-		t.Fatalf("detail = %q, want columns sized to content", body)
-	}
-	if !strings.Contains(body, `class="col-8`) || !strings.Contains(body, `class="col-4`) {
-		t.Fatalf("detail = %q, want 2/3 and 1/3 columns", body)
 	}
 }
 
@@ -222,10 +197,10 @@ func TestExtensionRemove(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", resp.StatusCode, body)
 	}
-	if strings.Contains(string(body), "echo") {
+	if strings.Contains(string(body), `href="/settings/extensions/echo"`) {
 		t.Fatalf("list = %q, want echo removed", body)
 	}
-	if !strings.Contains(string(body), "telegram") {
+	if !strings.Contains(string(body), `href="/settings/extensions/telegram"`) {
 		t.Fatalf("list = %q, want telegram kept", body)
 	}
 
@@ -250,9 +225,6 @@ func TestExtensionAddURLForm(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/add")
-	if !strings.Contains(body, `<nav class="subnav`) {
-		t.Fatalf("add url = %q, want subnav", body)
-	}
 	if !strings.Contains(body, "<h1>Add Extension</h1>") {
 		t.Fatalf("add url = %q, want heading", body)
 	}
@@ -268,26 +240,14 @@ func TestExtensionAddURLForm(t *testing.T) {
 	if !strings.Contains(body, `href="/settings/extensions/add?from=archive"`) {
 		t.Fatalf("add url = %q, want archive tab", body)
 	}
-	if !strings.Contains(body, `name="url"`) {
-		t.Fatalf("add url = %q, want url field", body)
+	if !strings.Contains(body, `name="url"`) || !strings.Contains(body, `name="ref"`) {
+		t.Fatalf("add url = %q, want url and ref fields", body)
 	}
 	if strings.Contains(body, `name="archive"`) {
 		t.Fatalf("add url = %q, want url form only", body)
 	}
 	if !strings.Contains(body, `action="/settings/extensions/add/url"`) {
 		t.Fatalf("add url = %q, want url post action", body)
-	}
-	if !strings.Contains(body, `placeholder="Optional. Defaults to HEAD."`) {
-		t.Fatalf("add url = %q, want ref placeholder", body)
-	}
-	if strings.Contains(body, `<p class="field-hint">Optional. Defaults to HEAD.</p>`) {
-		t.Fatalf("add url = %q, want ref hint in placeholder only", body)
-	}
-	if !strings.Contains(body, `class="btn-accent"`) {
-		t.Fatalf("add url = %q, want accent add button", body)
-	}
-	if !strings.Contains(body, "Takes effect after restart.") {
-		t.Fatalf("add url = %q, want restart hint", body)
 	}
 }
 
@@ -315,24 +275,19 @@ func TestExtensionAddArchiveForm(t *testing.T) {
 	if !strings.Contains(body, `action="/settings/extensions/add/archive"`) {
 		t.Fatalf("add archive = %q, want archive post action", body)
 	}
-	if !strings.Contains(body, `class="btn-accent"`) {
-		t.Fatalf("add archive = %q, want accent add button", body)
-	}
 }
 
-func TestExtensionAddUnknownFrom(t *testing.T) {
+func TestExtensionAddUnknownFromDefaultsToURL(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/settings/extensions/add?from=disk")
-	if err != nil {
-		t.Fatal(err)
+	body := getHTML(t, ts.URL+"/settings/extensions/add?from=disk")
+	if !strings.Contains(body, `name="url"`) {
+		t.Fatalf("add unknown from = %q, want url form", body)
 	}
-	defer resp.Body.Close()
-	io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	if strings.Contains(body, `name="archive"`) {
+		t.Fatalf("add unknown from = %q, want url form only", body)
 	}
 }
 

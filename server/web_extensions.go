@@ -123,12 +123,8 @@ func (s *Server) handleExtensionRemove(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleExtensionAdd(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
-	if from == "" {
+	if from != "archive" {
 		from = "url"
-	}
-	if from != "url" && from != "archive" {
-		http.Error(w, "from must be url or archive", http.StatusBadRequest)
-		return
 	}
 	s.render(w, "extension-add", map[string]any{
 		"Title": "Add extension",
