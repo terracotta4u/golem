@@ -344,9 +344,14 @@ textarea {
   width: 100%;
   padding: var(--space-2);
   border: 1px solid var(--line);
-  border-radius: var(--space-2);
+  border-radius: 0;
   background: var(--surface);
   color: var(--fg);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
 }
 
 textarea {
@@ -357,10 +362,22 @@ button {
   align-self: flex-end;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
-  border-radius: var(--space-2);
+  border-radius: 0;
   background: var(--surface);
   color: var(--fg);
   cursor: pointer;
+}
+
+button.btn-accent {
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  background: var(--accent);
+  color: var(--white);
+  transition: background 0.15s ease;
+}
+
+button.btn-accent:hover {
+  background: var(--green-700);
 }
 
 .field-hint {
@@ -399,50 +416,39 @@ button {
   color: var(--fg);
 }
 
-.add-menu {
-  position: relative;
-  align-self: stretch;
-}
-
-.add-menu summary {
+.add-btn {
   display: flex;
   align-items: center;
-  height: 100%;
   padding: var(--space-3) var(--space-5);
-  border: 0;
-  border-radius: 0;
   background: var(--accent);
   color: var(--white);
-  cursor: pointer;
-  list-style: none;
+  text-decoration: none;
   transition: background 0.15s ease;
 }
 
-.add-menu summary:hover {
+.add-btn:hover {
   background: var(--green-700);
 }
 
-.add-menu summary::-webkit-details-marker {
-  display: none;
+.tabs {
+  border-bottom: 1px solid var(--line);
 }
 
-.add-menu-list {
-  position: absolute;
-  right: 0;
-  z-index: 1;
-  background: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--line);
-  border-top: 0;
-}
-
-.add-menu-list a {
-  display: block;
+.tab {
+  padding: var(--space-3) var(--space-5);
+  color: var(--muted);
   text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
 }
 
-.add-menu-list a:hover {
-  background: var(--green-50);
+.tab:hover,
+.tab.current {
+  color: var(--fg);
+}
+
+.tab.current {
+  border-bottom-color: var(--accent);
 }
 
 .data-table {
