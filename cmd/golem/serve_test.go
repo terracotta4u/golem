@@ -15,6 +15,7 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
+	"github.com/terracotta4u/golem/supervisor"
 )
 
 func TestServeStartsConfiguredExtension(t *testing.T) {
@@ -128,6 +129,58 @@ func TestPrepareExtension(t *testing.T) {
 	if got.Env["TOKEN"] != "x" {
 		t.Errorf("Env = %v", got.Env)
 	}
+}
+
+func TestStartNamedExtensionAddsProcess(t *testing.T) {
+	root := t.TempDir()
+	dir := writeProject(t, root, "echo")
+	script := filepath.Join(dir, ".venv", "bin", "echo")
+	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	sup := supervisor.New(supervisor.Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sup.Start(ctx)
+
+	if err := startNamedExtension(conf.Conf{}, root, sup, "echo"); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	var got string
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "marker"))
+		if err == nil && len(data) > 0 {
+			got = strings.TrimSpace(string(data))
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("marker = %q (%v), want started process", got, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got != "ok" {
+		t.Fatalf("marker = %q, want ok", got)
+	}
+	cancel()
+	sup.Wait()
+}
+
+func TestStartNamedExtensionMissingErrors(t *testing.T) {
+	sup := supervisor.New(supervisor.Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sup.Start(ctx)
+	if err := startNamedExtension(conf.Conf{}, t.TempDir(), sup, "echo"); err == nil {
+		t.Fatal("expected error")
+	}
+	cancel()
+	sup.Wait()
 }
 
 func TestRunningExtensionsStartsWithoutConf(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
@@ -58,6 +59,14 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		Store: app.store,
 		Addr:  listen,
 		Token: token,
+		StartExtension: func(name string) error {
+			cfg, _, err := conf.Load()
+			if err != nil {
+				return err
+			}
+			return startNamedExtension(cfg, extRoot, sup, name)
+		},
+		StopExtension: sup.Stop,
 	}).Listen(ctx, func() {
 		sup.Start(ctx)
 	})
@@ -80,6 +89,23 @@ func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, e
 		out = append(out, ext)
 	}
 	return out, nil
+}
+
+func startNamedExtension(cfg conf.Conf, extRoot string, sup *supervisor.Supervisor, name string) error {
+	dir := filepath.Join(extRoot, name)
+	p, err := extension.Load(dir)
+	if err != nil {
+		return err
+	}
+	if p.Name != name {
+		return fmt.Errorf("extension %s: project name %q does not match", name, p.Name)
+	}
+	p.Dir = dir
+	ext, err := prepareExtension(cfg, p)
+	if err != nil {
+		return err
+	}
+	return sup.Add(ext)
 }
 
 func prepareExtension(cfg conf.Conf, p extension.Project) (supervisor.Extension, error) {
