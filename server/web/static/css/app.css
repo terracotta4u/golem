@@ -105,6 +105,17 @@ h1 {
   min-height: 100%;
 }
 
+.workspace:has(.subnav) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace:has(.subnav) > .container {
+  min-height: 0;
+  overflow-y: auto;
+}
+
 @media (max-width: 48rem) {
   :root,
   body {
@@ -353,19 +364,41 @@ button {
   font-size: 0.9rem;
 }
 
+.subnav {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.subnav h1 {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+}
+
 .add-menu {
   position: relative;
-  align-self: start;
+  align-self: stretch;
 }
 
 .add-menu summary {
-  display: inline-block;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--space-2);
-  background: var(--surface);
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: var(--space-3) var(--space-5);
+  border: 0;
+  border-radius: 0;
+  background: var(--accent);
+  color: var(--white);
   cursor: pointer;
   list-style: none;
+  transition: background 0.15s ease;
+}
+
+.add-menu summary:hover {
+  background: var(--green-700);
 }
 
 .add-menu summary::-webkit-details-marker {
@@ -374,11 +407,12 @@ button {
 
 .add-menu-list {
   position: absolute;
+  right: 0;
   z-index: 1;
-  margin-top: var(--space-1);
   background: var(--surface);
+  color: var(--fg);
   border: 1px solid var(--line);
-  border-radius: var(--space-2);
+  border-top: 0;
 }
 
 .add-menu-list a {
@@ -388,4 +422,25 @@ button {
 
 .add-menu-list a:hover {
   background: var(--green-50);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: var(--space-3) 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table th {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.data-table a {
+  text-decoration: none;
 }

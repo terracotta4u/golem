@@ -29,8 +29,14 @@ func TestExtensionsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>Extensions</title>") {
 		t.Fatalf("extensions = %q, want Extensions title", body)
 	}
+	if !strings.Contains(body, `<nav class="subnav`) {
+		t.Fatalf("extensions = %q, want subnav", body)
+	}
 	if !strings.Contains(body, "<h1>Extensions</h1>") {
 		t.Fatalf("extensions = %q, want Extensions heading", body)
+	}
+	if !strings.Contains(body, "<th>Name</th>") || !strings.Contains(body, "<th>Version</th>") {
+		t.Fatalf("extensions = %q, want name and version columns", body)
 	}
 	if !strings.Contains(body, "No extensions") {
 		t.Fatalf("extensions = %q, want empty state", body)
@@ -40,6 +46,10 @@ func TestExtensionsPage(t *testing.T) {
 	}
 	if !strings.Contains(body, `href="/settings/extensions/add?from=archive"`) {
 		t.Fatalf("extensions = %q, want add from archive", body)
+	}
+	plus := `d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"`
+	if strings.Count(body, plus) < 2 {
+		t.Fatalf("extensions = %q, want plus icon on add extension", body)
 	}
 }
 
@@ -70,11 +80,11 @@ func TestExtensionsPageListsInstalled(t *testing.T) {
 	if !strings.Contains(body, "echo") || !strings.Contains(body, "0.1.0") {
 		t.Fatalf("extensions = %q, want echo 0.1.0", body)
 	}
-	if !strings.Contains(body, "https://github.com/example/echo") {
-		t.Fatalf("extensions = %q, want echo source", body)
-	}
 	if !strings.Contains(body, "telegram") || !strings.Contains(body, "1.2.3") {
 		t.Fatalf("extensions = %q, want telegram 1.2.3", body)
+	}
+	if strings.Contains(body, "https://github.com/example/echo") {
+		t.Fatalf("extensions = %q, list should not include source", body)
 	}
 	if strings.Contains(body, "No extensions") {
 		t.Fatalf("extensions = %q, want installed list", body)
@@ -281,8 +291,8 @@ func TestExtensionAddArchiveInstalls(t *testing.T) {
 	if !strings.Contains(body, "echo") || !strings.Contains(body, "0.1.0") {
 		t.Fatalf("list = %q, want echo installed", body)
 	}
-	if !strings.Contains(body, "echo.zip") {
-		t.Fatalf("list = %q, want archive filename as source", body)
+	if !strings.Contains(body, `href="/settings/extensions/echo"`) {
+		t.Fatalf("list = %q, want echo detail link", body)
 	}
 
 	root, err := conf.ExtensionsDir()
