@@ -10,17 +10,24 @@ import (
 
 func (s *Server) mountWebSettings(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings", s.handleSettings)
-	mux.HandleFunc("POST /settings", s.handleSettingsSave)
+	mux.HandleFunc("GET /settings/general", s.handleSettingsGeneral)
+	mux.HandleFunc("POST /settings/general", s.handleSettingsSave)
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	s.render(w, "settings", map[string]any{
+		"Title": "Settings",
+	})
+}
+
+func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
 	cfg, _, err := conf.Load()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.render(w, "settings", map[string]any{
-		"Title":         "Settings",
+	s.render(w, "settings-general", map[string]any{
+		"Title":         "General",
 		"Provider":      cfg.Provider,
 		"Model":         cfg.Model,
 		"HasAPIKey":     cfg.APIKey != "",
@@ -79,5 +86,5 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/general", http.StatusSeeOther)
 }

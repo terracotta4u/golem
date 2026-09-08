@@ -499,6 +499,27 @@ button.btn-accent:hover {
   margin: 0;
 }
 
+.setting-card {
+  display: flex;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+}
+
+.setting-card:hover {
+  background: var(--stone-100);
+}
+
+.setting-card-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.setting-card h2 {
+  font-size: 1.15rem;
+  font-weight: 400;
+}
+
 .meta-label {
   color: var(--muted);
   font-size: 0.9rem;

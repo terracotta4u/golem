@@ -20,6 +20,9 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>Settings</title>") {
 		t.Fatalf("settings = %q, want Settings title", body)
 	}
+	if !strings.Contains(body, `<nav class="subnav`) {
+		t.Fatalf("settings = %q, want subnav", body)
+	}
 	if !strings.Contains(body, "<h1>Settings</h1>") {
 		t.Fatalf("settings = %q, want Settings heading", body)
 	}
@@ -31,6 +34,50 @@ func TestSettingsPage(t *testing.T) {
 	}
 	if strings.Contains(body, `topbar-settings current`) {
 		t.Fatalf("settings = %q, want no selected gear", body)
+	}
+	if !strings.Contains(body, `href="/settings/general"`) {
+		t.Fatalf("settings = %q, want general settings card", body)
+	}
+	if !strings.Contains(body, `href="/settings/extensions"`) {
+		t.Fatalf("settings = %q, want extensions card", body)
+	}
+	if !strings.Contains(body, `class="col-4`) {
+		t.Fatalf("settings = %q, want 4/12 cards", body)
+	}
+	if !strings.Contains(body, "M3.112 3.645A1.5 1.5 0 0 1 4.605 2H7") {
+		t.Fatalf("settings = %q, want extensions puzzle icon", body)
+	}
+	if strings.Contains(body, `name="model"`) {
+		t.Fatalf("settings = %q, want landing not general form", body)
+	}
+}
+
+func TestGeneralSettingsPage(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/general")
+	if !strings.Contains(body, "<title>General</title>") {
+		t.Fatalf("general = %q, want General title", body)
+	}
+	if !strings.Contains(body, `<nav class="subnav`) {
+		t.Fatalf("general = %q, want subnav", body)
+	}
+	if !strings.Contains(body, "<h1>General</h1>") {
+		t.Fatalf("general = %q, want General heading", body)
+	}
+	if !strings.Contains(body, `href="/settings">Settings</a>`) {
+		t.Fatalf("general = %q, want settings breadcrumb", body)
+	}
+	if strings.Contains(body, `class="sidebar"`) || strings.Contains(body, "New chat") {
+		t.Fatalf("general = %q, want no conversations sidebar", body)
+	}
+	if !strings.Contains(body, `action="/settings/general"`) {
+		t.Fatalf("general = %q, want general post action", body)
+	}
+	if !strings.Contains(body, `name="model"`) {
+		t.Fatalf("general = %q, want model field", body)
 	}
 }
 
@@ -48,7 +95,7 @@ func TestSettingsShowsConf(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
 	defer ts.Close()
 
-	body := getHTML(t, ts.URL+"/settings")
+	body := getHTML(t, ts.URL+"/settings/general")
 	if !strings.Contains(body, `value="openai/gpt-4o"`) {
 		t.Fatalf("settings = %q, want model", body)
 	}
@@ -221,7 +268,7 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 
 func postSettings(t *testing.T, base string, vals url.Values) (int, string) {
 	t.Helper()
-	resp, err := http.PostForm(base+"/settings", vals)
+	resp, err := http.PostForm(base+"/settings/general", vals)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,0 +1,39 @@
+{{define "settings-general"}}
+{{template "layout-start" .}}
+<nav class="subnav cluster gap-0">
+  <div class="subnav-heading stack gap-0">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/settings">Settings</a>
+    </nav>
+    <h1>General</h1>
+  </div>
+</nav>
+<main class="container container-md stack grow">
+  <section class="panel">
+    <form class="stack gap-5" method="post" action="/settings/general">
+      <div class="field stack gap-2">
+        <label for="provider">Provider</label>
+        <select id="provider" name="provider">
+          <option value="openrouter"{{if eq .Provider "openrouter"}} selected{{end}}>OpenRouter</option>
+        </select>
+      </div>
+      <div class="field stack gap-2">
+        <label for="model">Model</label>
+        <input id="model" name="model" type="text" required value="{{.Model}}">
+      </div>
+      <div class="field stack gap-2">
+        <label for="api_key">API key</label>
+        <p class="field-hint">{{if .HasAPIKey}}Currently set. Leave blank to keep.{{else}}Not set.{{end}}</p>
+        <input id="api_key" name="api_key" type="password" autocomplete="off">
+      </div>
+      <div class="field stack gap-2">
+        <label for="max_tool_rounds">Max tool rounds</label>
+        <p class="field-hint">0 means no limit.</p>
+        <input id="max_tool_rounds" name="max_tool_rounds" type="number" min="0" step="1" value="{{.MaxToolRounds}}">
+      </div>
+      <button type="submit" class="btn-accent">Save</button>
+    </form>
+  </section>
+</main>
+{{template "layout-end" .}}
+{{end}}
