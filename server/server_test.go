@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,53 @@ import (
 
 	"github.com/terracotta4u/golem/store"
 )
+
+func TestStartStopExtensionNilNoop(t *testing.T) {
+	s := New(Options{})
+	if err := s.startExtension("echo"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.stopExtension("echo"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStartStopExtensionCallbacks(t *testing.T) {
+	var started, stopped []string
+	s := New(Options{
+		StartExtension: func(name string) error {
+			started = append(started, name)
+			return nil
+		},
+		StopExtension: func(name string) error {
+			stopped = append(stopped, name)
+			return nil
+		},
+	})
+	if err := s.startExtension("echo"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.stopExtension("echo"); err != nil {
+		t.Fatal(err)
+	}
+	if len(started) != 1 || started[0] != "echo" {
+		t.Errorf("started = %v", started)
+	}
+	if len(stopped) != 1 || stopped[0] != "echo" {
+		t.Errorf("stopped = %v", stopped)
+	}
+}
+
+func TestStartExtensionError(t *testing.T) {
+	s := New(Options{
+		StartExtension: func(name string) error {
+			return errors.New("boom")
+		},
+	})
+	if err := s.startExtension("echo"); err == nil || err.Error() != "boom" {
+		t.Fatalf("err = %v", err)
+	}
+}
 
 func TestHealthUnauthorized(t *testing.T) {
 	s := New(Options{Token: "secret"})

@@ -219,6 +219,70 @@ func TestExtensionRemove(t *testing.T) {
 	}
 }
 
+func TestExtensionRemoveStopsThenDeletes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	root, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeInstalledExt(t, root, "echo", "0.1.0")
+
+	var stopped []string
+	ts := httptest.NewServer(New(Options{
+		Token: "secret",
+		StopExtension: func(name string) error {
+			if _, err := os.Stat(filepath.Join(root, name, "pyproject.toml")); err != nil {
+				t.Errorf("stop before files exist: %v", err)
+			}
+			stopped = append(stopped, name)
+			return nil
+		},
+	}).handler())
+	defer ts.Close()
+
+	status, body := postForm(t, ts.URL+"/settings/extensions/echo/remove", url.Values{})
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
+	}
+	if len(stopped) != 1 || stopped[0] != "echo" {
+		t.Fatalf("stopped = %v, want [echo]", stopped)
+	}
+	if _, err := os.Stat(filepath.Join(root, "echo")); !os.IsNotExist(err) {
+		t.Fatalf("echo dir still present: %v", err)
+	}
+}
+
+func TestExtensionRemoveStopErrorKeepsFiles(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	root, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeInstalledExt(t, root, "echo", "0.1.0")
+
+	ts := httptest.NewServer(New(Options{
+		Token: "secret",
+		StopExtension: func(name string) error {
+			return fmt.Errorf("boom")
+		},
+	}).handler())
+	defer ts.Close()
+
+	status, _ := postForm(t, ts.URL+"/settings/extensions/echo/remove", url.Values{})
+	if status != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", status)
+	}
+	if _, err := os.Stat(filepath.Join(root, "echo", "pyproject.toml")); err != nil {
+		t.Fatalf("echo removed after stop error: %v", err)
+	}
+}
+
 func TestExtensionAddURLForm(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
@@ -341,6 +405,80 @@ func TestExtensionAddArchiveInstalls(t *testing.T) {
 	}
 	if got.Extensions["echo"].Source != "echo.zip" {
 		t.Fatalf("source = %+v, want echo.zip", got.Extensions["echo"])
+	}
+}
+
+func TestExtensionAddStartsAfterInstall(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	stubEchoRuntime(t)
+
+	zipPath := filepath.Join(t.TempDir(), "echo.zip")
+	writeExtZip(t, zipPath, "echo", "0.1.0")
+
+	var started []string
+	ts := httptest.NewServer(New(Options{
+		Token: "secret",
+		StartExtension: func(name string) error {
+			root, err := conf.ExtensionsDir()
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(filepath.Join(root, name, "pyproject.toml")); err != nil {
+				t.Errorf("start before install: %v", err)
+			}
+			got, _, err := conf.Load()
+			if err != nil {
+				return err
+			}
+			if got.Extensions[name].Source != "echo.zip" {
+				t.Errorf("start before conf save: %+v", got.Extensions[name])
+			}
+			started = append(started, name)
+			return nil
+		},
+	}).handler())
+	defer ts.Close()
+
+	status, body := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
+	}
+	if len(started) != 1 || started[0] != "echo" {
+		t.Fatalf("started = %v, want [echo]", started)
+	}
+}
+
+func TestExtensionAddStartErrorLeavesFiles(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	stubEchoRuntime(t)
+
+	zipPath := filepath.Join(t.TempDir(), "echo.zip")
+	writeExtZip(t, zipPath, "echo", "0.1.0")
+
+	ts := httptest.NewServer(New(Options{
+		Token: "secret",
+		StartExtension: func(name string) error {
+			return fmt.Errorf("boom")
+		},
+	}).handler())
+	defer ts.Close()
+
+	status, _ := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
+	if status != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", status)
+	}
+	root, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "echo", "pyproject.toml")); err != nil {
+		t.Fatalf("echo missing after start error: %v", err)
 	}
 }
 

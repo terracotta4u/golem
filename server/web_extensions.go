@@ -95,6 +95,10 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleExtensionRemove(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
+	if err := s.stopExtension(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	root, err := conf.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -204,6 +208,10 @@ func (s *Server) installExtension(w http.ResponseWriter, r *http.Request, src, r
 	}
 	conf.SetExtensionOrigin(&cfg, p.Name, originSource, p.Origin.Ref, p.Origin.Revision)
 	if err := conf.Save(cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.startExtension(p.Name); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

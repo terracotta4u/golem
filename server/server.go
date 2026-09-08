@@ -31,6 +31,9 @@ type Options struct {
 	Store store.Store
 	Addr  string
 	Token string
+
+	StartExtension func(name string) error
+	StopExtension  func(name string) error
 }
 
 type Server struct {
@@ -126,6 +129,20 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 		return ctx.Err()
 	}
 	return err
+}
+
+func (s *Server) startExtension(name string) error {
+	if s.opts.StartExtension == nil {
+		return nil
+	}
+	return s.opts.StartExtension(name)
+}
+
+func (s *Server) stopExtension(name string) error {
+	if s.opts.StopExtension == nil {
+		return nil
+	}
+	return s.opts.StopExtension(name)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
