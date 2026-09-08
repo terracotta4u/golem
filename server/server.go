@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +20,9 @@ import (
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/store"
 )
+
+//go:embed web/templates/*.html web/static
+var webFS embed.FS
 
 const maxBody = 1 << 20
 
@@ -65,9 +70,33 @@ func (s *Server) handler() http.Handler {
 func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
+	s.mountStatic(mux)
+	// API endpoints
 	s.mountChat(mux, runCtx)
-	s.mountWeb(mux, runCtx)
+	// Web endpoints
+	s.mountWebChat(mux, runCtx)
+	s.mountWebSettings(mux)
+	s.mountWebExtensions(mux)
 	return mux
+}
+
+func parseWeb() *template.Template {
+	return template.Must(template.ParseFS(webFS, "web/templates/*.html"))
+}
+
+func (s *Server) mountStatic(mux *http.ServeMux) {
+	static, err := fs.Sub(webFS, "web/static")
+	if err != nil {
+		panic(err)
+	}
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
+}
+
+func (s *Server) render(w http.ResponseWriter, name string, data any) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) Listen(ctx context.Context, ready func()) error {

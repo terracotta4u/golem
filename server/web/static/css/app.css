@@ -1,7 +1,7 @@
 :root {
   --bg: var(--stone-50);
   --fg: var(--black);
-  --muted: var(--stone-600);
+  --muted: var(--stone-500);
   --line: var(--stone-200);
   --accent: var(--green-600);
   --surface: var(--white);
@@ -28,9 +28,15 @@ h1 {
   font-size: 1.15rem;
 }
 
+h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .topbar {
   flex-shrink: 0;
   z-index: 4;
+  flex-wrap: nowrap;
   background: var(--stone-950);
   color: var(--stone-50);
 }
@@ -55,10 +61,26 @@ h1 {
   font-size: 1.15rem;
 }
 
+.topbar-settings {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.topbar-settings:hover {
+  color: var(--white);
+}
+
 .shell {
   position: relative;
   display: flex;
   min-height: 0;
+}
+
+body:not(:has(.sidebar)) {
+  --sidebar: 0rem;
 }
 
 .sidebar {
@@ -103,6 +125,17 @@ h1 {
 
 .workspace > .container {
   min-height: 100%;
+}
+
+.workspace:has(.subnav) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace:has(.subnav) > .container {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 @media (max-width: 48rem) {
@@ -316,17 +349,29 @@ a {
 }
 
 textarea,
+input,
+select,
 button {
   font: inherit;
 }
 
+input,
+select,
 textarea {
   width: 100%;
   padding: var(--space-2);
   border: 1px solid var(--line);
-  border-radius: var(--space-2);
+  border-radius: 0;
   background: var(--surface);
   color: var(--fg);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+
+textarea {
   resize: vertical;
 }
 
@@ -334,8 +379,161 @@ button {
   align-self: flex-end;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
-  border-radius: var(--space-2);
+  border-radius: 0;
   background: var(--surface);
   color: var(--fg);
   cursor: pointer;
+}
+
+button.btn-accent {
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  background: var(--accent);
+  color: var(--white);
+  transition: background 0.15s ease;
+}
+
+button.btn-accent:hover {
+  background: var(--green-700);
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.subnav {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.subnav-heading {
+  padding: var(--space-3) var(--space-5);
+}
+
+.subnav h1 {
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.breadcrumbs {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.breadcrumbs a {
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  color: var(--fg);
+}
+
+.add-btn {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+  background: var(--accent);
+  color: var(--white);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.add-btn:hover {
+  background: var(--green-700);
+}
+
+.tabs {
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  padding: var(--space-3) var(--space-5);
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab:hover,
+.tab.current {
+  color: var(--fg);
+}
+
+.tab.current {
+  border-bottom-color: var(--accent);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: var(--space-3) 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table th {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.data-table a {
+  text-decoration: none;
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: 0;
+  padding: var(--space-6);
+}
+
+.panel p {
+  margin: 0;
+}
+
+.setting-card {
+  display: flex;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+}
+
+.setting-card:hover {
+  background: var(--stone-100);
+}
+
+.setting-card-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.setting-card h2 {
+  font-size: 1.15rem;
+  font-weight: 400;
+}
+
+.meta-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+button.link-danger {
+  align-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--red-600);
+}
+
+button.link-danger:hover {
+  color: var(--red-700);
 }

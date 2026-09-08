@@ -5,7 +5,7 @@ PLATFORMS := darwin/arm64 darwin/amd64 linux/arm64 linux/amd64
 LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
 
 test:
-	go test ./...
+	go test ./... -count=1
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o golem ./cmd/golem

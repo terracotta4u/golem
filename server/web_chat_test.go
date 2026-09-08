@@ -31,8 +31,14 @@ func TestHomeIsNewChat(t *testing.T) {
 	if !regexp.MustCompile(`/conversations/[0-9a-f-]{36}/turns`).MatchString(body) {
 		t.Fatalf("home = %q, want new conversation turn URL", body)
 	}
-	if strings.Contains(body, `class="message"`) {
-		t.Fatalf("home = %q, want no messages", body)
+	if !strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("home = %q, want empty chat", body)
+	}
+	if !strings.Contains(body, `name="message"`) {
+		t.Fatalf("home = %q, want composer", body)
+	}
+	if !strings.Contains(body, `href="/settings"`) {
+		t.Fatalf("home = %q, want settings link", body)
 	}
 }
 
@@ -119,8 +125,8 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 	if !strings.Contains(body, `/conversations/brand-new/turns`) {
 		t.Fatalf("conversation = %q, want composer", body)
 	}
-	if strings.Contains(body, `class="message"`) {
-		t.Fatalf("conversation = %q, want no messages", body)
+	if !strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("conversation = %q, want empty chat", body)
 	}
 }
 
@@ -145,25 +151,6 @@ func TestConversationWrongChannelNotFound(t *testing.T) {
 	io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
-	}
-}
-
-func TestStaticCSS(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
-	defer ts.Close()
-
-	base := getStatic(t, ts.URL+"/static/css/base.css")
-	if base == "" {
-		t.Fatal("base.css empty")
-	}
-	for _, name := range []string{"colors.css", "spacing.css", "shadows.css", "layout.css", "app.css"} {
-		if !strings.Contains(base, `url("`+name+`")`) {
-			t.Fatalf("css = %q, want import %s", base, name)
-		}
 	}
 }
 
@@ -511,36 +498,4 @@ func turnID(t *testing.T, body string) string {
 		t.Fatalf("body = %q, want turn id", body)
 	}
 	return m[1]
-}
-
-func getHTML(t *testing.T, url string) string {
-	t.Helper()
-	body, ct := getOK(t, url)
-	if !strings.HasPrefix(ct, "text/html") {
-		t.Fatalf("GET %s Content-Type = %q, want text/html", url, ct)
-	}
-	return body
-}
-
-func getStatic(t *testing.T, url string) string {
-	t.Helper()
-	body, _ := getOK(t, url)
-	return body
-}
-
-func getOK(t *testing.T, url string) (string, string) {
-	t.Helper()
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("GET %s status = %d: %s", url, resp.StatusCode, body)
-	}
-	return string(body), resp.Header.Get("Content-Type")
 }

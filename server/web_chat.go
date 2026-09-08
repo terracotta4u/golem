@@ -2,11 +2,8 @@ package server
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"html"
-	"html/template"
-	"io/fs"
 	"net/http"
 	"strings"
 
@@ -17,19 +14,7 @@ import (
 
 const webChannel = "web"
 
-//go:embed web/templates/*.html web/static
-var webFS embed.FS
-
-func parseWeb() *template.Template {
-	return template.Must(template.ParseFS(webFS, "web/templates/*.html"))
-}
-
-func (s *Server) mountWeb(mux *http.ServeMux, runCtx context.Context) {
-	static, err := fs.Sub(webFS, "web/static")
-	if err != nil {
-		panic(err)
-	}
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
+func (s *Server) mountWebChat(mux *http.ServeMux, runCtx context.Context) {
 	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
 	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
@@ -146,12 +131,6 @@ func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id str
 		"ID":            conv.ID,
 		"Messages":      conv.Messages,
 		"Conversations": list,
+		"Sidebar":       true,
 	})
-}
-
-func (s *Server) render(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }

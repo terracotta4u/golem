@@ -1,0 +1,49 @@
+{{define "extension-add"}}
+{{template "layout-start" .}}
+<nav class="subnav cluster gap-0">
+  <div class="subnav-heading stack gap-0">
+    <nav class="breadcrumbs cluster gap-1" aria-label="Breadcrumb">
+      <a href="/settings">Settings</a>
+      <span aria-hidden="true">/</span>
+      <a href="/settings/extensions">Extensions</a>
+    </nav>
+    <h1>Add Extension</h1>
+  </div>
+</nav>
+<main class="container container-md stack grow">
+  <nav class="tabs cluster gap-0" aria-label="Add method">
+    <a class="tab{{if eq .From "url"}} current{{end}}" href="/settings/extensions/add?from=url">URL</a>
+    <a class="tab{{if eq .From "archive"}} current{{end}}" href="/settings/extensions/add?from=archive">Local archive</a>
+  </nav>
+  <section class="panel stack gap-5">
+    {{if eq .From "url"}}
+    <form class="stack gap-5" method="post" action="/settings/extensions/add/url">
+      <div class="field stack gap-2">
+        <label for="url">GitHub URL</label>
+        <input id="url" name="url" type="url" required placeholder="https://github.com/owner/repo">
+      </div>
+      <div class="field stack gap-2">
+        <label for="ref">Ref</label>
+        <input id="ref" name="ref" type="text" placeholder="Optional. Defaults to HEAD.">
+      </div>
+      <div class="stack gap-2 items-end">
+        <button type="submit" class="btn-accent">Add</button>
+        <p class="field-hint">Takes effect after restart.</p>
+      </div>
+    </form>
+    {{else}}
+    <form class="stack gap-5" method="post" action="/settings/extensions/add/archive" enctype="multipart/form-data">
+      <div class="field stack gap-2">
+        <label for="archive">Zip archive</label>
+        <input id="archive" name="archive" type="file" accept=".zip" required>
+      </div>
+      <div class="stack gap-2 items-end">
+        <button type="submit" class="btn-accent">Add</button>
+        <p class="field-hint">Takes effect after restart.</p>
+      </div>
+    </form>
+    {{end}}
+  </section>
+</main>
+{{template "layout-end" .}}
+{{end}}

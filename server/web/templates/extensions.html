@@ -1,0 +1,40 @@
+{{define "extensions"}}
+{{template "layout-start" .}}
+<nav class="subnav cluster gap-0 justify-between">
+  <div class="subnav-heading stack gap-0">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/settings">Settings</a>
+    </nav>
+    <h1>Extensions</h1>
+  </div>
+  <a class="add-btn gap-2" href="/settings/extensions/add">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+    </svg>
+    Add extension
+  </a>
+</nav>
+<main class="container container-md stack grow">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Version</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Extensions}}
+      <tr>
+        <td><a href="/settings/extensions/{{.Name}}">{{.Name}}</a></td>
+        <td>{{.Version}}</td>
+      </tr>
+      {{else}}
+      <tr>
+        <td colspan="2" class="field-hint">No extensions</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</main>
+{{template "layout-end" .}}
+{{end}}

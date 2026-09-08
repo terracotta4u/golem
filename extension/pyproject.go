@@ -13,19 +13,21 @@ import (
 const FileName = "pyproject.toml"
 
 type Project struct {
-	Name    string
-	Version string
-	Command string
-	Dir     string
+	Name        string
+	Version     string
+	Description string
+	Command     string
+	Dir         string
 }
 
 var nameRE = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type pyproject struct {
 	Project struct {
-		Name    string            `toml:"name"`
-		Version string            `toml:"version"`
-		Scripts map[string]string `toml:"scripts"`
+		Name        string            `toml:"name"`
+		Version     string            `toml:"version"`
+		Description string            `toml:"description"`
+		Scripts     map[string]string `toml:"scripts"`
 	} `toml:"project"`
 }
 
@@ -36,8 +38,9 @@ func Parse(data []byte) (Project, error) {
 	}
 
 	proj := Project{
-		Name:    strings.TrimSpace(p.Project.Name),
-		Version: strings.TrimSpace(p.Project.Version),
+		Name:        strings.TrimSpace(p.Project.Name),
+		Version:     strings.TrimSpace(p.Project.Version),
+		Description: strings.TrimSpace(p.Project.Description),
 	}
 	if proj.Name == "" {
 		return Project{}, fmt.Errorf("missing name")
