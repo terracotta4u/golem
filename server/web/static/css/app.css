@@ -316,10 +316,14 @@ a {
 }
 
 textarea,
+input,
+select,
 button {
   font: inherit;
 }
 
+input,
+select,
 textarea {
   width: 100%;
   padding: var(--space-2);
@@ -327,6 +331,9 @@ textarea {
   border-radius: var(--space-2);
   background: var(--surface);
   color: var(--fg);
+}
+
+textarea {
   resize: vertical;
 }
 
@@ -338,4 +345,10 @@ button {
   background: var(--surface);
   color: var(--fg);
   cursor: pointer;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }

@@ -2,6 +2,29 @@
 {{template "layout-start" .}}
 <main class="container stack grow">
   <h1>Settings</h1>
+  <form class="stack gap-5" method="post" action="/settings">
+    <div class="field stack gap-2">
+      <label for="provider">Provider</label>
+      <select id="provider" name="provider">
+        <option value="openrouter"{{if eq .Provider "openrouter"}} selected{{end}}>OpenRouter</option>
+      </select>
+    </div>
+    <div class="field stack gap-2">
+      <label for="model">Model</label>
+      <input id="model" name="model" type="text" required value="{{.Model}}">
+    </div>
+    <div class="field stack gap-2">
+      <label for="api_key">API key</label>
+      <p class="field-hint">{{if .HasAPIKey}}Currently set. Leave blank to keep.{{else}}Not set.{{end}}</p>
+      <input id="api_key" name="api_key" type="password" autocomplete="off">
+    </div>
+    <div class="field stack gap-2">
+      <label for="max_tool_rounds">Max tool rounds</label>
+      <p class="field-hint">0 means no limit.</p>
+      <input id="max_tool_rounds" name="max_tool_rounds" type="number" min="0" step="1" value="{{.MaxToolRounds}}">
+    </div>
+    <button type="submit">Save</button>
+  </form>
 </main>
 {{template "layout-end" .}}
 {{end}}
