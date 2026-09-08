@@ -76,6 +76,7 @@ func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	// Web endpoints
 	s.mountWebChat(mux, runCtx)
 	s.mountWebSettings(mux)
+	s.mountWebExtensions(mux)
 	return mux
 }
 

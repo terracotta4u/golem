@@ -1,0 +1,20 @@
+{{define "extensions"}}
+{{template "layout-start" .}}
+<main class="container stack grow">
+  <h1>Extensions</h1>
+  {{if .Extensions}}
+  <ul class="stack gap-3">
+    {{range .Extensions}}
+    <li class="stack gap-1">
+      <strong>{{.Name}}</strong>
+      <span>{{.Version}}</span>
+      {{if .Source}}<span class="field-hint">{{.Source}}</span>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="field-hint">No extensions</p>
+  {{end}}
+</main>
+{{template "layout-end" .}}
+{{end}}
