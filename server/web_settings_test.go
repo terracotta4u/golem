@@ -23,6 +23,12 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<h1>Settings</h1>") {
 		t.Fatalf("settings = %q, want Settings heading", body)
 	}
+	if !strings.Contains(body, `class="topbar-settings`) {
+		t.Fatalf("settings = %q, want settings gear", body)
+	}
+	if strings.Contains(body, `topbar-settings current`) {
+		t.Fatalf("settings = %q, want no selected gear", body)
+	}
 }
 
 func TestSettingsShowsConf(t *testing.T) {

@@ -34,6 +34,18 @@ func TestHomeIsNewChat(t *testing.T) {
 	if strings.Contains(body, `class="message"`) {
 		t.Fatalf("home = %q, want no messages", body)
 	}
+	if !strings.Contains(body, `class="topbar-settings`) {
+		t.Fatalf("home = %q, want settings gear", body)
+	}
+	if !strings.Contains(body, `M8 4.754a3.246 3.246 0 1 0 0 6.492`) {
+		t.Fatalf("home = %q, want gear outline icon", body)
+	}
+	if strings.Contains(body, `M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0`) {
+		t.Fatalf("home = %q, want no gear fill icon", body)
+	}
+	if !strings.Contains(body, `width="20"`) {
+		t.Fatalf("home = %q, want larger settings gear", body)
+	}
 }
 
 func TestSidebarListsWebConversations(t *testing.T) {
