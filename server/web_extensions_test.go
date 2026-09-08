@@ -35,7 +35,7 @@ func TestExtensionsPage(t *testing.T) {
 	if !strings.Contains(body, "<h1>Extensions</h1>") {
 		t.Fatalf("extensions = %q, want Extensions heading", body)
 	}
-	if !strings.Contains(body, `href="/settings">settings</a>`) {
+	if !strings.Contains(body, `href="/settings">Settings</a>`) {
 		t.Fatalf("extensions = %q, want settings breadcrumb", body)
 	}
 	if !strings.Contains(body, "<th>Name</th>") || !strings.Contains(body, "<th>Version</th>") {
@@ -129,10 +129,10 @@ func TestExtensionDetail(t *testing.T) {
 	if !strings.Contains(body, "<h1>echo</h1>") {
 		t.Fatalf("detail = %q, want echo heading", body)
 	}
-	if !strings.Contains(body, `href="/settings">settings</a>`) {
+	if !strings.Contains(body, `href="/settings">Settings</a>`) {
 		t.Fatalf("detail = %q, want settings breadcrumb", body)
 	}
-	if !strings.Contains(body, `href="/settings/extensions">extensions</a>`) {
+	if !strings.Contains(body, `href="/settings/extensions">Extensions</a>`) {
 		t.Fatalf("detail = %q, want extensions breadcrumb", body)
 	}
 	if !strings.Contains(body, "0.1.0") {
