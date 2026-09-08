@@ -73,20 +73,28 @@ func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, e
 
 	out := make([]supervisor.Extension, 0, len(list))
 	for _, p := range list {
-		entry := cfg.Extensions[p.Name]
-		if err := extension.EnsureVenv(p.Dir, p); err != nil {
-			return nil, err
-		}
-		command, err := extension.ResolveCommand(p.Dir, p)
+		ext, err := prepareExtension(cfg, p)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, supervisor.Extension{
-			Name:    p.Name,
-			Command: command,
-			Env:     entry.Env,
-			Dir:     p.Dir,
-		})
+		out = append(out, ext)
 	}
 	return out, nil
+}
+
+func prepareExtension(cfg conf.Conf, p extension.Project) (supervisor.Extension, error) {
+	entry := cfg.Extensions[p.Name]
+	if err := extension.EnsureVenv(p.Dir, p); err != nil {
+		return supervisor.Extension{}, err
+	}
+	command, err := extension.ResolveCommand(p.Dir, p)
+	if err != nil {
+		return supervisor.Extension{}, err
+	}
+	return supervisor.Extension{
+		Name:    p.Name,
+		Command: command,
+		Env:     entry.Env,
+		Dir:     p.Dir,
+	}, nil
 }

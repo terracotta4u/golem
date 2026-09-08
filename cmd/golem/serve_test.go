@@ -102,6 +102,34 @@ func TestRunningExtensionsFillsFromInstall(t *testing.T) {
 	}
 }
 
+func TestPrepareExtension(t *testing.T) {
+	root := t.TempDir()
+	dir := writeProject(t, root, "echo")
+	script := writeVenvEcho(t, dir)
+	list, err := extension.List(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("list = %d, want 1", len(list))
+	}
+
+	got, err := prepareExtension(conf.Conf{
+		Extensions: map[string]conf.Extension{
+			"echo": {Env: map[string]string{"TOKEN": "x"}},
+		},
+	}, list[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "echo" || got.Command != script || got.Dir != dir {
+		t.Errorf("got = %+v", got)
+	}
+	if got.Env["TOKEN"] != "x" {
+		t.Errorf("Env = %v", got.Env)
+	}
+}
+
 func TestRunningExtensionsStartsWithoutConf(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
