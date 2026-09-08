@@ -352,3 +352,40 @@ button {
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+.add-menu {
+  position: relative;
+  align-self: start;
+}
+
+.add-menu summary {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--space-2);
+  background: var(--surface);
+  cursor: pointer;
+  list-style: none;
+}
+
+.add-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.add-menu-list {
+  position: absolute;
+  z-index: 1;
+  margin-top: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--space-2);
+}
+
+.add-menu-list a {
+  display: block;
+  text-decoration: none;
+}
+
+.add-menu-list a:hover {
+  background: var(--green-50);
+}

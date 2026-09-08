@@ -2,6 +2,13 @@
 {{template "layout-start" .}}
 <main class="container stack grow">
   <h1>Extensions</h1>
+  <details class="add-menu">
+    <summary>Add extension</summary>
+    <div class="add-menu-list stack gap-0">
+      <a class="px-3 py-2" href="/settings/extensions/add?from=url">URL</a>
+      <a class="px-3 py-2" href="/settings/extensions/add?from=archive">Local archive</a>
+    </div>
+  </details>
   {{if .Extensions}}
   <ul class="stack gap-3">
     {{range .Extensions}}

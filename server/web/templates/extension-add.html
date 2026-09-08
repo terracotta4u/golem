@@ -1,0 +1,30 @@
+{{define "extension-add"}}
+{{template "layout-start" .}}
+<main class="container stack grow">
+  <h1>Add extension</h1>
+  {{if eq .From "url"}}
+  <form class="stack gap-5" method="post" action="/settings/extensions/add/url">
+    <div class="field stack gap-2">
+      <label for="url">GitHub URL</label>
+      <input id="url" name="url" type="url" required placeholder="https://github.com/owner/repo">
+    </div>
+    <div class="field stack gap-2">
+      <label for="ref">Ref</label>
+      <p class="field-hint">Optional. Defaults to HEAD.</p>
+      <input id="ref" name="ref" type="text">
+    </div>
+    <button type="submit">Add</button>
+  </form>
+  {{else}}
+  <form class="stack gap-5" method="post" action="/settings/extensions/add/archive" enctype="multipart/form-data">
+    <div class="field stack gap-2">
+      <label for="archive">Zip archive</label>
+      <input id="archive" name="archive" type="file" accept=".zip" required>
+    </div>
+    <button type="submit">Add</button>
+  </form>
+  {{end}}
+  <p class="field-hint">Takes effect after restart.</p>
+</main>
+{{template "layout-end" .}}
+{{end}}

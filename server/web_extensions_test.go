@@ -1,17 +1,23 @@
 package server
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/extension"
+	"github.com/terracotta4u/golem/runtime"
 )
 
 func TestExtensionsPage(t *testing.T) {
@@ -28,6 +34,12 @@ func TestExtensionsPage(t *testing.T) {
 	}
 	if !strings.Contains(body, "No extensions") {
 		t.Fatalf("extensions = %q, want empty state", body)
+	}
+	if !strings.Contains(body, `href="/settings/extensions/add?from=url"`) {
+		t.Fatalf("extensions = %q, want add from url", body)
+	}
+	if !strings.Contains(body, `href="/settings/extensions/add?from=archive"`) {
+		t.Fatalf("extensions = %q, want add from archive", body)
 	}
 }
 
@@ -186,6 +198,109 @@ func TestExtensionRemove(t *testing.T) {
 	}
 }
 
+func TestExtensionAddURLForm(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/extensions/add?from=url")
+	if !strings.Contains(body, "<h1>Add extension</h1>") {
+		t.Fatalf("add url = %q, want heading", body)
+	}
+	if !strings.Contains(body, `name="url"`) {
+		t.Fatalf("add url = %q, want url field", body)
+	}
+	if !strings.Contains(body, `action="/settings/extensions/add/url"`) {
+		t.Fatalf("add url = %q, want url post action", body)
+	}
+}
+
+func TestExtensionAddArchiveForm(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/extensions/add?from=archive")
+	if !strings.Contains(body, "<h1>Add extension</h1>") {
+		t.Fatalf("add archive = %q, want heading", body)
+	}
+	if !strings.Contains(body, `type="file"`) || !strings.Contains(body, `name="archive"`) {
+		t.Fatalf("add archive = %q, want file field", body)
+	}
+	if !strings.Contains(body, `action="/settings/extensions/add/archive"`) {
+		t.Fatalf("add archive = %q, want archive post action", body)
+	}
+}
+
+func TestExtensionAddUnknownFrom(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/settings/extensions/add?from=disk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestExtensionAddURLRequiresGitHub(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postForm(t, ts.URL+"/settings/extensions/add/url", url.Values{
+		"url": {"https://example.com/echo"},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+}
+
+func TestExtensionAddArchiveInstalls(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	stubEchoRuntime(t)
+
+	zipPath := filepath.Join(t.TempDir(), "echo.zip")
+	writeExtZip(t, zipPath, "echo", "0.1.0")
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, body := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
+	}
+	if !strings.Contains(body, "echo") || !strings.Contains(body, "0.1.0") {
+		t.Fatalf("list = %q, want echo installed", body)
+	}
+	if !strings.Contains(body, "echo.zip") {
+		t.Fatalf("list = %q, want archive filename as source", body)
+	}
+
+	root, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "echo", "pyproject.toml")); err != nil {
+		t.Fatal(err)
+	}
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Extensions["echo"].Source != "echo.zip" {
+		t.Fatalf("source = %+v, want echo.zip", got.Extensions["echo"])
+	}
+}
+
 func writeInstalledExt(t *testing.T, root, name, version string) {
 	t.Helper()
 	dir := filepath.Join(root, name)
@@ -196,4 +311,92 @@ func writeInstalledExt(t *testing.T, root, name, version string) {
 	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(toml), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func writeExtZip(t *testing.T, path, name, version string) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zw := zip.NewWriter(f)
+	w, err := zw.Create("pyproject.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[project.scripts]\n%s = %q\n", name, version, name, name+":main")
+	if _, err := io.WriteString(w, toml); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func postForm(t *testing.T, target string, vals url.Values) (int, string) {
+	t.Helper()
+	resp, err := http.PostForm(target, vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp.StatusCode, string(body)
+}
+
+func postArchive(t *testing.T, target, zipPath string) (int, string) {
+	t.Helper()
+	f, err := os.Open(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, err := mw.CreateFormFile("archive", filepath.Base(zipPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(fw, f); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.Post(target, mw.FormDataContentType(), &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp.StatusCode, string(body)
+}
+
+func stubEchoRuntime(t *testing.T) {
+	t.Helper()
+	restore := extension.StubRuntime(runtime.UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			if cmd.Dir == "" {
+				return nil
+			}
+			path := filepath.Join(cmd.Dir, ".venv", "bin", "echo")
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				return err
+			}
+			return os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700)
+		},
+	})
+	t.Cleanup(restore)
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +13,9 @@ import (
 
 func (s *Server) mountWebExtensions(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings/extensions", s.handleExtensions)
+	mux.HandleFunc("GET /settings/extensions/add", s.handleExtensionAdd)
+	mux.HandleFunc("POST /settings/extensions/add/url", s.handleExtensionAddURL)
+	mux.HandleFunc("POST /settings/extensions/add/archive", s.handleExtensionAddArchive)
 	mux.HandleFunc("GET /settings/extensions/{name}", s.handleExtension)
 	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.handleExtensionRemove)
 }
@@ -121,6 +125,102 @@ func (s *Server) handleExtensionRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conf.RemoveExtension(&cfg, name)
+	if err := conf.Save(cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/settings/extensions", http.StatusSeeOther)
+}
+
+func (s *Server) handleExtensionAdd(w http.ResponseWriter, r *http.Request) {
+	from := r.URL.Query().Get("from")
+	if from != "url" && from != "archive" {
+		http.Error(w, "from must be url or archive", http.StatusBadRequest)
+		return
+	}
+	convs, err := s.webConversations()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "extension-add", map[string]any{
+		"Title":         "Add extension",
+		"Conversations": convs,
+		"From":          from,
+	})
+}
+
+func (s *Server) handleExtensionAddURL(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	src := strings.TrimSpace(r.FormValue("url"))
+	if src == "" {
+		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
+	s.installExtension(w, r, src, strings.TrimSpace(r.FormValue("ref")), "")
+}
+
+func (s *Server) handleExtensionAddArchive(w http.ResponseWriter, r *http.Request) {
+	const maxArchive = 32 << 20
+	r.Body = http.MaxBytesReader(w, r.Body, maxArchive)
+	if err := r.ParseMultipartForm(maxArchive); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	file, hdr, err := r.FormFile("archive")
+	if err != nil {
+		http.Error(w, "archive is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	if !strings.EqualFold(filepath.Ext(hdr.Filename), ".zip") {
+		http.Error(w, "archive must be a zip file", http.StatusBadRequest)
+		return
+	}
+
+	tmp, err := os.CreateTemp("", "golem-ext-*.zip")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := io.Copy(tmp, file); err != nil {
+		tmp.Close()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.installExtension(w, r, tmpName, "", hdr.Filename)
+}
+
+func (s *Server) installExtension(w http.ResponseWriter, r *http.Request, src, ref, originSource string) {
+	root, err := conf.ExtensionsDir()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	p, err := extension.Install(src, root, extension.Options{Ref: ref})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if originSource == "" {
+		originSource = p.Origin.Source
+	}
+	conf.SetExtensionOrigin(&cfg, p.Name, originSource, p.Origin.Ref, p.Origin.Revision)
 	if err := conf.Save(cfg); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
