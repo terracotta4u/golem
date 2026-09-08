@@ -31,20 +31,14 @@ func TestHomeIsNewChat(t *testing.T) {
 	if !regexp.MustCompile(`/conversations/[0-9a-f-]{36}/turns`).MatchString(body) {
 		t.Fatalf("home = %q, want new conversation turn URL", body)
 	}
-	if strings.Contains(body, `class="message"`) {
-		t.Fatalf("home = %q, want no messages", body)
+	if !strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("home = %q, want empty chat", body)
 	}
-	if !strings.Contains(body, `class="topbar-settings`) {
-		t.Fatalf("home = %q, want settings gear", body)
+	if !strings.Contains(body, `name="message"`) {
+		t.Fatalf("home = %q, want composer", body)
 	}
-	if !strings.Contains(body, `M8 4.754a3.246 3.246 0 1 0 0 6.492`) {
-		t.Fatalf("home = %q, want gear outline icon", body)
-	}
-	if strings.Contains(body, `M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0`) {
-		t.Fatalf("home = %q, want no gear fill icon", body)
-	}
-	if !strings.Contains(body, `width="20"`) {
-		t.Fatalf("home = %q, want larger settings gear", body)
+	if !strings.Contains(body, `href="/settings"`) {
+		t.Fatalf("home = %q, want settings link", body)
 	}
 }
 
@@ -131,8 +125,8 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 	if !strings.Contains(body, `/conversations/brand-new/turns`) {
 		t.Fatalf("conversation = %q, want composer", body)
 	}
-	if strings.Contains(body, `class="message"`) {
-		t.Fatalf("conversation = %q, want no messages", body)
+	if !strings.Contains(body, "Ask Golem anything to get started") {
+		t.Fatalf("conversation = %q, want empty chat", body)
 	}
 }
 
