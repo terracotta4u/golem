@@ -1,7 +1,14 @@
 {{define "extension"}}
 {{template "layout-start" .}}
 <nav class="subnav cluster gap-0">
-  <h1>{{.Name}}</h1>
+  <div class="subnav-heading stack gap-0">
+    <nav class="breadcrumbs cluster gap-1" aria-label="Breadcrumb">
+      <a href="/settings">settings</a>
+      <span aria-hidden="true">/</span>
+      <a href="/settings/extensions">extensions</a>
+    </nav>
+    <h1>{{.Name}}</h1>
+  </div>
 </nav>
 <main class="container container-lg stack grow">
   <div class="row gap-6 items-start">
