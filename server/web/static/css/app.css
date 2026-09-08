@@ -1,7 +1,7 @@
 :root {
   --bg: var(--stone-50);
   --fg: var(--black);
-  --muted: var(--stone-600);
+  --muted: var(--stone-500);
   --line: var(--stone-200);
   --accent: var(--green-600);
   --surface: var(--white);
@@ -26,6 +26,11 @@ body {
 h1 {
   margin: 0;
   font-size: 1.15rem;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .topbar {
@@ -443,4 +448,32 @@ button {
 
 .data-table a {
   text-decoration: none;
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: 0;
+  padding: var(--space-6);
+}
+
+.panel p {
+  margin: 0;
+}
+
+.meta-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+button.link-danger {
+  align-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--red-600);
+}
+
+button.link-danger:hover {
+  color: var(--red-700);
 }

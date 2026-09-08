@@ -120,17 +120,41 @@ func TestExtensionDetail(t *testing.T) {
 	if !strings.Contains(body, "<title>echo</title>") {
 		t.Fatalf("detail = %q, want echo title", body)
 	}
+	if !strings.Contains(body, `<nav class="subnav`) {
+		t.Fatalf("detail = %q, want subnav", body)
+	}
 	if !strings.Contains(body, "<h1>echo</h1>") {
 		t.Fatalf("detail = %q, want echo heading", body)
 	}
 	if !strings.Contains(body, "0.1.0") {
 		t.Fatalf("detail = %q, want version", body)
 	}
+	if !strings.Contains(body, "echo extension") {
+		t.Fatalf("detail = %q, want description", body)
+	}
 	if !strings.Contains(body, "https://github.com/example/echo") {
 		t.Fatalf("detail = %q, want source", body)
 	}
 	if !strings.Contains(body, "HEAD") || !strings.Contains(body, "abc123") {
 		t.Fatalf("detail = %q, want ref and revision", body)
+	}
+	if !strings.Contains(body, "<h2>Manage</h2>") {
+		t.Fatalf("detail = %q, want Manage heading", body)
+	}
+	if !strings.Contains(body, `action="/settings/extensions/echo/remove"`) {
+		t.Fatalf("detail = %q, want remove action", body)
+	}
+	if !strings.Contains(body, `class="link-danger"`) {
+		t.Fatalf("detail = %q, want delete link", body)
+	}
+	if !strings.Contains(body, `class="container container-lg`) {
+		t.Fatalf("detail = %q, want container-lg", body)
+	}
+	if !strings.Contains(body, `class="row gap-6 items-start"`) {
+		t.Fatalf("detail = %q, want columns sized to content", body)
+	}
+	if !strings.Contains(body, `class="col-8`) || !strings.Contains(body, `class="col-4`) {
+		t.Fatalf("detail = %q, want 2/3 and 1/3 columns", body)
 	}
 }
 
@@ -317,7 +341,7 @@ func writeInstalledExt(t *testing.T, root, name, version string) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[project.scripts]\n%s = %q\n", name, version, name, name+":main")
+	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\ndescription = %q\n\n[project.scripts]\n%s = %q\n", name, version, name+" extension", name, name+":main")
 	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(toml), 0o600); err != nil {
 		t.Fatal(err)
 	}

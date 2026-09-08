@@ -98,6 +98,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		"Conversations": convs,
 		"Name":          p.Name,
 		"Version":       p.Version,
+		"Description":   p.Description,
 		"Source":        origin.Source,
 		"Ref":           origin.Ref,
 		"Revision":      origin.Revision,

@@ -1,15 +1,48 @@
 {{define "extension"}}
 {{template "layout-start" .}}
-<main class="container stack grow">
+<nav class="subnav cluster gap-0">
   <h1>{{.Name}}</h1>
-  <p>Version {{.Version}}</p>
-  {{if .Source}}<p class="field-hint">{{.Source}}</p>{{end}}
-  {{if .Ref}}<p class="field-hint">{{.Ref}}</p>{{end}}
-  {{if .Revision}}<p class="field-hint">{{.Revision}}</p>{{end}}
-  <form method="post" action="/settings/extensions/{{.Name}}/remove">
-    <button type="submit">Remove</button>
-  </form>
-  <p class="field-hint">Takes effect after restart.</p>
+</nav>
+<main class="container container-lg stack grow">
+  <div class="row gap-6 items-start">
+    <section class="col-8 panel stack gap-5">
+      <div class="stack gap-1">
+        <p class="meta-label">Version</p>
+        <p>{{.Version}}</p>
+      </div>
+      {{if .Description}}
+      <div class="stack gap-1">
+        <p class="meta-label">Description</p>
+        <p>{{.Description}}</p>
+      </div>
+      {{end}}
+      {{if .Source}}
+      <div class="stack gap-1">
+        <p class="meta-label">Source</p>
+        <p>{{.Source}}</p>
+      </div>
+      {{end}}
+      {{if .Ref}}
+      <div class="stack gap-1">
+        <p class="meta-label">Ref</p>
+        <p>{{.Ref}}</p>
+      </div>
+      {{end}}
+      {{if .Revision}}
+      <div class="stack gap-1">
+        <p class="meta-label">Revision</p>
+        <p>{{.Revision}}</p>
+      </div>
+      {{end}}
+    </section>
+    <section class="col-4 panel stack gap-5">
+      <h2>Manage</h2>
+      <form method="post" action="/settings/extensions/{{.Name}}/remove">
+        <button type="submit" class="link-danger">Delete</button>
+      </form>
+      <p class="field-hint">Takes effect after restart.</p>
+    </section>
+  </div>
 </main>
 {{template "layout-end" .}}
 {{end}}

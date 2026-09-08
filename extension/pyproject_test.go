@@ -20,7 +20,7 @@ telegram = "telegram:main"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "telegram" || got.Version != "1.0.0" || got.Command != "telegram" {
+	if got.Name != "telegram" || got.Version != "1.0.0" || got.Command != "telegram" || got.Description != "Telegram bot" {
 		t.Errorf("project = %+v", got)
 	}
 }
