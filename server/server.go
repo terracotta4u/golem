@@ -70,9 +70,12 @@ func (s *Server) handler() http.Handler {
 func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
-	s.mountChat(mux, runCtx)
 	s.mountStatic(mux)
+	// API endpoints
+	s.mountChat(mux, runCtx)
+	// Web endpoints
 	s.mountWebChat(mux, runCtx)
+	s.mountWebSettings(mux)
 	return mux
 }
 
