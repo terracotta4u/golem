@@ -231,30 +231,132 @@ a {
   background: var(--green-100);
 }
 
-.message p {
-  margin: 0;
-  white-space: pre-wrap;
-}
-
 .message.user {
   max-width: 90%;
   align-self: flex-end;
 }
 
 .message.user p {
+  margin: 0;
   width: fit-content;
   max-width: 100%;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--space-2) var(--space-2) 0 var(--space-2);
   background: var(--stone-800);
   color: var(--stone-50);
+  white-space: pre-wrap;
 }
 
 .message.assistant {
+  min-width: 0;
+  overflow-wrap: break-word;
   color: var(--fg);
 }
 
+.message.assistant > :first-child,
+.message.assistant .reply > :first-child {
+  margin-top: 0;
+}
+
+.message.assistant > :last-child,
+.message.assistant .reply > :last-child {
+  margin-bottom: 0;
+}
+
+.message.assistant p,
+.message.assistant ul,
+.message.assistant ol,
+.message.assistant pre,
+.message.assistant blockquote,
+.message.assistant table {
+  margin: 0 0 var(--space-3);
+}
+
+.message.assistant h1,
+.message.assistant h2,
+.message.assistant h3,
+.message.assistant h4 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.message.assistant h1 {
+  font-size: 1.15rem;
+}
+
+.message.assistant ul,
+.message.assistant ol {
+  padding-left: var(--space-5);
+}
+
+.message.assistant li + li {
+  margin-top: var(--space-1);
+}
+
+.message.assistant a {
+  color: var(--accent);
+}
+
+.message.assistant code {
+  font:
+    0.9em/1.4 ui-monospace,
+    monospace;
+  padding: 0.1em 0.35em;
+  border-radius: var(--space-1);
+  background: var(--stone-100);
+}
+
+.message.assistant pre {
+  overflow-x: auto;
+  padding: var(--space-3);
+  border-radius: var(--space-2);
+  background: var(--stone-100);
+}
+
+.message.assistant pre code {
+  padding: 0;
+  background: none;
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+}
+
+.message.assistant blockquote {
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+}
+
+.message.assistant table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.message.assistant th,
+.message.assistant td {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.message.assistant th {
+  background: var(--stone-100);
+}
+
+.message.assistant hr {
+  margin: var(--space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.message.assistant img {
+  max-width: 100%;
+  height: auto;
+}
+
 .message p.error {
+  margin: 0;
   color: var(--red-600);
 }
 
