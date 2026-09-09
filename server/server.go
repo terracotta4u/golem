@@ -84,7 +84,9 @@ func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 }
 
 func parseWeb() *template.Template {
-	return template.Must(template.ParseFS(webFS, "web/templates/*.html"))
+	return template.Must(template.New("").Funcs(template.FuncMap{
+		"markdown": markdownHTML,
+	}).ParseFS(webFS, "web/templates/*.html"))
 }
 
 func (s *Server) mountStatic(mux *http.ServeMux) {
