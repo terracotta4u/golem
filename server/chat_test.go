@@ -323,17 +323,42 @@ func (e sseEvent) errText() string {
 	return body.Error
 }
 
+func TestWriteSSEMultiline(t *testing.T) {
+	rec := httptest.NewRecorder()
+	if !writeSSE(rec, "", "<p>one</p>\n<pre>a\n b</pre>") {
+		t.Fatal("writeSSE failed")
+	}
+	got := rec.Body.String()
+	want := "data: <p>one</p>\ndata: <pre>a\ndata:  b</pre>\n\n"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestReadSSEConcatenatesDataLines(t *testing.T) {
+	body := "data: <p>one</p>\ndata: <pre>a\ndata:  b</pre>\n\n"
+	events := readSSE(t, strings.NewReader(body))
+	if len(events) != 1 {
+		t.Fatalf("events = %+v, want 1", events)
+	}
+	want := "<p>one</p>\n<pre>a\n b</pre>"
+	if events[0].Data != want {
+		t.Fatalf("data = %q, want %q", events[0].Data, want)
+	}
+}
+
 func readSSE(t *testing.T, r io.Reader) []sseEvent {
 	t.Helper()
 	var events []sseEvent
 	sc := bufio.NewScanner(r)
 	var event, data string
+	var hasData bool
 	flush := func() {
-		if event == "" && data == "" {
+		if event == "" && !hasData {
 			return
 		}
 		events = append(events, sseEvent{Event: event, Data: data})
-		event, data = "", ""
+		event, data, hasData = "", "", false
 	}
 	for sc.Scan() {
 		line := sc.Text()
@@ -341,7 +366,15 @@ func readSSE(t *testing.T, r io.Reader) []sseEvent {
 		case strings.HasPrefix(line, "event:"):
 			event = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
 		case strings.HasPrefix(line, "data:"):
-			data = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			payload := strings.TrimPrefix(line, "data:")
+			if strings.HasPrefix(payload, " ") {
+				payload = payload[1:]
+			}
+			if hasData {
+				data += "\n"
+			}
+			data += payload
+			hasData = true
 		case line == "":
 			flush()
 		}
