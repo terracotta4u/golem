@@ -348,6 +348,26 @@ func TestWebTurnEventsDone(t *testing.T) {
 	}
 }
 
+func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "**Pasta.**"}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	events := getWebTurnEvents(t, ts.URL, turnID(t, body))
+	if !unnamedContains(events, "<strong>Pasta.</strong>") {
+		t.Fatalf("events = %+v, want markdown HTML done", events)
+	}
+}
+
 func TestWebTurnEventsLateSubscriber(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {
