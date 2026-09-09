@@ -6,9 +6,13 @@
     <p class="empty-chat">Ask Golem anything to get started</p>
     {{end}}
     {{range .Messages}}
-      {{if and (or (eq .Role "user") (eq .Role "assistant")) .Content}}
-        <div class="message {{.Role}}{{if eq .Role "user"}} my-6{{end}}">
+      {{if and (eq .Role "user") .Content}}
+        <div class="message user my-6">
           <p>{{.Content}}</p>
+        </div>
+      {{else if and (eq .Role "assistant") .Content}}
+        <div class="message assistant">
+          {{markdown .Content}}
         </div>
       {{end}}
     {{end}}

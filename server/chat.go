@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -153,13 +154,22 @@ func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id stri
 }
 
 func writeSSE(w http.ResponseWriter, name, data string) bool {
-	var err error
-	if name == "" {
-		_, err = fmt.Fprintf(w, "data: %s\n\n", data)
-	} else {
-		_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, data)
+	var b strings.Builder
+	if name != "" {
+		fmt.Fprintf(&b, "event: %s\n", name)
 	}
-	if err != nil {
+	// SSE is line-based; normalize CR/LF so a payload newline cannot break framing.
+	data = strings.ReplaceAll(data, "\r\n", "\n")
+	data = strings.ReplaceAll(data, "\r", "\n")
+	if data == "" {
+		b.WriteString("data:\n")
+	} else {
+		for _, line := range strings.Split(data, "\n") {
+			fmt.Fprintf(&b, "data: %s\n", line)
+		}
+	}
+	b.WriteByte('\n')
+	if _, err := io.WriteString(w, b.String()); err != nil {
 		return false
 	}
 	if f, ok := w.(http.Flusher); ok {

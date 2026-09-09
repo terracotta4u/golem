@@ -80,7 +80,7 @@ func (s *Server) handleWebTurn(w http.ResponseWriter, r *http.Request) {
 		case "log":
 			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend"><div class="log-line">`+sseEscape(line)+`</div></hx-partial>`)
 		case "done":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p>`+sseEscape(text)+`</p></hx-partial>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(markdownHTML(text))+`</hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")

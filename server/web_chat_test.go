@@ -87,8 +87,8 @@ func TestConversationShowsMessages(t *testing.T) {
 		Channel: "web",
 		Title:   "Dinner plans",
 		Messages: []provider.Message{
-			{Role: "user", Content: "What is for dinner?"},
-			{Role: "assistant", Content: "Pasta."},
+			{Role: "user", Content: "What is for **dinner**?"},
+			{Role: "assistant", Content: "**Pasta.**"},
 		},
 	}
 	if err := st.Save(conv); err != nil {
@@ -102,11 +102,14 @@ func TestConversationShowsMessages(t *testing.T) {
 	if !strings.Contains(body, "<title>Dinner plans</title>") {
 		t.Fatalf("conversation = %q, want title in page title", body)
 	}
-	if !strings.Contains(body, "What is for dinner?") {
-		t.Fatalf("conversation = %q, want user message", body)
+	if !strings.Contains(body, "What is for **dinner**?") {
+		t.Fatalf("conversation = %q, want escaped user markdown", body)
 	}
-	if !strings.Contains(body, "Pasta.") {
-		t.Fatalf("conversation = %q, want assistant message", body)
+	if strings.Contains(body, "<strong>dinner</strong>") {
+		t.Fatalf("conversation = %q, want user markdown unrendered", body)
+	}
+	if !strings.Contains(body, "<strong>Pasta.</strong>") {
+		t.Fatalf("conversation = %q, want assistant markdown HTML", body)
 	}
 	if !strings.Contains(body, `/conversations/web-1/turns`) {
 		t.Fatalf("conversation = %q, want turn URL", body)
@@ -345,6 +348,26 @@ func TestWebTurnEventsDone(t *testing.T) {
 	}
 	if !hasEvent(events, "close") {
 		t.Fatalf("events = %+v, want close", events)
+	}
+}
+
+func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(&replyProvider{text: "**Pasta.**"}, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	events := getWebTurnEvents(t, ts.URL, turnID(t, body))
+	if !unnamedContains(events, "<strong>Pasta.</strong>") {
+		t.Fatalf("events = %+v, want markdown HTML done", events)
 	}
 }
 
