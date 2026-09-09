@@ -158,6 +158,7 @@ func writeSSE(w http.ResponseWriter, name, data string) bool {
 	if name != "" {
 		fmt.Fprintf(&b, "event: %s\n", name)
 	}
+	// SSE is line-based; normalize CR/LF so a payload newline cannot break framing.
 	data = strings.ReplaceAll(data, "\r\n", "\n")
 	data = strings.ReplaceAll(data, "\r", "\n")
 	if data == "" {
