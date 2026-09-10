@@ -190,7 +190,7 @@ func (s *Server) run(ctx context.Context, turnID, convID string, req postTurnReq
 	}
 
 	sess := s.opts.Agent.Session(s.opts.Store, conv)
-	sess.OnTool = func(name, args string) {
+	sess.OnTool = func(name, args, _ string) {
 		line := fmt.Sprintf("[%s] %s", name, args)
 		fmt.Fprintln(os.Stderr, line)
 		s.appendLog(turnID, line)

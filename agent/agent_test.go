@@ -72,6 +72,39 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 	}
 }
 
+func TestSendReportsToolResult(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "pong"}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "echo",
+					Arguments: `{"text":"hi"}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "done"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := New(p, workspace(t), echo).Session(st, store.New("cli"))
+	var got struct{ name, args, result string }
+	sess.OnTool = func(name, args, result string) {
+		got.name, got.args, got.result = name, args, result
+	}
+	if _, err := sess.Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if got.name != "echo" || got.args != `{"text":"hi"}` || got.result != "pong" {
+		t.Errorf("OnTool = %+v, want echo / {\"text\":\"hi\"} / pong", got)
+	}
+}
+
 func TestSendIncludesIdentityFiles(t *testing.T) {
 	dir := workspace(t)
 	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a test golem."), 0o600); err != nil {

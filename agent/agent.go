@@ -41,7 +41,7 @@ type Session struct {
 	agent  *Agent
 	store  store.Store
 	conv   store.Conversation
-	OnTool func(name, args string)
+	OnTool func(name, args, result string)
 }
 
 func (a *Agent) Session(st store.Store, conv store.Conversation) *Session {
@@ -82,13 +82,14 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 		}
 
 		for _, call := range msg.ToolCalls {
+			result := s.agent.runTool(ctx, call)
 			if s.OnTool != nil {
-				s.OnTool(call.Function.Name, call.Function.Arguments)
+				s.OnTool(call.Function.Name, call.Function.Arguments, result)
 			}
 			s.conv.Messages = append(s.conv.Messages, provider.Message{
 				Role:       "tool",
 				ToolCallID: call.ID,
-				Content:    s.agent.runTool(ctx, call),
+				Content:    result,
 			})
 		}
 	}
