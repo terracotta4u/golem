@@ -18,20 +18,30 @@ import (
 const subBuf = 32
 
 // turnEvent is one SSE update. name is the event type ("log", "done", "error");
-// line, text, and err are the payload for those types respectively.
+// log, text, and err are the payload for those types respectively.
 type turnEvent struct {
 	name string
-	line string
+	log  toolLog
 	text string
 	err  string
 }
 
+type toolLog struct {
+	Name   string
+	Args   string
+	Result string
+}
+
+func (t toolLog) Line() string {
+	return fmt.Sprintf("[%s] %s", t.Name, t.Args)
+}
+
 type turn struct {
-	ID     string   `json:"id"`
-	Status string   `json:"status"`
-	Text   string   `json:"text,omitempty"`
-	Error  string   `json:"error,omitempty"`
-	Log    []string `json:"log,omitempty"`
+	ID     string    `json:"id"`
+	Status string    `json:"status"`
+	Text   string    `json:"text,omitempty"`
+	Error  string    `json:"error,omitempty"`
+	Log    []toolLog `json:"log,omitempty"`
 
 	convID string
 	subs   []chan turnEvent
@@ -86,15 +96,20 @@ func (s *Server) handleGetTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "turn not found"})
-	}, func(name, line, text, err string) bool {
+	}, func(ev turnEvent) bool {
 		var data any
-		switch name {
+		switch ev.name {
 		case "log":
-			data = map[string]string{"line": line}
+			data = map[string]string{
+				"line":   ev.log.Line(),
+				"name":   ev.log.Name,
+				"args":   ev.log.Args,
+				"result": ev.log.Result,
+			}
 		case "done":
-			data = map[string]string{"text": text}
+			data = map[string]string{"text": ev.text}
 		case "error":
-			data = map[string]string{"error": err}
+			data = map[string]string{"error": ev.err}
 		default:
 			return false
 		}
@@ -102,11 +117,11 @@ func (s *Server) handleGetTurn(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return false
 		}
-		return writeSSE(w, name, string(b))
+		return writeSSE(w, ev.name, string(b))
 	})
 }
 
-func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id string, notFound func(), write func(name, line, text, err string) bool) {
+func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id string, notFound func(), write func(turnEvent) bool) {
 	snap, ch, ok := s.snapshotAndSubscribe(id)
 	if !ok {
 		notFound()
@@ -121,17 +136,17 @@ func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id stri
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	for _, line := range snap.Log {
-		if !write("log", line, "", "") {
+	for _, entry := range snap.Log {
+		if !write(turnEvent{name: "log", log: entry}) {
 			return
 		}
 	}
 	switch snap.Status {
 	case "done":
-		write("done", "", snap.Text, "")
+		write(turnEvent{name: "done", text: snap.Text})
 		return
 	case "error":
-		write("error", "", "", snap.Error)
+		write(turnEvent{name: "error", err: snap.Error})
 		return
 	}
 
@@ -143,7 +158,7 @@ func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id stri
 			if !ok {
 				return
 			}
-			if !write(ev.name, ev.line, ev.text, ev.err) {
+			if !write(ev) {
 				return
 			}
 			if ev.name == "done" || ev.name == "error" {
@@ -190,26 +205,26 @@ func (s *Server) run(ctx context.Context, turnID, convID string, req postTurnReq
 	}
 
 	sess := s.opts.Agent.Session(s.opts.Store, conv)
-	sess.OnTool = func(name, args, _ string) {
-		line := fmt.Sprintf("[%s] %s", name, args)
-		fmt.Fprintln(os.Stderr, line)
-		s.appendLog(turnID, line)
+	sess.OnTool = func(name, args, result string) {
+		entry := toolLog{Name: name, Args: args, Result: result}
+		fmt.Fprintln(os.Stderr, entry.Line())
+		s.appendLog(turnID, entry)
 	}
 	text, err := sess.Send(ctx, req.Text)
 	s.finish(turnID, text, err)
 }
 
-func (s *Server) appendLog(id, line string) {
+func (s *Server) appendLog(id string, entry toolLog) {
 	s.mu.Lock()
 	t, ok := s.turns[id]
 	if !ok {
 		s.mu.Unlock()
 		return
 	}
-	t.Log = append(t.Log, line)
+	t.Log = append(t.Log, entry)
 	subs := copySubs(t.subs)
 	s.mu.Unlock()
-	sendEvent(subs, turnEvent{name: "log", line: line})
+	sendEvent(subs, turnEvent{name: "log", log: entry})
 }
 
 func (s *Server) finish(id, text string, err error) {
@@ -243,7 +258,7 @@ func (s *Server) snapshotAndSubscribe(id string) (turn, chan turnEvent, bool) {
 	}
 	out := *t
 	if t.Log != nil {
-		out.Log = append([]string(nil), t.Log...)
+		out.Log = append([]toolLog(nil), t.Log...)
 	}
 	out.subs = nil
 	if t.Status == "done" || t.Status == "error" {

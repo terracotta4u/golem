@@ -75,17 +75,21 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 func (s *Server) handleWebTurn(w http.ResponseWriter, r *http.Request) {
 	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
 		http.NotFound(w, r)
-	}, func(name, line, text, err string) bool {
-		switch name {
+	}, func(ev turnEvent) bool {
+		switch ev.name {
 		case "log":
-			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend"><div class="log-line">`+sseEscape(line)+`</div></hx-partial>`)
+			card, err := s.execute("tool-call", ev.log)
+			if err != nil {
+				return false
+			}
+			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend">`+card+`</hx-partial>`)
 		case "done":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(markdownHTML(text))+`</hx-partial>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(markdownHTML(ev.text))+`</hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")
 		case "error":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(err)+`</p></hx-partial>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(ev.err)+`</p></hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")

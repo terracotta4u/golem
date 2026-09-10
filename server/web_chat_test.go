@@ -443,8 +443,14 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 	}()
 
 	events := getWebTurnEvents(t, ts.URL, id)
-	if !unnamedContains(events, "[echo]") {
-		t.Fatalf("events = %+v, want unnamed HTML log", events)
+	if !unnamedContains(events, `class="tool-call"`) || !unnamedContains(events, "echo") {
+		t.Fatalf("events = %+v, want tool-call card with name", events)
+	}
+	if !unnamedContains(events, "pong") {
+		t.Fatalf("events = %+v, want tool result", events)
+	}
+	if !unnamedContains(events, `class="tool-args"`) || !unnamedContains(events, "hi") {
+		t.Fatalf("events = %+v, want tool args", events)
 	}
 	if !unnamedContains(events, "all set") {
 		t.Fatalf("events = %+v, want unnamed HTML done", events)

@@ -440,14 +440,33 @@ a {
 }
 
 .tool-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tool-call {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
   font:
     0.82rem/1.4 ui-monospace,
     monospace;
-  color: var(--muted);
 }
 
-.log-line {
-  white-space: pre-wrap;
+.tool-name {
+  font-weight: 700;
+}
+
+.message.assistant .tool-call pre {
+  margin: var(--space-2) 0 0;
+  max-height: var(--space-32);
+  overflow: auto;
+  padding: var(--space-2);
+  font-size: 0.82rem;
+}
+
+.message.assistant .tool-call pre:last-child {
+  margin-bottom: 0;
 }
 
 textarea,

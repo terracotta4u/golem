@@ -104,6 +104,12 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) {
 	}
 }
 
+func (s *Server) execute(name string, data any) (string, error) {
+	var b strings.Builder
+	err := s.tmpl.ExecuteTemplate(&b, name, data)
+	return b.String(), err
+}
+
 func (s *Server) Listen(ctx context.Context, ready func()) error {
 	ln, err := net.Listen("tcp", s.opts.Addr)
 	if err != nil {
