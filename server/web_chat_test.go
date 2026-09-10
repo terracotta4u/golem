@@ -116,6 +116,130 @@ func TestConversationShowsMessages(t *testing.T) {
 	}
 }
 
+func TestConversationShowsToolCalls(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conv := store.Conversation{
+		ID:      "web-1",
+		Channel: "web",
+		Title:   "Echo",
+		Messages: []provider.Message{
+			{Role: "user", Content: "hello"},
+			{
+				Role: "assistant",
+				ToolCalls: []provider.ToolCall{{
+					ID:   "call_1",
+					Type: "function",
+					Function: provider.FunctionCall{
+						Name:      "echo",
+						Arguments: `{"text":"hi"}`,
+					},
+				}},
+			},
+			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
+			{Role: "assistant", Content: "all set"},
+		},
+	}
+	if err := st.Save(conv); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/conversations/web-1")
+	if !strings.Contains(body, `class="tool-call"`) || !strings.Contains(body, "echo") {
+		t.Fatalf("conversation = %q, want tool-call card with name", body)
+	}
+	if !strings.Contains(body, `class="tool-args"`) || !strings.Contains(body, "hi") {
+		t.Fatalf("conversation = %q, want tool args", body)
+	}
+	if !strings.Contains(body, "pong") {
+		t.Fatalf("conversation = %q, want tool result", body)
+	}
+	if !strings.Contains(body, "all set") {
+		t.Fatalf("conversation = %q, want assistant reply", body)
+	}
+}
+
+func TestChatItems(t *testing.T) {
+	echo := provider.ToolCall{
+		ID:   "call_1",
+		Type: "function",
+		Function: provider.FunctionCall{
+			Name:      "echo",
+			Arguments: `{"text":"hi"}`,
+		},
+	}
+	read := provider.ToolCall{
+		ID:   "call_2",
+		Type: "function",
+		Function: provider.FunctionCall{
+			Name:      "read",
+			Arguments: `{"path":"a"}`,
+		},
+	}
+
+	t.Run("pairs tools with following reply", func(t *testing.T) {
+		got := chatItems([]provider.Message{
+			{Role: "user", Content: "hello"},
+			{Role: "assistant", ToolCalls: []provider.ToolCall{echo}},
+			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
+			{Role: "assistant", Content: "all set"},
+		})
+		if len(got) != 2 {
+			t.Fatalf("items = %d, want 2", len(got))
+		}
+		if got[0].Role != "user" || got[0].Content != "hello" {
+			t.Errorf("item 0 = %+v", got[0])
+		}
+		if got[1].Role != "assistant" || got[1].Content != "all set" || len(got[1].Tools) != 1 {
+			t.Fatalf("item 1 = %+v", got[1])
+		}
+		if g := got[1].Tools[0]; g.Name != "echo" || g.Args != `{"text":"hi"}` || g.Result != "pong" {
+			t.Errorf("tool = %+v", g)
+		}
+	})
+
+	t.Run("accumulates rounds onto the reply", func(t *testing.T) {
+		got := chatItems([]provider.Message{
+			{Role: "assistant", ToolCalls: []provider.ToolCall{echo}},
+			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
+			{Role: "assistant", ToolCalls: []provider.ToolCall{read}},
+			{Role: "tool", ToolCallID: "call_2", Content: "file"},
+			{Role: "assistant", Content: "done"},
+		})
+		if len(got) != 1 || got[0].Content != "done" || len(got[0].Tools) != 2 {
+			t.Fatalf("items = %+v", got)
+		}
+		if got[0].Tools[0].Name != "echo" || got[0].Tools[1].Name != "read" {
+			t.Errorf("tools = %+v", got[0].Tools)
+		}
+	})
+
+	t.Run("keeps tools when there is no reply", func(t *testing.T) {
+		got := chatItems([]provider.Message{
+			{Role: "assistant", ToolCalls: []provider.ToolCall{echo}},
+			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
+		})
+		if len(got) != 1 || got[0].Role != "assistant" || got[0].Content != "" || len(got[0].Tools) != 1 {
+			t.Fatalf("items = %+v", got)
+		}
+	})
+
+	t.Run("skips orphan tool messages", func(t *testing.T) {
+		got := chatItems([]provider.Message{
+			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
+			{Role: "assistant", Content: "hi"},
+		})
+		if len(got) != 1 || got[0].Content != "hi" || len(got[0].Tools) != 0 {
+			t.Fatalf("items = %+v", got)
+		}
+	})
+}
+
 func TestConversationUnknownIsEmpty(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {
@@ -215,6 +339,51 @@ func TestWebPostTurnPersists(t *testing.T) {
 	page := getHTML(t, ts.URL+"/conversations/web-1")
 	if !strings.Contains(page, "What is for dinner?") || !strings.Contains(page, "Pasta.") {
 		t.Fatalf("conversation = %q, want saved turn", page)
+	}
+}
+
+func TestWebPostTurnPersistsToolCall(t *testing.T) {
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &gatedScript{
+		gateAt: -1,
+		replies: []provider.Message{
+			{
+				Role: "assistant",
+				ToolCalls: []provider.ToolCall{{
+					ID:   "call_1",
+					Type: "function",
+					Function: provider.FunctionCall{
+						Name:      "echo",
+						Arguments: `{"text":"hi"}`,
+					},
+				}},
+			},
+			{Role: "assistant", Content: "all set"},
+		},
+	}
+	s := New(Options{
+		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
+	events := getWebTurnEvents(t, ts.URL, turnID(t, body))
+	if !unnamedContains(events, "all set") {
+		t.Fatalf("events = %+v, want done", events)
+	}
+
+	page := getHTML(t, ts.URL+"/conversations/web-1")
+	if !strings.Contains(page, `class="tool-call"`) || !strings.Contains(page, "echo") {
+		t.Fatalf("conversation = %q, want tool-call card", page)
+	}
+	if !strings.Contains(page, "pong") || !strings.Contains(page, "all set") {
+		t.Fatalf("conversation = %q, want tool result and reply", page)
 	}
 }
 
