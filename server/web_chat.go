@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/store"
 )
 
@@ -75,17 +76,21 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 func (s *Server) handleWebTurn(w http.ResponseWriter, r *http.Request) {
 	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
 		http.NotFound(w, r)
-	}, func(name, line, text, err string) bool {
-		switch name {
+	}, func(ev turnEvent) bool {
+		switch ev.name {
 		case "log":
-			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend"><div class="log-line">`+sseEscape(line)+`</div></hx-partial>`)
+			card, err := s.execute("tool-call", ev.log)
+			if err != nil {
+				return false
+			}
+			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend">`+card+`</hx-partial>`)
 		case "done":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(markdownHTML(text))+`</hx-partial>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(markdownHTML(ev.text))+`</hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")
 		case "error":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(err)+`</p></hx-partial>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(ev.err)+`</p></hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")
@@ -129,8 +134,64 @@ func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id str
 	s.render(w, "conversation", map[string]any{
 		"Title":         conv.Title,
 		"ID":            conv.ID,
-		"Messages":      conv.Messages,
+		"Items":         chatItems(conv.Messages),
 		"Conversations": list,
 		"Sidebar":       true,
 	})
+}
+
+type chatItem struct {
+	Role    string
+	Content string
+	Tools   []toolLog
+}
+
+func chatItems(msgs []provider.Message) []chatItem {
+	var items []chatItem
+	var pending []toolLog
+	for i := 0; i < len(msgs); {
+		m := msgs[i]
+		switch m.Role {
+		case "user":
+			if m.Content != "" {
+				items = append(items, chatItem{Role: "user", Content: m.Content})
+			}
+			i++
+		case "assistant":
+			i++
+			if len(m.ToolCalls) > 0 {
+				var tools []toolLog
+				tools, i = collectTools(m.ToolCalls, msgs, i)
+				pending = append(pending, tools...)
+			}
+			if m.Content == "" {
+				continue
+			}
+			items = append(items, chatItem{Role: "assistant", Content: m.Content, Tools: pending})
+			pending = nil
+		default:
+			i++
+		}
+	}
+	if len(pending) > 0 {
+		items = append(items, chatItem{Role: "assistant", Tools: pending})
+	}
+	return items
+}
+
+func collectTools(calls []provider.ToolCall, msgs []provider.Message, i int) ([]toolLog, int) {
+	results := make(map[string]string, len(calls))
+	for i < len(msgs) && msgs[i].Role == "tool" {
+		results[msgs[i].ToolCallID] = msgs[i].Content
+		i++
+	}
+	tools := make([]toolLog, 0, len(calls))
+	for _, call := range calls {
+		tools = append(tools, toolLog{
+			Name:   call.Function.Name,
+			Args:   call.Function.Arguments,
+			Result: results[call.ID],
+		})
+	}
+	return tools, i
 }

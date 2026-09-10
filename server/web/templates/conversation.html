@@ -2,17 +2,26 @@
 {{template "layout-start" .}}
 <main class="container container-md stack grow">
   <section id="messages" class="stack gap-3 grow">
-    {{if not .Messages}}
+    {{if not .Items}}
     <p class="empty-chat">Ask Golem anything to get started</p>
     {{end}}
-    {{range .Messages}}
-      {{if and (eq .Role "user") .Content}}
+    {{range .Items}}
+      {{if eq .Role "user"}}
         <div class="message user my-6">
           <p>{{.Content}}</p>
         </div>
-      {{else if and (eq .Role "assistant") .Content}}
+      {{else if eq .Role "assistant"}}
         <div class="message assistant">
-          {{markdown .Content}}
+          {{if .Tools}}
+          <div class="tool-log mb-2">
+            {{range .Tools}}
+              {{template "tool-call" .}}
+            {{end}}
+          </div>
+          {{end}}
+          {{if .Content}}
+          <div class="reply">{{markdown .Content}}</div>
+          {{end}}
         </div>
       {{end}}
     {{end}}
