@@ -471,7 +471,7 @@ a {
 .tool-badge {
   flex-shrink: 0;
   padding: 0.1em 0.45em;
-  background: var(--stone-200);
+  background: var(--green-50);
   font-weight: 700;
 }
 
