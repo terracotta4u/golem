@@ -4,7 +4,15 @@
     <span class="tool-badge">{{.Name}}</span>
     <span class="tool-preview">{{.Preview}}</span>
   </summary>
-  <pre class="tool-args">{{.Args}}</pre>
-  <pre class="tool-result">{{.Result}}</pre>
+  <div class="tool-body">
+    <div class="tool-field">
+      <div class="tool-label">Input</div>
+      <pre class="tool-args">{{.Args}}</pre>
+    </div>
+    <div class="tool-field">
+      <div class="tool-label">Output</div>
+      <pre class="tool-result">{{.Result}}</pre>
+    </div>
+  </div>
 </details>
 {{end}}
