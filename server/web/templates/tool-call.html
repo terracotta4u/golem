@@ -1,7 +1,10 @@
 {{define "tool-call"}}
-<div class="tool-call">
-  <div class="tool-name">{{.Name}}</div>
+<details class="tool-call">
+  <summary class="tool-summary">
+    <span class="tool-badge">{{.Name}}</span>
+    <span class="tool-preview">{{.Preview}}</span>
+  </summary>
   <pre class="tool-args">{{.Args}}</pre>
   <pre class="tool-result">{{.Result}}</pre>
-</div>
+</details>
 {{end}}

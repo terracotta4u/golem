@@ -215,6 +215,26 @@ func TestGetTurnEventsLogThenDone(t *testing.T) {
 	}
 }
 
+func TestToolLogPreview(t *testing.T) {
+	tests := []struct {
+		args string
+		want string
+	}{
+		{`{"command":"ls -la"}`, "ls -la"},
+		{`{"offset":1,"path":"/tmp/a.txt"}`, "/tmp/a.txt"},
+		{`{"content":"hello","path":"/tmp"}`, "hello"},
+		{"not json", "not json"},
+		{"", ""},
+		{`{"command":"` + strings.Repeat("a", 80) + `"}`, strings.Repeat("a", 55) + "…"},
+	}
+	for _, tt := range tests {
+		got := toolLog{Args: tt.args}.Preview()
+		if got != tt.want {
+			t.Errorf("Preview(%q) = %q, want %q", tt.args, got, tt.want)
+		}
+	}
+}
+
 func TestGetTurnEventsError(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {

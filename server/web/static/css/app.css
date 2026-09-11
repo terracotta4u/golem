@@ -446,23 +446,50 @@ a {
 }
 
 .tool-call {
-  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
   border: 1px solid var(--line);
   font:
     0.82rem/1.4 ui-monospace,
     monospace;
 }
 
-.tool-name {
+.tool-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  list-style: none;
+}
+
+.tool-summary::-webkit-details-marker,
+.tool-summary::marker {
+  display: none;
+  content: none;
+}
+
+.tool-badge {
+  flex-shrink: 0;
+  padding: 0.1em 0.45em;
+  background: var(--stone-200);
   font-weight: 700;
 }
 
+.tool-preview {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .message.assistant .tool-call pre {
-  margin: var(--space-2) 0 0;
+  margin: 0;
   max-height: var(--space-32);
   overflow: auto;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font-size: 0.82rem;
+  border-top: 1px solid var(--line);
 }
 
 .message.assistant .tool-call pre:last-child {
