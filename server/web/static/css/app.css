@@ -504,9 +504,10 @@ a {
   overflow: auto;
   padding: var(--space-2);
   font-size: 0.82rem;
-  background: var(--surface);
+  background: var(--stone-100);
   border: 1px solid var(--line);
   border-radius: 0;
+  white-space: pre-wrap;
 }
 
 textarea,

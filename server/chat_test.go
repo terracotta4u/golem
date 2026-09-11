@@ -235,6 +235,17 @@ func TestToolLogPreview(t *testing.T) {
 	}
 }
 
+func TestToolLogPrettyArgs(t *testing.T) {
+	got := toolLog{Args: `{"path":"/tmp/a.txt","content":"hello\nworld"}`}.PrettyArgs()
+	want := "{\n  \"path\": \"/tmp/a.txt\",\n  \"content\": \"hello\\nworld\"\n}"
+	if got != want {
+		t.Errorf("PrettyArgs = %q, want %q", got, want)
+	}
+	if got := (toolLog{Args: "not json"}).PrettyArgs(); got != "not json" {
+		t.Errorf("PrettyArgs(invalid) = %q, want unchanged", got)
+	}
+}
+
 func TestGetTurnEventsError(t *testing.T) {
 	st, err := store.NewFileStore(t.TempDir())
 	if err != nil {

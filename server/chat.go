@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -51,6 +52,14 @@ func (t toolLog) Preview() string {
 		return s
 	}
 	return string(r[:max-1]) + "…"
+}
+
+func (t toolLog) PrettyArgs() string {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, []byte(strings.TrimSpace(t.Args)), "", "  "); err != nil {
+		return t.Args
+	}
+	return buf.String()
 }
 
 // previewFromJSON returns the first string value in JSON object source
