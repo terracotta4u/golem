@@ -462,6 +462,25 @@ a {
   list-style: none;
 }
 
+.tool-toggle {
+  display: flex;
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.tool-icon-minus {
+  display: none;
+}
+
+.tool-call[open] .tool-icon-plus {
+  display: none;
+}
+
+.tool-call[open] .tool-icon-minus {
+  display: block;
+}
+
 .tool-summary::-webkit-details-marker,
 .tool-summary::marker {
   display: none;
