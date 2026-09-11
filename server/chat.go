@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,6 +35,58 @@ type toolLog struct {
 
 func (t toolLog) Line() string {
 	return fmt.Sprintf("[%s] %s", t.Name, t.Args)
+}
+
+func (t toolLog) Preview() string {
+	const max = 56
+	s := strings.TrimSpace(t.Args)
+	if s == "" {
+		return ""
+	}
+	if picked := previewFromJSON(s); picked != "" {
+		s = picked
+	}
+	s = strings.Join(strings.Fields(s), " ")
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max-1]) + "…"
+}
+
+func (t toolLog) PrettyArgs() string {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, []byte(strings.TrimSpace(t.Args)), "", "  "); err != nil {
+		return t.Args
+	}
+	return buf.String()
+}
+
+// previewFromJSON returns the first string value in JSON object source
+// order. Maps do not preserve key order, so this walks the decoder instead.
+func previewFromJSON(s string) string {
+	dec := json.NewDecoder(strings.NewReader(s))
+	tok, err := dec.Token()
+	if err != nil {
+		return ""
+	}
+	d, ok := tok.(json.Delim)
+	if !ok || d != '{' {
+		return ""
+	}
+	for dec.More() {
+		if _, err := dec.Token(); err != nil {
+			return ""
+		}
+		var val any
+		if err := dec.Decode(&val); err != nil {
+			return ""
+		}
+		if str, ok := val.(string); ok && strings.TrimSpace(str) != "" {
+			return str
+		}
+	}
+	return ""
 }
 
 type turn struct {

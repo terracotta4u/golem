@@ -150,8 +150,17 @@ func TestConversationShowsToolCalls(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/web-1")
-	if !strings.Contains(body, `class="tool-call"`) || !strings.Contains(body, "echo") {
-		t.Fatalf("conversation = %q, want tool-call card with name", body)
+	if !strings.Contains(body, `<details class="tool-call">`) {
+		t.Fatalf("conversation = %q, want collapsed tool-call", body)
+	}
+	if strings.Contains(body, `<details class="tool-call" open`) {
+		t.Fatalf("conversation = %q, want tool-call collapsed", body)
+	}
+	if !strings.Contains(body, `class="tool-badge"`) || !strings.Contains(body, "echo") {
+		t.Fatalf("conversation = %q, want tool badge", body)
+	}
+	if !strings.Contains(body, `class="tool-preview"`) || !strings.Contains(body, "hi") {
+		t.Fatalf("conversation = %q, want tool preview", body)
 	}
 	if !strings.Contains(body, `class="tool-args"`) || !strings.Contains(body, "hi") {
 		t.Fatalf("conversation = %q, want tool args", body)
@@ -612,8 +621,14 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 	}()
 
 	events := getWebTurnEvents(t, ts.URL, id)
-	if !unnamedContains(events, `class="tool-call"`) || !unnamedContains(events, "echo") {
-		t.Fatalf("events = %+v, want tool-call card with name", events)
+	if !unnamedContains(events, `<details class="tool-call">`) || !unnamedContains(events, `class="tool-badge"`) {
+		t.Fatalf("events = %+v, want collapsed tool-call badge", events)
+	}
+	if unnamedContains(events, `<details class="tool-call" open`) {
+		t.Fatalf("events = %+v, want tool-call collapsed", events)
+	}
+	if !unnamedContains(events, "echo") {
+		t.Fatalf("events = %+v, want tool name", events)
 	}
 	if !unnamedContains(events, "pong") {
 		t.Fatalf("events = %+v, want tool result", events)
