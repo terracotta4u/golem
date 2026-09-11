@@ -460,6 +460,11 @@ a {
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
   list-style: none;
+  transition: background 0.15s ease;
+}
+
+.tool-summary:hover {
+  background: var(--stone-100);
 }
 
 .tool-toggle {
