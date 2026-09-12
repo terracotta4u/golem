@@ -24,6 +24,16 @@ func TestMigrateFillsMissingFields(t *testing.T) {
 	}
 }
 
+func TestMigrateReportsWhetherConfChanged(t *testing.T) {
+	cfg := Conf{Model: "custom-model"}
+	if !migrate(&cfg) {
+		t.Fatal("missing fields should count as a change")
+	}
+	if migrate(&cfg) {
+		t.Fatal("second migrate should not change a complete conf")
+	}
+}
+
 func TestMigrateLeavesExplicitValues(t *testing.T) {
 	cfg := Conf{
 		Provider: "other",

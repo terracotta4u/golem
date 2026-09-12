@@ -287,6 +287,50 @@ func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
 	}
 }
 
+func TestLoadWritesMigratedConfToDisk(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	etc, err := EtcDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(etc, fileName)
+	old := `{
+  "provider": "openrouter",
+  "model": "openai/gpt-4o-mini",
+  "extensions": {
+    "golem-telegram": {
+      "source": "https://github.com/terracotta4u/golem-telegram",
+      "ref": "HEAD"
+    }
+  }
+}
+`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"memory"`) ||
+		!strings.Contains(s, `"openai/text-embedding-3-small"`) ||
+		!strings.Contains(s, `"budget_tokens"`) {
+		t.Errorf("file missing migrated memory: %s", s)
+	}
+	if !strings.Contains(s, `"golem-telegram"`) {
+		t.Errorf("file dropped extensions: %s", s)
+	}
+}
+
 func TestSaveMemoryEmbeddingRoundTrip(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := Load(); err != nil {

@@ -164,7 +164,11 @@ func Load() (cfg Conf, created bool, err error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Conf{}, false, fmt.Errorf("parse %s: %w", path, err)
 	}
-	migrate(&cfg)
+	if migrate(&cfg) {
+		if err := write(path, cfg); err != nil {
+			return Conf{}, false, err
+		}
+	}
 	return cfg, false, nil
 }
 
