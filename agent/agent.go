@@ -80,7 +80,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 		}
 
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
-			Messages: withContext(systemPrompt(s.agent.workspace, s.agent.list...), s.memories, s.conv.Messages),
+			Messages: withContext(systemPrompt(s.agent.list...), s.memories, s.conv.Messages),
 			Tools:    s.agent.defs,
 		})
 		if err != nil {

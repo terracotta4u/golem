@@ -2,8 +2,6 @@ package agent
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/terracotta4u/golem/skill"
@@ -22,11 +20,7 @@ const skillsPrompt = `When a listed skill applies, load it with the skill tool b
 
 Skills:\n`
 
-const soulPrompt = `SOUL.md is where you store information about yourself. If you learn something lasting about yourself, edit %s with the edit tool. Skip one-off details. Do not overwrite the whole file.
-
-SOUL.md:\n`
-
-func systemPrompt(dir string, tools ...tool.Tool) string {
+func systemPrompt(tools ...tool.Tool) string {
 	var b strings.Builder
 	b.WriteString(basePrompt)
 	if skills := skillList(tools); len(skills) > 0 {
@@ -35,19 +29,7 @@ func systemPrompt(dir string, tools ...tool.Tool) string {
 			fmt.Fprintf(&b, "- %s: %s\n", s.Name, s.Description)
 		}
 	}
-	soulPath := filepath.Join(dir, "SOUL.md")
-	fmt.Fprintf(&b, soulPrompt, soulPath)
-	b.WriteString(workspaceFile(soulPath))
-	b.WriteByte('\n')
 	return strings.TrimSuffix(b.String(), "\n")
-}
-
-func workspaceFile(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Sprintf("(could not read: %v)", err)
-	}
-	return string(data)
 }
 
 func skillList(tools []tool.Tool) []skill.Skill {
