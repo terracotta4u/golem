@@ -202,6 +202,139 @@ func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
 	}
 }
 
+func TestSendRetrievesMemoryIntoChat(t *testing.T) {
+	dir := workspace(t)
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "use the standard library"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := &stubSearcher{hits: []memory.Result{
+		{Memory: memory.Memory{Content: "User prefers the Go standard library."}, Score: 0.9},
+		{Memory: memory.Memory{Content: "User likes vintage computers."}, Score: 0.19},
+	}}
+	a := New(p, dir)
+	a.Memory = idx
+	a.MinSimilarity = 0.5
+	a.BudgetTokens = 800
+	if _, err := a.Session(st, store.New("cli")).Send(context.Background(), "Should I add a router dependency?"); err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.queries) != 1 || idx.queries[0] != "Should I add a router dependency?" {
+		t.Errorf("Search queries = %v, want the user turn", idx.queries)
+	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	msgs := p.got[0].Messages
+	if len(msgs) < 3 || msgs[1].Role != "system" {
+		t.Fatalf("messages = %+v, want identity, memory system, user", msgs)
+	}
+	if !strings.Contains(msgs[1].Content, "User prefers the Go standard library.") {
+		t.Errorf("memory message missing hit: %q", msgs[1].Content)
+	}
+	if strings.Contains(msgs[1].Content, "User likes vintage computers.") {
+		t.Errorf("below-floor hit injected: %q", msgs[1].Content)
+	}
+}
+
+func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "pong"}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "echo",
+					Arguments: `{}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "done"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := &stubSearcher{hits: []memory.Result{
+		{Memory: memory.Memory{Content: "User prefers the Go standard library."}, Score: 0.9},
+	}}
+	a := New(p, workspace(t), echo)
+	a.Memory = idx
+	a.MinSimilarity = 0.5
+	a.BudgetTokens = 800
+	if _, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.queries) != 1 {
+		t.Errorf("Search calls = %d, want 1", len(idx.queries))
+	}
+	if len(p.got) != 2 {
+		t.Fatalf("Chat calls = %d, want 2", len(p.got))
+	}
+	for i, req := range p.got {
+		if len(req.Messages) < 2 || req.Messages[1].Role != "system" || !strings.Contains(req.Messages[1].Content, "User prefers the Go standard library.") {
+			t.Errorf("chat %d missing retrieved memory: %+v", i, req.Messages)
+		}
+	}
+}
+
+func TestSendSearchErrorStillReplies(t *testing.T) {
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "hi"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t))
+	a.Memory = &stubSearcher{err: errString("index down")}
+	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "hi" {
+		t.Errorf("reply = %q, want hi", reply)
+	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	if n := len(p.got[0].Messages); n != 2 {
+		t.Errorf("messages = %d, want 2 (no memory system message)", n)
+	}
+}
+
+func TestSendNilMemoryIsUnchanged(t *testing.T) {
+	dir := workspace(t)
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "hi"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(p, dir).Session(st, store.New("cli")).Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	msgs := p.got[0].Messages
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d, want 2", len(msgs))
+	}
+	if msgs[0].Role != "system" || msgs[0].Content != systemPrompt(dir) {
+		t.Errorf("first = %+v, want identity system prompt", msgs[0])
+	}
+	if msgs[1].Role != "user" || msgs[1].Content != "hello" {
+		t.Errorf("second = %+v, want user hello", msgs[1])
+	}
+}
+
 func TestSendRereadsIdentityFiles(t *testing.T) {
 	dir := workspace(t)
 	soul := filepath.Join(dir, "SOUL.md")
@@ -427,6 +560,17 @@ func (s *stubTool) Spec() tool.Spec {
 func (s *stubTool) Call(_ context.Context, args json.RawMessage) (string, error) {
 	s.calls = append(s.calls, string(args))
 	return s.result, nil
+}
+
+type stubSearcher struct {
+	hits    []memory.Result
+	err     error
+	queries []string
+}
+
+func (s *stubSearcher) Search(_ context.Context, query string, _ int) ([]memory.Result, error) {
+	s.queries = append(s.queries, query)
+	return s.hits, s.err
 }
 
 type scriptedProvider struct {

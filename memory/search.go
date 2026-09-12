@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+// Searcher ranks memories for a query. *Index implements it.
+type Searcher interface {
+	Search(ctx context.Context, query string, limit int) ([]Result, error)
+}
+
 func (idx *Index) Search(ctx context.Context, query string, limit int) ([]Result, error) {
 	vecs, err := idx.embedder.Embed(ctx, []string{query})
 	if err != nil {
