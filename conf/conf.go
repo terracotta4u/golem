@@ -24,7 +24,9 @@ type Conf struct {
 }
 
 type MemoryConfig struct {
-	Embedding EmbeddingConfig `json:"embedding,omitempty"`
+	Embedding     EmbeddingConfig `json:"embedding,omitempty"`
+	BudgetTokens  int             `json:"budget_tokens,omitempty"`
+	MinSimilarity float32         `json:"min_similarity,omitempty"`
 }
 
 type EmbeddingConfig struct {

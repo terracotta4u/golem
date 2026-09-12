@@ -9,6 +9,8 @@ func defaults() Conf {
 				Provider: "openrouter",
 				Model:    "openai/text-embedding-3-small",
 			},
+			BudgetTokens:  800,
+			MinSimilarity: 0.5,
 		},
 	}
 }

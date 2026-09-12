@@ -23,6 +23,9 @@ func TestLoadCreatesConf(t *testing.T) {
 	if cfg.Memory.Embedding.Provider != "openrouter" || cfg.Memory.Embedding.Model != "openai/text-embedding-3-small" {
 		t.Errorf("embedding = %+v", cfg.Memory.Embedding)
 	}
+	if cfg.Memory.BudgetTokens != 800 || cfg.Memory.MinSimilarity != 0.5 {
+		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
+	}
 
 	dir, err := Dir()
 	if err != nil {
@@ -61,8 +64,10 @@ func TestLoadCreatesConf(t *testing.T) {
 		t.Errorf("default conf should omit listen: %s", data)
 	}
 	if !strings.Contains(string(data), `"memory"`) ||
-		!strings.Contains(string(data), `"openai/text-embedding-3-small"`) {
-		t.Errorf("default conf should include memory embedding: %s", data)
+		!strings.Contains(string(data), `"openai/text-embedding-3-small"`) ||
+		!strings.Contains(string(data), `"budget_tokens"`) ||
+		!strings.Contains(string(data), `"min_similarity"`) {
+		t.Errorf("default conf should include memory embedding and retrieval knobs: %s", data)
 	}
 }
 

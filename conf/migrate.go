@@ -20,4 +20,10 @@ func migrate(cfg *Conf) {
 	if cfg.Memory.Embedding.Model == "" {
 		cfg.Memory.Embedding.Model = d.Memory.Embedding.Model
 	}
+	if cfg.Memory.BudgetTokens == 0 {
+		cfg.Memory.BudgetTokens = d.Memory.BudgetTokens
+	}
+	if cfg.Memory.MinSimilarity == 0 {
+		cfg.Memory.MinSimilarity = d.Memory.MinSimilarity
+	}
 }

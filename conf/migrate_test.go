@@ -19,6 +19,9 @@ func TestMigrateFillsMissingFields(t *testing.T) {
 	if cfg.Memory.Embedding.Provider != d.Memory.Embedding.Provider || cfg.Memory.Embedding.Model != d.Memory.Embedding.Model {
 		t.Errorf("embedding = %+v", cfg.Memory.Embedding)
 	}
+	if cfg.Memory.BudgetTokens != 800 || cfg.Memory.MinSimilarity != 0.5 {
+		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
+	}
 }
 
 func TestMigrateLeavesExplicitValues(t *testing.T) {
@@ -26,7 +29,9 @@ func TestMigrateLeavesExplicitValues(t *testing.T) {
 		Provider: "other",
 		Model:    "custom-model",
 		Memory: &MemoryConfig{
-			Embedding: EmbeddingConfig{Provider: "ollama", Model: "nomic-embed-text"},
+			Embedding:     EmbeddingConfig{Provider: "ollama", Model: "nomic-embed-text"},
+			BudgetTokens:  1000,
+			MinSimilarity: 0.7,
 		},
 	}
 	migrate(&cfg)
@@ -35,5 +40,23 @@ func TestMigrateLeavesExplicitValues(t *testing.T) {
 	}
 	if cfg.Memory.Embedding.Provider != "ollama" || cfg.Memory.Embedding.Model != "nomic-embed-text" {
 		t.Errorf("embedding = %+v", cfg.Memory.Embedding)
+	}
+	if cfg.Memory.BudgetTokens != 1000 || cfg.Memory.MinSimilarity != 0.7 {
+		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
+	}
+}
+
+func TestMigrateFillsRetrievalKnobsOnExistingMemory(t *testing.T) {
+	cfg := Conf{
+		Memory: &MemoryConfig{
+			Embedding: EmbeddingConfig{Provider: "ollama", Model: "nomic-embed-text"},
+		},
+	}
+	migrate(&cfg)
+	if cfg.Memory.Embedding.Provider != "ollama" {
+		t.Errorf("wiped embedding provider: %+v", cfg.Memory.Embedding)
+	}
+	if cfg.Memory.BudgetTokens != 800 || cfg.Memory.MinSimilarity != 0.5 {
+		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
 	}
 }
