@@ -28,18 +28,18 @@ func TestSystemPromptIncludesIdentityFiles(t *testing.T) {
 
 	got := systemPrompt(dir)
 	soulPath := filepath.Join(dir, "SOUL.md")
-	userPath := filepath.Join(dir, "USER.md")
 	for _, want := range []string{
 		soulPath,
-		userPath,
 		"I am a test golem.",
-		"The user is Nawaz.",
 		"edit tool",
 		"lasting",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("systemPrompt missing %q in %q", want, got)
 		}
+	}
+	if strings.Contains(got, "USER.md") || strings.Contains(got, "The user is Nawaz.") {
+		t.Errorf("systemPrompt still includes USER.md: %q", got)
 	}
 }
 

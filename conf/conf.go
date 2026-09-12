@@ -19,7 +19,19 @@ type Conf struct {
 	Model         string               `json:"model"`
 	APIKey        string               `json:"api_key,omitempty"`
 	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
+	Memory        *MemoryConfig        `json:"memory,omitempty"`
 	Extensions    map[string]Extension `json:"extensions,omitempty"`
+}
+
+type MemoryConfig struct {
+	Embedding     EmbeddingConfig `json:"embedding,omitempty"`
+	BudgetTokens  int             `json:"budget_tokens,omitempty"`
+	MinSimilarity float32         `json:"min_similarity,omitempty"`
+}
+
+type EmbeddingConfig struct {
+	Provider string `json:"provider,omitempty"`
+	Model    string `json:"model,omitempty"`
 }
 
 type Extension struct {
@@ -27,13 +39,6 @@ type Extension struct {
 	Ref      string            `json:"ref,omitempty"`
 	Revision string            `json:"revision,omitempty"`
 	Env      map[string]string `json:"env,omitempty"`
-}
-
-func defaults() Conf {
-	return Conf{
-		Provider: "openrouter",
-		Model:    "openai/gpt-4o-mini",
-	}
 }
 
 // Dir is ~/.golem.
@@ -52,6 +57,24 @@ func EtcDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "etc"), nil
+}
+
+// MemoryDir is ~/.golem/memory.
+func MemoryDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "memory"), nil
+}
+
+// MemoriesDB is ~/.golem/memory/memories.db.
+func MemoriesDB() (string, error) {
+	dir, err := MemoryDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "memories.db"), nil
 }
 
 // ExtensionsDir is ~/.golem/extensions.
@@ -141,8 +164,10 @@ func Load() (cfg Conf, created bool, err error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Conf{}, false, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if cfg.Provider == "" {
-		cfg.Provider = defaults().Provider
+	if migrate(&cfg) {
+		if err := write(path, cfg); err != nil {
+			return Conf{}, false, err
+		}
 	}
 	return cfg, false, nil
 }
