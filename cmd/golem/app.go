@@ -6,6 +6,8 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/memory"
+	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/provider/openrouter"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
@@ -81,7 +83,48 @@ func loadApp() (*app, error) {
 	}
 	a := agent.New(openrouter.New(apiKey, model), dir, tools...)
 	a.MaxToolRounds = cfg.MaxToolRounds
+	attachMemory(a, cfg, apiKey)
 	return &app{cfg: cfg, store: st, agent: a}, nil
+}
+
+func attachMemory(a *agent.Agent, cfg conf.Conf, apiKey string) {
+	path, err := conf.MemoriesDB()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
+		return
+	}
+	st, err := memory.Open(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "memory: open: %v\n", err)
+		return
+	}
+	a.MemoryStore = st
+
+	mem := cfg.Memory
+	if mem == nil {
+		return
+	}
+	a.MinSimilarity = mem.MinSimilarity
+	a.BudgetTokens = mem.BudgetTokens
+
+	reg := provider.NewRegistry()
+	reg.RegisterEmbedder("openrouter", func(model string) (provider.Embedder, error) {
+		return openrouter.NewEmbedder(apiKey, model), nil
+	})
+
+	name, model := mem.Embedding.Provider, mem.Embedding.Model
+	emb, err := reg.Embedder(name, model)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "memory: embedder: %v\n", err)
+		return
+	}
+	idx, err := memory.NewIndex(st, emb, name, model)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "memory: index: %v\n", err)
+		return
+	}
+	a.Memory = idx
+	a.Indexer = idx
 }
 
 func loadSkills() ([]skill.Skill, error) {

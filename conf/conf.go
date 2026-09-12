@@ -59,6 +59,24 @@ func EtcDir() (string, error) {
 	return filepath.Join(dir, "etc"), nil
 }
 
+// MemoryDir is ~/.golem/memory.
+func MemoryDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "memory"), nil
+}
+
+// MemoriesDB is ~/.golem/memory/memories.db.
+func MemoriesDB() (string, error) {
+	dir, err := MemoryDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "memories.db"), nil
+}
+
 // ExtensionsDir is ~/.golem/extensions.
 func ExtensionsDir() (string, error) {
 	dir, err := Dir()
