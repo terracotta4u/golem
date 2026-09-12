@@ -8,6 +8,11 @@ import (
 	"github.com/terracotta4u/golem/provider"
 )
 
+// Indexer writes embeddings for a memory. *Index implements it.
+type Indexer interface {
+	Index(ctx context.Context, m Memory) error
+}
+
 type Index struct {
 	store    *Store
 	embedder provider.Embedder

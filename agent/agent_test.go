@@ -335,6 +335,153 @@ func TestSendNilMemoryIsUnchanged(t *testing.T) {
 	}
 }
 
+func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "pong"}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "echo",
+					Arguments: `{}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "use the standard library"},
+		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := &stubIndexer{}
+	a := New(p, workspace(t), echo)
+	a.MemoryStore = mem
+	a.Indexer = idx
+	conv := store.New("cli")
+	reply, err := a.Session(st, conv).Send(context.Background(), "I prefer using the Go standard library when possible.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "use the standard library" {
+		t.Errorf("reply = %q", reply)
+	}
+	if len(p.got) != 3 {
+		t.Fatalf("Chat calls = %d, want 2 turn + extract", len(p.got))
+	}
+	extract := p.got[2]
+	if len(extract.Tools) != 0 {
+		t.Errorf("extract tools = %v, want none", extract.Tools)
+	}
+	if len(extract.Messages) != 3 {
+		t.Fatalf("extract messages = %d, want system + user + assistant", len(extract.Messages))
+	}
+	if extract.Messages[0].Role != "system" {
+		t.Errorf("extract first role = %q", extract.Messages[0].Role)
+	}
+	if extract.Messages[1].Role != "user" || extract.Messages[1].Content != "I prefer using the Go standard library when possible." {
+		t.Errorf("extract user = %+v", extract.Messages[1])
+	}
+	if extract.Messages[2].Role != "assistant" || extract.Messages[2].Content != "use the standard library" {
+		t.Errorf("extract assistant = %+v", extract.Messages[2])
+	}
+	for _, m := range extract.Messages {
+		if m.Role == "tool" || len(m.ToolCalls) > 0 {
+			t.Errorf("extract included tool traffic: %+v", m)
+		}
+	}
+
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Content != "User prefers the Go standard library." {
+		t.Fatalf("saved = %+v", list)
+	}
+	if list[0].ConversationID != conv.ID || list[0].TurnID == "" {
+		t.Errorf("conv/turn = %s/%s", list[0].ConversationID, list[0].TurnID)
+	}
+	if len(idx.got) != 1 || idx.got[0].ID != list[0].ID {
+		t.Errorf("indexed = %+v, want saved id %s", idx.got, list[0].ID)
+	}
+}
+
+func TestSendBrokenExtractorStillReplies(t *testing.T) {
+	p := &scriptedProvider{
+		replies: []provider.Message{{Role: "assistant", Content: "hi"}},
+		err:     errString("extract down"),
+	}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t))
+	a.MemoryStore = mem
+	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "hi" {
+		t.Errorf("reply = %q, want hi", reply)
+	}
+	if len(p.got) != 2 {
+		t.Errorf("Chat calls = %d, want turn + extract", len(p.got))
+	}
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Errorf("saved = %+v, want empty", list)
+	}
+}
+
+func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "hi"},
+		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := &stubIndexer{err: errString("embed down")}
+	a := New(p, workspace(t))
+	a.MemoryStore = mem
+	a.Indexer = idx
+	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "hi" {
+		t.Errorf("reply = %q, want hi", reply)
+	}
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Content != "User prefers the Go standard library." {
+		t.Fatalf("saved = %+v, want canonical memory", list)
+	}
+	if len(idx.got) != 1 || idx.got[0].ID != list[0].ID {
+		t.Errorf("index attempted = %+v", idx.got)
+	}
+}
+
 func TestSendRereadsIdentityFiles(t *testing.T) {
 	dir := workspace(t)
 	soul := filepath.Join(dir, "SOUL.md")
@@ -573,15 +720,29 @@ func (s *stubSearcher) Search(_ context.Context, query string, _ int) ([]memory.
 	return s.hits, s.err
 }
 
+type stubIndexer struct {
+	got []memory.Memory
+	err error
+}
+
+func (s *stubIndexer) Index(_ context.Context, m memory.Memory) error {
+	s.got = append(s.got, m)
+	return s.err
+}
+
 type scriptedProvider struct {
 	replies []provider.Message
 	got     []provider.ChatRequest
+	err     error
 	i       int
 }
 
 func (p *scriptedProvider) Chat(_ context.Context, req provider.ChatRequest) (provider.Message, error) {
 	p.got = append(p.got, req)
 	if p.i >= len(p.replies) {
+		if p.err != nil {
+			return provider.Message{}, p.err
+		}
 		return provider.Message{}, errUnexpectedChat
 	}
 	msg := p.replies[p.i]
