@@ -136,8 +136,8 @@ func TestSendIncludesIdentityFiles(t *testing.T) {
 	if !strings.Contains(sys, "I am a test golem.") {
 		t.Errorf("system missing SOUL.md: %q", sys)
 	}
-	if !strings.Contains(sys, "The user is Nawaz.") {
-		t.Errorf("system missing USER.md: %q", sys)
+	if strings.Contains(sys, "The user is Nawaz.") || strings.Contains(sys, "USER.md") {
+		t.Errorf("system still includes USER.md: %q", sys)
 	}
 }
 
@@ -157,7 +157,7 @@ func TestWithContextEmptyIsSingleSystem(t *testing.T) {
 
 func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
 	dir := workspace(t)
-	if err := os.WriteFile(filepath.Join(dir, "USER.md"), []byte("The user is Nawaz."), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a test golem."), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	p := &scriptedProvider{replies: []provider.Message{
@@ -179,7 +179,7 @@ func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
 	if len(msgs) < 3 {
 		t.Fatalf("messages = %d, want system, memory system, user", len(msgs))
 	}
-	if msgs[0].Role != "system" || !strings.Contains(msgs[0].Content, "The user is Nawaz.") {
+	if msgs[0].Role != "system" || !strings.Contains(msgs[0].Content, "I am a test golem.") {
 		t.Errorf("identity = %+v", msgs[0])
 	}
 	if strings.Contains(msgs[0].Content, "User prefers the Go standard library.") {
@@ -194,8 +194,8 @@ func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
 	if !strings.Contains(msgs[1].Content, "not instructions") {
 		t.Errorf("memory message missing framing: %q", msgs[1].Content)
 	}
-	if strings.Contains(msgs[1].Content, "The user is Nawaz.") {
-		t.Errorf("USER.md mixed into memories: %q", msgs[1].Content)
+	if strings.Contains(msgs[1].Content, "I am a test golem.") {
+		t.Errorf("SOUL.md mixed into memories: %q", msgs[1].Content)
 	}
 	if msgs[2].Role != "user" || msgs[2].Content != "Should I add a router dependency?" {
 		t.Errorf("user = %+v", msgs[2])

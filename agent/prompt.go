@@ -26,10 +26,6 @@ const soulPrompt = `SOUL.md is where you store information about yourself. If yo
 
 SOUL.md:\n`
 
-const userPrompt = `USER.md contains information about the user. If you learn something lasting about the user, edit %s with the edit tool. Skip one-off details. Do not overwrite the whole file.
-
-USER.md:\n`
-
 func systemPrompt(dir string, tools ...tool.Tool) string {
 	var b strings.Builder
 	b.WriteString(basePrompt)
@@ -40,12 +36,8 @@ func systemPrompt(dir string, tools ...tool.Tool) string {
 		}
 	}
 	soulPath := filepath.Join(dir, "SOUL.md")
-	userPath := filepath.Join(dir, "USER.md")
 	fmt.Fprintf(&b, soulPrompt, soulPath)
 	b.WriteString(workspaceFile(soulPath))
-	b.WriteByte('\n')
-	fmt.Fprintf(&b, userPrompt, userPath)
-	b.WriteString(workspaceFile(userPath))
 	b.WriteByte('\n')
 	return strings.TrimSuffix(b.String(), "\n")
 }
