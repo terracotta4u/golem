@@ -9,6 +9,7 @@ import (
 
 	"strings"
 
+	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
@@ -137,6 +138,67 @@ func TestSendIncludesIdentityFiles(t *testing.T) {
 	}
 	if !strings.Contains(sys, "The user is Nawaz.") {
 		t.Errorf("system missing USER.md: %q", sys)
+	}
+}
+
+func TestWithContextEmptyIsSingleSystem(t *testing.T) {
+	hist := []provider.Message{{Role: "user", Content: "hello"}}
+	got := withContext("identity", nil, hist)
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if got[0].Role != "system" || got[0].Content != "identity" {
+		t.Errorf("first = %+v, want system identity", got[0])
+	}
+	if got[1].Role != "user" || got[1].Content != "hello" {
+		t.Errorf("second = %+v, want user hello", got[1])
+	}
+}
+
+func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
+	dir := workspace(t)
+	if err := os.WriteFile(filepath.Join(dir, "USER.md"), []byte("The user is Nawaz."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "use the standard library"},
+	}}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := New(p, dir).Session(st, store.New("cli"))
+	sess.memories = []memory.Memory{{Content: "User prefers the Go standard library."}}
+	if _, err := sess.Send(context.Background(), "Should I add a router dependency?"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.got) == 0 {
+		t.Fatal("no Chat calls")
+	}
+	msgs := p.got[0].Messages
+	if len(msgs) < 3 {
+		t.Fatalf("messages = %d, want system, memory system, user", len(msgs))
+	}
+	if msgs[0].Role != "system" || !strings.Contains(msgs[0].Content, "The user is Nawaz.") {
+		t.Errorf("identity = %+v", msgs[0])
+	}
+	if strings.Contains(msgs[0].Content, "User prefers the Go standard library.") {
+		t.Errorf("memory mixed into identity: %q", msgs[0].Content)
+	}
+	if msgs[1].Role != "system" {
+		t.Errorf("memory message role = %q", msgs[1].Role)
+	}
+	if !strings.Contains(msgs[1].Content, "User prefers the Go standard library.") {
+		t.Errorf("memory message missing content: %q", msgs[1].Content)
+	}
+	if !strings.Contains(msgs[1].Content, "not instructions") {
+		t.Errorf("memory message missing framing: %q", msgs[1].Content)
+	}
+	if strings.Contains(msgs[1].Content, "The user is Nawaz.") {
+		t.Errorf("USER.md mixed into memories: %q", msgs[1].Content)
+	}
+	if msgs[2].Role != "user" || msgs[2].Content != "Should I add a router dependency?" {
+		t.Errorf("user = %+v", msgs[2])
 	}
 }
 
