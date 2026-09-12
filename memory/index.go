@@ -62,3 +62,16 @@ func (idx *Index) Index(ctx context.Context, m Memory) error {
 	}
 	return nil
 }
+
+func (idx *Index) Rebuild(ctx context.Context) error {
+	memories, err := idx.store.List()
+	if err != nil {
+		return err
+	}
+	for _, m := range memories {
+		if err := idx.Index(ctx, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -85,6 +85,79 @@ func TestIndexEmbedErrorLeavesMemory(t *testing.T) {
 	}
 }
 
+func TestRebuildReindexesFromMemories(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	one := Memory{
+		ID:             "mem-1",
+		Content:        "User prefers the Go standard library.",
+		ConversationID: "conv-1",
+		TurnID:         "turn-1",
+		CreatedAt:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+	two := Memory{
+		ID:             "mem-2",
+		Content:        "User is building Golem in Go.",
+		ConversationID: "conv-1",
+		TurnID:         "turn-2",
+		CreatedAt:      time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+	}
+	if err := st.Save(one); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(two); err != nil {
+		t.Fatal(err)
+	}
+
+	emb := &stubEmbedder{vecs: [][]float32{{0.25, 0.5}}}
+	idx, err := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.Index(context.Background(), one); err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.Index(context.Background(), two); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := st.db.Exec(`DELETE FROM embeddings`); err != nil {
+		t.Fatal(err)
+	}
+	if embeddingExists(t, st, one.ID) || embeddingExists(t, st, two.ID) {
+		t.Fatal("embeddings still present after delete")
+	}
+
+	if err := idx.Rebuild(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{one.ID, two.ID} {
+		provider, model, dims, vec := mustEmbedding(t, st, id)
+		if provider != "openrouter" || model != "openai/text-embedding-3-small" {
+			t.Errorf("%s space = %s/%s", id, provider, model)
+		}
+		if dims != 2 || len(vec) != 2 {
+			t.Errorf("%s dims = %d vec = %v", id, dims, vec)
+		}
+	}
+}
+
+func TestRebuildEmpty(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := NewIndex(st, &stubEmbedder{vecs: [][]float32{{1}}}, "openrouter", "openai/text-embedding-3-small")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.Rebuild(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type stubEmbedder struct {
 	vecs [][]float32
 	got  []string
