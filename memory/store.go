@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	_ "modernc.org/sqlite"
 )
@@ -52,6 +55,29 @@ func (s *Store) Save(m Memory) error {
 		return fmt.Errorf("save memory: %w", err)
 	}
 	return nil
+}
+
+func (s *Store) SaveExtracted(contents []string, conversationID, turnID string) ([]Memory, error) {
+	var saved []Memory
+	now := time.Now().UTC()
+	for _, content := range contents {
+		content = strings.TrimSpace(content)
+		if content == "" {
+			continue
+		}
+		m := Memory{
+			ID:             uuid.NewString(),
+			Content:        content,
+			ConversationID: conversationID,
+			TurnID:         turnID,
+			CreatedAt:      now,
+		}
+		if err := s.Save(m); err != nil {
+			return saved, err
+		}
+		saved = append(saved, m)
+	}
+	return saved, nil
 }
 
 func (s *Store) Load(id string) (Memory, error) {

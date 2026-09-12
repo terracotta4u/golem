@@ -2,8 +2,10 @@ package memory
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/terracotta4u/golem/provider"
 )
@@ -97,6 +99,81 @@ func TestExtractStripsFencesAndBlanks(t *testing.T) {
 	}
 	if len(got) != 1 || got[0] != "User prefers the Go standard library." {
 		t.Errorf("got %v", got)
+	}
+}
+
+func TestExtractThenSave(t *testing.T) {
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: `["User is building Golem in Go.", "User values distributing Golem as a single binary."]`},
+	}}
+	contents, err := Extract(context.Background(), p, []provider.Message{
+		{Role: "user", Content: "I'm building Golem in Go because I like being able to distribute a single binary."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := st.SaveExtracted(contents, "conv-1", "turn-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved) != 2 {
+		t.Fatalf("saved %d, want 2", len(saved))
+	}
+
+	list, err := st.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("list len = %d, want 2", len(list))
+	}
+
+	ids := map[string]bool{}
+	seen := map[string]bool{}
+	for _, m := range list {
+		if m.ID == "" {
+			t.Error("missing id")
+		}
+		if ids[m.ID] {
+			t.Errorf("duplicate id %s", m.ID)
+		}
+		ids[m.ID] = true
+		if m.ConversationID != "conv-1" || m.TurnID != "turn-1" {
+			t.Errorf("got conv/turn %s/%s", m.ConversationID, m.TurnID)
+		}
+		if m.CreatedAt.IsZero() || m.CreatedAt.After(time.Now().UTC().Add(time.Second)) {
+			t.Errorf("created_at = %v", m.CreatedAt)
+		}
+		seen[m.Content] = true
+	}
+	if !seen["User is building Golem in Go."] || !seen["User values distributing Golem as a single binary."] {
+		t.Errorf("contents = %v", seen)
+	}
+}
+
+func TestSaveExtractedEmpty(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := st.SaveExtracted(nil, "conv-1", "turn-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved) != 0 {
+		t.Errorf("saved = %v, want empty", saved)
+	}
+	list, err := st.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Errorf("list = %v, want empty", list)
 	}
 }
 
