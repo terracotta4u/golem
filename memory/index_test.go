@@ -159,14 +159,25 @@ func TestRebuildEmpty(t *testing.T) {
 }
 
 type stubEmbedder struct {
-	vecs [][]float32
-	got  []string
-	err  error
+	vecs   [][]float32
+	byText map[string][]float32
+	got    []string
+	err    error
 }
 
 func (s *stubEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
 	s.got = append([]string(nil), texts...)
-	return s.vecs, s.err
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.byText != nil {
+		out := make([][]float32, len(texts))
+		for i, text := range texts {
+			out[i] = s.byText[text]
+		}
+		return out, nil
+	}
+	return s.vecs, nil
 }
 
 func mustEmbedding(t *testing.T, st *Store, id string) (provider, model string, dims int, vec []float32) {

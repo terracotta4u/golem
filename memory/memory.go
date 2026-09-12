@@ -14,3 +14,8 @@ type Memory struct {
 	TurnID         string
 	CreatedAt      time.Time
 }
+
+type Result struct {
+	Memory Memory
+	Score  float32
+}
