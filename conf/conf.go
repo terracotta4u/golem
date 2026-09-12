@@ -19,7 +19,17 @@ type Conf struct {
 	Model         string               `json:"model"`
 	APIKey        string               `json:"api_key,omitempty"`
 	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
+	Memory        *MemoryConfig        `json:"memory,omitempty"`
 	Extensions    map[string]Extension `json:"extensions,omitempty"`
+}
+
+type MemoryConfig struct {
+	Embedding EmbeddingConfig `json:"embedding,omitempty"`
+}
+
+type EmbeddingConfig struct {
+	Provider string `json:"provider,omitempty"`
+	Model    string `json:"model,omitempty"`
 }
 
 type Extension struct {
@@ -27,13 +37,6 @@ type Extension struct {
 	Ref      string            `json:"ref,omitempty"`
 	Revision string            `json:"revision,omitempty"`
 	Env      map[string]string `json:"env,omitempty"`
-}
-
-func defaults() Conf {
-	return Conf{
-		Provider: "openrouter",
-		Model:    "openai/gpt-4o-mini",
-	}
 }
 
 // Dir is ~/.golem.
@@ -141,9 +144,7 @@ func Load() (cfg Conf, created bool, err error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Conf{}, false, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if cfg.Provider == "" {
-		cfg.Provider = defaults().Provider
-	}
+	migrate(&cfg)
 	return cfg, false, nil
 }
 
