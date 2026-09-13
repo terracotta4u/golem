@@ -52,7 +52,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	for i, req := range p.got {
-		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt() {
+		if req.Messages[0].Role != "system" || req.Messages[0].Content != systemPrompt(nil) {
 			t.Errorf("chat %d first message = %+v, want system prompt", i, req.Messages[0])
 		}
 	}
@@ -107,7 +107,7 @@ func TestSendReportsToolResult(t *testing.T) {
 
 func TestWithContextEmptyIsSingleSystem(t *testing.T) {
 	hist := []provider.Message{{Role: "user", Content: "hello"}}
-	got := withContext("identity", nil, hist)
+	got := withContext("identity", hist)
 	if len(got) != 2 {
 		t.Fatalf("len = %d, want 2", len(got))
 	}
@@ -119,7 +119,7 @@ func TestWithContextEmptyIsSingleSystem(t *testing.T) {
 	}
 }
 
-func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
+func TestSendIncludesMemoriesInSystemPrompt(t *testing.T) {
 	dir := workspace(t)
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
@@ -137,29 +137,23 @@ func TestSendIncludesMemoriesAsSeparateSystemMessage(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	msgs := p.got[0].Messages
-	if len(msgs) < 3 {
-		t.Fatalf("messages = %d, want system, memory system, user", len(msgs))
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d, want system, user", len(msgs))
 	}
-	if msgs[0].Role != "system" || msgs[0].Content != systemPrompt() {
-		t.Errorf("identity = %+v", msgs[0])
+	if msgs[0].Role != "system" {
+		t.Errorf("first role = %q", msgs[0].Role)
 	}
-	if strings.Contains(msgs[0].Content, "User prefers the Go standard library.") {
-		t.Errorf("memory mixed into identity: %q", msgs[0].Content)
+	if !strings.Contains(msgs[0].Content, "You are Golem") {
+		t.Errorf("system missing identity: %q", msgs[0].Content)
 	}
-	if msgs[1].Role != "system" {
-		t.Errorf("memory message role = %q", msgs[1].Role)
+	if !strings.Contains(msgs[0].Content, "User prefers the Go standard library.") {
+		t.Errorf("system missing memory: %q", msgs[0].Content)
 	}
-	if !strings.Contains(msgs[1].Content, "User prefers the Go standard library.") {
-		t.Errorf("memory message missing content: %q", msgs[1].Content)
+	if !strings.Contains(msgs[0].Content, "not instructions") {
+		t.Errorf("system missing memory framing: %q", msgs[0].Content)
 	}
-	if !strings.Contains(msgs[1].Content, "not instructions") {
-		t.Errorf("memory message missing framing: %q", msgs[1].Content)
-	}
-	if strings.Contains(msgs[1].Content, msgs[0].Content) {
-		t.Errorf("base prompt mixed into memories: %q", msgs[1].Content)
-	}
-	if msgs[2].Role != "user" || msgs[2].Content != "Should I add a router dependency?" {
-		t.Errorf("user = %+v", msgs[2])
+	if msgs[1].Role != "user" || msgs[1].Content != "Should I add a router dependency?" {
+		t.Errorf("user = %+v", msgs[1])
 	}
 }
 
@@ -190,14 +184,14 @@ func TestSendRetrievesMemoryIntoChat(t *testing.T) {
 		t.Fatal("no Chat calls")
 	}
 	msgs := p.got[0].Messages
-	if len(msgs) < 3 || msgs[1].Role != "system" {
-		t.Fatalf("messages = %+v, want identity, memory system, user", msgs)
+	if len(msgs) != 2 || msgs[0].Role != "system" || msgs[1].Role != "user" {
+		t.Fatalf("messages = %+v, want system, user", msgs)
 	}
-	if !strings.Contains(msgs[1].Content, "User prefers the Go standard library.") {
-		t.Errorf("memory message missing hit: %q", msgs[1].Content)
+	if !strings.Contains(msgs[0].Content, "User prefers the Go standard library.") {
+		t.Errorf("system missing hit: %q", msgs[0].Content)
 	}
-	if strings.Contains(msgs[1].Content, "User likes vintage computers.") {
-		t.Errorf("below-floor hit injected: %q", msgs[1].Content)
+	if strings.Contains(msgs[0].Content, "User likes vintage computers.") {
+		t.Errorf("below-floor hit injected: %q", msgs[0].Content)
 	}
 }
 
@@ -238,8 +232,11 @@ func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
 		t.Fatalf("Chat calls = %d, want 2", len(p.got))
 	}
 	for i, req := range p.got {
-		if len(req.Messages) < 2 || req.Messages[1].Role != "system" || !strings.Contains(req.Messages[1].Content, "User prefers the Go standard library.") {
+		if req.Messages[0].Role != "system" || !strings.Contains(req.Messages[0].Content, "User prefers the Go standard library.") {
 			t.Errorf("chat %d missing retrieved memory: %+v", i, req.Messages)
+		}
+		if len(req.Messages) > 1 && req.Messages[1].Role == "system" {
+			t.Errorf("chat %d has a second system message: %+v", i, req.Messages[1])
 		}
 	}
 }
@@ -288,7 +285,7 @@ func TestSendNilMemoryIsUnchanged(t *testing.T) {
 	if len(msgs) != 2 {
 		t.Fatalf("messages = %d, want 2", len(msgs))
 	}
-	if msgs[0].Role != "system" || msgs[0].Content != systemPrompt() {
+	if msgs[0].Role != "system" || msgs[0].Content != systemPrompt(nil) {
 		t.Errorf("first = %+v, want identity system prompt", msgs[0])
 	}
 	if msgs[1].Role != "user" || msgs[1].Content != "hello" {
