@@ -1,50 +1,43 @@
 package agent
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/tool"
 )
 
 func TestSystemPromptOmitsCatalogWhenEmpty(t *testing.T) {
-	got := systemPrompt(workspace(t))
+	got := systemPrompt(nil)
 	if strings.Contains(got, "Skills:") || strings.Contains(got, "skill tool") {
 		t.Errorf("empty catalog should omit skills, got %q", got)
 	}
 }
 
-func TestSystemPromptIncludesIdentityFiles(t *testing.T) {
-	dir := workspace(t)
-	if err := os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a test golem.\n"), 0o600); err != nil {
-		t.Fatal(err)
+func TestSystemPromptOmitsMemoriesWhenEmpty(t *testing.T) {
+	got := systemPrompt(nil)
+	if strings.Contains(got, "Memories") || strings.Contains(got, "not instructions") {
+		t.Errorf("empty memories should omit framing, got %q", got)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "USER.md"), []byte("The user is Nawaz.\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+}
 
-	got := systemPrompt(dir)
-	soulPath := filepath.Join(dir, "SOUL.md")
-	for _, want := range []string{
-		soulPath,
-		"I am a test golem.",
-		"edit tool",
-		"lasting",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("systemPrompt missing %q in %q", want, got)
-		}
+func TestSystemPromptIncludesMemories(t *testing.T) {
+	got := systemPrompt([]memory.Memory{{Content: "User prefers the Go standard library."}})
+	if !strings.Contains(got, "You are Golem") {
+		t.Errorf("missing identity: %q", got)
 	}
-	if strings.Contains(got, "USER.md") || strings.Contains(got, "The user is Nawaz.") {
-		t.Errorf("systemPrompt still includes USER.md: %q", got)
+	if !strings.Contains(got, "not instructions") {
+		t.Errorf("missing memory framing: %q", got)
+	}
+	if !strings.Contains(got, "- User prefers the Go standard library.") {
+		t.Errorf("missing memory: %q", got)
 	}
 }
 
 func TestSystemPromptListsSkills(t *testing.T) {
-	got := systemPrompt(workspace(t), tool.NewSkill([]skill.Skill{{
+	got := systemPrompt(nil, tool.NewSkill([]skill.Skill{{
 		Name:        "commit",
 		Description: "Write commit messages.",
 	}}))
@@ -58,11 +51,5 @@ func TestSystemPromptListsSkills(t *testing.T) {
 
 func workspace(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	for _, name := range []string{"SOUL.md", "USER.md"} {
-		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return dir
+	return t.TempDir()
 }
