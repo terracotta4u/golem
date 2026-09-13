@@ -20,6 +20,12 @@ func TestLoadCreatesConf(t *testing.T) {
 	if cfg.Provider != "openrouter" || cfg.Model != "openai/gpt-4o-mini" {
 		t.Errorf("cfg = %+v", cfg)
 	}
+	if cfg.Memory.Embedding.Provider != "openrouter" || cfg.Memory.Embedding.Model != "openai/text-embedding-3-small" {
+		t.Errorf("embedding = %+v", cfg.Memory.Embedding)
+	}
+	if cfg.Memory.BudgetTokens != 800 || cfg.Memory.MinSimilarity != 0.5 {
+		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
+	}
 
 	dir, err := Dir()
 	if err != nil {
@@ -56,6 +62,12 @@ func TestLoadCreatesConf(t *testing.T) {
 	}
 	if strings.Contains(string(data), "listen") {
 		t.Errorf("default conf should omit listen: %s", data)
+	}
+	if !strings.Contains(string(data), `"memory"`) ||
+		!strings.Contains(string(data), `"openai/text-embedding-3-small"`) ||
+		!strings.Contains(string(data), `"budget_tokens"`) ||
+		!strings.Contains(string(data), `"min_similarity"`) {
+		t.Errorf("default conf should include memory embedding and retrieval knobs: %s", data)
 	}
 }
 
@@ -248,6 +260,100 @@ func TestSaveRoundTrip(t *testing.T) {
 	e := got.Extensions["echo"]
 	if e.Source != "/tmp/echo" || e.Ref != "HEAD" || e.Revision != "abc123" {
 		t.Errorf("origin = %+v", e)
+	}
+}
+
+func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(Conf{Model: "test-model"}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, created, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created {
+		t.Fatal("conf already existed")
+	}
+	if got.Provider != "openrouter" {
+		t.Errorf("provider = %q, want openrouter", got.Provider)
+	}
+	if got.Memory.Embedding.Provider != "openrouter" || got.Memory.Embedding.Model != "openai/text-embedding-3-small" {
+		t.Errorf("embedding = %+v", got.Memory.Embedding)
+	}
+}
+
+func TestLoadWritesMigratedConfToDisk(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	etc, err := EtcDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(etc, fileName)
+	old := `{
+  "provider": "openrouter",
+  "model": "openai/gpt-4o-mini",
+  "extensions": {
+    "golem-telegram": {
+      "source": "https://github.com/terracotta4u/golem-telegram",
+      "ref": "HEAD"
+    }
+  }
+}
+`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"memory"`) ||
+		!strings.Contains(s, `"openai/text-embedding-3-small"`) ||
+		!strings.Contains(s, `"budget_tokens"`) {
+		t.Errorf("file missing migrated memory: %s", s)
+	}
+	if !strings.Contains(s, `"golem-telegram"`) {
+		t.Errorf("file dropped extensions: %s", s)
+	}
+}
+
+func TestSaveMemoryEmbeddingRoundTrip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Conf{
+		Model: "test-model",
+		Memory: &MemoryConfig{
+			Embedding: EmbeddingConfig{Provider: "ollama", Model: "nomic-embed-text"},
+		},
+	}
+	if err := Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, created, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created {
+		t.Fatal("Save should not look like first-run create")
+	}
+	if got.Memory.Embedding.Provider != "ollama" || got.Memory.Embedding.Model != "nomic-embed-text" {
+		t.Errorf("embedding = %+v", got.Memory.Embedding)
 	}
 }
 

@@ -1,0 +1,16 @@
+package conf
+
+func defaults() Conf {
+	return Conf{
+		Provider: "openrouter",
+		Model:    "openai/gpt-4o-mini",
+		Memory: &MemoryConfig{
+			Embedding: EmbeddingConfig{
+				Provider: "openrouter",
+				Model:    "openai/text-embedding-3-small",
+			},
+			BudgetTokens:  800,
+			MinSimilarity: 0.5,
+		},
+	}
+}

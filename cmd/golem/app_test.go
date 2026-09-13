@@ -56,3 +56,68 @@ Follow the commit format.
 		t.Errorf("skills = %+v, want [commit]", skills)
 	}
 }
+
+func TestLoadAppWiresMemory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENROUTER_API_KEY", "test")
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := conf.MemoriesDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(filepath.Dir(path)) != "memory" || filepath.Base(path) != "memories.db" {
+		t.Errorf("path = %q, want ~/.golem/memory/memories.db", path)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("memories.db: %v", err)
+	}
+	if app.agent.MemoryStore == nil {
+		t.Fatal("MemoryStore is nil")
+	}
+	if app.agent.Memory == nil {
+		t.Fatal("Memory is nil")
+	}
+	if app.agent.Indexer == nil {
+		t.Fatal("Indexer is nil")
+	}
+	if app.agent.MinSimilarity != 0.5 {
+		t.Errorf("MinSimilarity = %v, want 0.5", app.agent.MinSimilarity)
+	}
+	if app.agent.BudgetTokens != 800 {
+		t.Errorf("BudgetTokens = %d, want 800", app.agent.BudgetTokens)
+	}
+}
+
+func TestLoadAppUnknownEmbedderIsStoreOnly(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENROUTER_API_KEY", "test")
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Memory.Embedding.Provider = "ollama"
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.agent.MemoryStore == nil {
+		t.Fatal("MemoryStore is nil, want store-only")
+	}
+	if app.agent.Memory != nil {
+		t.Error("Memory set, want nil when embedder resolve fails")
+	}
+	if app.agent.Indexer != nil {
+		t.Error("Indexer set, want nil when embedder resolve fails")
+	}
+}
