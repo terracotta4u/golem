@@ -34,9 +34,21 @@ func New(apiKey, model string) *Client {
 }
 
 type chatRequest struct {
-	Model    string             `json:"model"`
-	Messages []provider.Message `json:"messages"`
-	Tools    []chatTool         `json:"tools,omitempty"`
+	Model          string             `json:"model"`
+	Messages       []provider.Message `json:"messages"`
+	Tools          []chatTool         `json:"tools,omitempty"`
+	ResponseFormat *responseFormat    `json:"response_format,omitempty"`
+}
+
+type responseFormat struct {
+	Type       string         `json:"type"`
+	JSONSchema jsonSchemaSpec `json:"json_schema"`
+}
+
+type jsonSchemaSpec struct {
+	Name   string         `json:"name"`
+	Strict bool           `json:"strict"`
+	Schema map[string]any `json:"schema"`
 }
 
 type chatTool struct {
@@ -65,6 +77,25 @@ func (c *Client) Chat(ctx context.Context, req provider.ChatRequest) (provider.M
 		Messages: req.Messages,
 		Tools:    toTools(req.Tools),
 	})
+}
+
+func (c *Client) ChatStructured(ctx context.Context, msgs []provider.Message, schema provider.JSONSchema) (json.RawMessage, error) {
+	msg, err := c.complete(ctx, chatRequest{
+		Model:    c.model,
+		Messages: msgs,
+		ResponseFormat: &responseFormat{
+			Type: "json_schema",
+			JSONSchema: jsonSchemaSpec{
+				Name:   schema.Name,
+				Strict: schema.Strict,
+				Schema: schema.Schema,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(msg.Content), nil
 }
 
 func (c *Client) complete(ctx context.Context, payload any) (provider.Message, error) {
