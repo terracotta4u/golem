@@ -11,20 +11,33 @@
 <main class="container container-md stack grow">
   <section class="panel">
     <form class="stack gap-5" method="post" action="/settings/general">
+      <div class="stack gap-2">
+        <h2>Default model</h2>
+        <p class="field-hint">Used for chat and other complex tasks.</p>
+      </div>
       <div class="field stack gap-2">
-        <label for="provider">Provider</label>
-        <select id="provider" name="provider">
-          <option value="openrouter"{{if eq .Provider "openrouter"}} selected{{end}}>OpenRouter</option>
+        <label for="default_provider">Provider</label>
+        <select id="default_provider" name="default_provider">
+          <option value="openrouter"{{if eq .DefaultProvider "openrouter"}} selected{{end}}>OpenRouter</option>
         </select>
       </div>
       <div class="field stack gap-2">
-        <label for="model">Model</label>
-        <input id="model" name="model" type="text" required value="{{.Model}}">
+        <label for="default_model">Model</label>
+        <input id="default_model" name="default_model" type="text" required value="{{.DefaultModel}}">
+      </div>
+      <div class="stack gap-2">
+        <h2>Fast model</h2>
+        <p class="field-hint">Used for lightweight tasks.</p>
       </div>
       <div class="field stack gap-2">
-        <label for="api_key">API key</label>
-        <p class="field-hint">{{if .HasAPIKey}}Currently set. Leave blank to keep.{{else}}Not set.{{end}}</p>
-        <input id="api_key" name="api_key" type="password" autocomplete="off">
+        <label for="fast_provider">Provider</label>
+        <select id="fast_provider" name="fast_provider">
+          <option value="openrouter"{{if eq .FastProvider "openrouter"}} selected{{end}}>OpenRouter</option>
+        </select>
+      </div>
+      <div class="field stack gap-2">
+        <label for="fast_model">Model</label>
+        <input id="fast_model" name="fast_model" type="text" required value="{{.FastModel}}">
       </div>
       <div class="field stack gap-2">
         <label for="max_tool_rounds">Max tool rounds</label>

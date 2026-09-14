@@ -46,22 +46,6 @@ func loadApp() (*app, error) {
 		return nil, err
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		apiKey = cfg.APIKey
-	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("set api_key in ~/.golem/etc/conf.json or OPENROUTER_API_KEY")
-	}
-
-	model := os.Getenv("OPENROUTER_MODEL")
-	if model == "" {
-		model = cfg.Model
-	}
-	if model == "" {
-		model = "openai/gpt-4o-mini"
-	}
-
 	skills, err := loadSkills()
 	if err != nil {
 		return nil, err
@@ -81,10 +65,37 @@ func loadApp() (*app, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := agent.New(openrouter.New(apiKey, model), dir, tools...)
+
+	envKey := os.Getenv("OPENROUTER_API_KEY")
+	reg := provider.NewRegistry()
+	reg.RegisterChat("openrouter", func(model, apiKey string) (provider.Provider, error) {
+		if apiKey == "" {
+			return nil, fmt.Errorf("set OPENROUTER_API_KEY")
+		}
+		return openrouter.New(apiKey, model), nil
+	})
+
+	defaultP, err := reg.Chat(cfg.DefaultModel.Provider, cfg.DefaultModel.Model, chatAPIKey(cfg.DefaultModel.Provider, envKey))
+	if err != nil {
+		return nil, err
+	}
+	fastP, err := reg.Chat(cfg.FastModel.Provider, cfg.FastModel.Model, chatAPIKey(cfg.FastModel.Provider, envKey))
+	if err != nil {
+		return nil, err
+	}
+
+	a := agent.New(defaultP, dir, tools...)
+	a.Fast = fastP
 	a.MaxToolRounds = cfg.MaxToolRounds
-	attachMemory(a, cfg, apiKey)
+	attachMemory(a, cfg, envKey)
 	return &app{cfg: cfg, store: st, agent: a}, nil
+}
+
+func chatAPIKey(name, envKey string) string {
+	if name == "openrouter" {
+		return envKey
+	}
+	return ""
 }
 
 func attachMemory(a *agent.Agent, cfg conf.Conf, apiKey string) {

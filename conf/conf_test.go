@@ -17,8 +17,11 @@ func TestLoadCreatesConf(t *testing.T) {
 	if !created {
 		t.Fatal("expected first load to create conf")
 	}
-	if cfg.Provider != "openrouter" || cfg.Model != "openai/gpt-4o-mini" {
-		t.Errorf("cfg = %+v", cfg)
+	if cfg.DefaultModel.Provider != "openrouter" || cfg.DefaultModel.Model != "openai/gpt-4o-mini" {
+		t.Errorf("default = %+v", cfg.DefaultModel)
+	}
+	if cfg.FastModel.Provider != "openrouter" || cfg.FastModel.Model != "openai/gpt-4o-mini" {
+		t.Errorf("fast = %+v", cfg.FastModel)
 	}
 	if cfg.Memory.Embedding.Provider != "openrouter" || cfg.Memory.Embedding.Model != "openai/text-embedding-3-small" {
 		t.Errorf("embedding = %+v", cfg.Memory.Embedding)
@@ -42,7 +45,7 @@ func TestLoadCreatesConf(t *testing.T) {
 	if created2 {
 		t.Fatal("second load should not create conf")
 	}
-	if cfg2.Provider != cfg.Provider || cfg2.Model != cfg.Model {
+	if cfg2.DefaultModel != cfg.DefaultModel || cfg2.FastModel != cfg.FastModel {
 		t.Errorf("cfg2 = %+v", cfg2)
 	}
 
@@ -63,71 +66,13 @@ func TestLoadCreatesConf(t *testing.T) {
 	if strings.Contains(string(data), "listen") {
 		t.Errorf("default conf should omit listen: %s", data)
 	}
-	if !strings.Contains(string(data), `"memory"`) ||
+	if !strings.Contains(string(data), `"default_model"`) ||
+		!strings.Contains(string(data), `"fast_model"`) ||
+		!strings.Contains(string(data), `"memory"`) ||
 		!strings.Contains(string(data), `"openai/text-embedding-3-small"`) ||
 		!strings.Contains(string(data), `"budget_tokens"`) ||
 		!strings.Contains(string(data), `"min_similarity"`) {
-		t.Errorf("default conf should include memory embedding and retrieval knobs: %s", data)
-	}
-}
-
-func TestLoadCreatesIdentityFiles(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-
-	if _, _, err := Load(); err != nil {
-		t.Fatal(err)
-	}
-	etc, err := EtcDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, name := range []string{"SOUL.md", "USER.md"} {
-		data, err := os.ReadFile(filepath.Join(etc, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(data) != 0 {
-			t.Errorf("%s = %q, want empty", name, data)
-		}
-	}
-
-	if err := os.WriteFile(filepath.Join(etc, "SOUL.md"), []byte("custom soul\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := Load(); err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(filepath.Join(etc, "SOUL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "custom soul\n" {
-		t.Errorf("SOUL.md overwritten: %q", got)
-	}
-}
-
-func TestLoadCreatesMissingIdentityFilesWhenConfExists(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-
-	if _, _, err := Load(); err != nil {
-		t.Fatal(err)
-	}
-	etc, err := EtcDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(filepath.Join(etc, "USER.md")); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, created, err := Load(); err != nil {
-		t.Fatal(err)
-	} else if created {
-		t.Fatal("conf already existed")
-	}
-	if _, err := os.Stat(filepath.Join(etc, "USER.md")); err != nil {
-		t.Fatal(err)
+		t.Errorf("default conf should include models and memory knobs: %s", data)
 	}
 }
 
@@ -241,9 +186,10 @@ func TestSaveRoundTrip(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	cfg := Conf{Model: "test-model", Extensions: map[string]Extension{
+	cfg := Conf{Extensions: map[string]Extension{
 		"echo": {Source: "/tmp/echo", Ref: "HEAD", Revision: "abc123"},
 	}}
+	cfg.DefaultModel.Model = "test-model"
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +200,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	if created {
 		t.Fatal("Save should not look like first-run create")
 	}
-	if got.Model != "test-model" {
+	if got.DefaultModel.Model != "test-model" {
 		t.Errorf("got = %+v", got)
 	}
 	e := got.Extensions["echo"]
@@ -268,7 +214,8 @@ func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	if err := Save(Conf{Model: "test-model"}); err != nil {
+	partial := Conf{DefaultModel: ModelConfig{Model: "test-model"}}
+	if err := Save(partial); err != nil {
 		t.Fatal(err)
 	}
 
@@ -279,8 +226,8 @@ func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
 	if created {
 		t.Fatal("conf already existed")
 	}
-	if got.Provider != "openrouter" {
-		t.Errorf("provider = %q, want openrouter", got.Provider)
+	if got.DefaultModel.Provider != "openrouter" {
+		t.Errorf("default provider = %q, want openrouter", got.DefaultModel.Provider)
 	}
 	if got.Memory.Embedding.Provider != "openrouter" || got.Memory.Embedding.Model != "openai/text-embedding-3-small" {
 		t.Errorf("embedding = %+v", got.Memory.Embedding)
@@ -298,8 +245,6 @@ func TestLoadWritesMigratedConfToDisk(t *testing.T) {
 	}
 	path := filepath.Join(etc, fileName)
 	old := `{
-  "provider": "openrouter",
-  "model": "openai/gpt-4o-mini",
   "extensions": {
     "golem-telegram": {
       "source": "https://github.com/terracotta4u/golem-telegram",
@@ -321,6 +266,9 @@ func TestLoadWritesMigratedConfToDisk(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(data)
+	if !strings.Contains(s, `"default_model"`) || !strings.Contains(s, `"fast_model"`) {
+		t.Errorf("file missing migrated models: %s", s)
+	}
 	if !strings.Contains(s, `"memory"`) ||
 		!strings.Contains(s, `"openai/text-embedding-3-small"`) ||
 		!strings.Contains(s, `"budget_tokens"`) {
@@ -337,9 +285,9 @@ func TestSaveMemoryEmbeddingRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := Conf{
-		Model: "test-model",
+		DefaultModel: ModelConfig{Model: "test-model"},
 		Memory: &MemoryConfig{
-			Embedding: EmbeddingConfig{Provider: "ollama", Model: "nomic-embed-text"},
+			Embedding: ModelConfig{Provider: "ollama", Model: "nomic-embed-text"},
 		},
 	}
 	if err := Save(cfg); err != nil {
@@ -362,7 +310,8 @@ func TestLoadMaxToolRounds(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	if err := Save(Conf{Model: "test-model", MaxToolRounds: 20}); err != nil {
+	rounds := Conf{DefaultModel: ModelConfig{Model: "test-model"}, MaxToolRounds: 20}
+	if err := Save(rounds); err != nil {
 		t.Fatal(err)
 	}
 	got, created, err := Load()

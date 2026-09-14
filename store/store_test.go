@@ -3,11 +3,36 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/terracotta4u/golem/provider"
 )
+
+func TestTitleFrom(t *testing.T) {
+	if got := TitleFrom("  hello\nworld  "); got != "hello world" {
+		t.Errorf("TitleFrom(multiline) = %q, want hello world", got)
+	}
+	if got := TitleFrom(`"Dinner plans"`); got != "Dinner plans" {
+		t.Errorf("TitleFrom(quoted) = %q, want Dinner plans", got)
+	}
+	if got := TitleFrom("  "); got != "" {
+		t.Errorf("TitleFrom(blank) = %q, want empty", got)
+	}
+	long := strings.Repeat("a", 90)
+	if got := TitleFrom(long); got != strings.Repeat("a", 80) {
+		t.Errorf("TitleFrom(long) len = %d, want 80", len(got))
+	}
+}
+
+func TestSetTitleFromSkipsWhenSet(t *testing.T) {
+	c := Conversation{Title: "keep"}
+	c.SetTitleFrom("hello")
+	if c.Title != "keep" {
+		t.Errorf("title = %q, want keep", c.Title)
+	}
+}
 
 func TestSaveLoad(t *testing.T) {
 	st, err := NewFileStore(t.TempDir())
