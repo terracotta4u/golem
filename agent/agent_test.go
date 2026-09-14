@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"strings"
 
@@ -330,6 +332,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	if reply != "use the standard library" {
 		t.Errorf("reply = %q", reply)
 	}
+	a.Wait()
 	if len(p.got) != 3 {
 		t.Fatalf("Chat calls = %d, want 2 turn + extract", len(p.got))
 	}
@@ -370,6 +373,115 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	}
 }
 
+func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
+	unblock := make(chan struct{})
+	p := &blockingExtractProvider{unblock: unblock}
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t))
+	a.MemoryStore = mem
+
+	var once sync.Once
+	release := func() { once.Do(func() { close(unblock) }) }
+	t.Cleanup(func() {
+		release()
+		a.Wait()
+	})
+
+	done := make(chan struct{})
+	var reply string
+	var sendErr error
+	go func() {
+		defer close(done)
+		reply, sendErr = a.Session(st, store.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Send blocked on extract")
+	}
+	if sendErr != nil {
+		t.Fatal(sendErr)
+	}
+	if reply != "hi" {
+		t.Errorf("reply = %q, want hi", reply)
+	}
+	if n := p.chats(); n != 1 {
+		t.Fatalf("Chat calls = %d, want 1 (turn only)", n)
+	}
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("saved = %+v, want empty until extract finishes", list)
+	}
+
+	release()
+	a.Wait()
+	list, err = mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Content != "User prefers the Go standard library." {
+		t.Fatalf("saved = %+v", list)
+	}
+	if n := p.chats(); n != 2 {
+		t.Errorf("Chat calls after Wait = %d, want 2", n)
+	}
+}
+
+func TestRememberSavesWithoutSession(t *testing.T) {
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: `{"memories":["User prefers the Go standard library."]}`},
+	}}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := &stubIndexer{}
+	remember(context.Background(), rememberJob{
+		provider: p,
+		store:    mem,
+		indexer:  idx,
+		convID:   "conv-1",
+		input:    "I prefer using the Go standard library when possible.",
+		reply:    "use the standard library",
+	})
+	if len(p.got) != 1 {
+		t.Fatalf("Chat calls = %d, want extract only", len(p.got))
+	}
+	msgs := p.got[0].Messages
+	if len(msgs) != 3 {
+		t.Fatalf("extract messages = %d, want system + user + assistant", len(msgs))
+	}
+	if msgs[1].Role != "user" || msgs[1].Content != "I prefer using the Go standard library when possible." {
+		t.Errorf("extract user = %+v", msgs[1])
+	}
+	if msgs[2].Role != "assistant" || msgs[2].Content != "use the standard library" {
+		t.Errorf("extract assistant = %+v", msgs[2])
+	}
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Content != "User prefers the Go standard library." {
+		t.Fatalf("saved = %+v", list)
+	}
+	if list[0].ConversationID != "conv-1" || list[0].TurnID == "" {
+		t.Errorf("conv/turn = %s/%s", list[0].ConversationID, list[0].TurnID)
+	}
+	if len(idx.got) != 1 || idx.got[0].ID != list[0].ID {
+		t.Errorf("indexed = %+v, want saved id %s", idx.got, list[0].ID)
+	}
+}
+
 func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	p := &scriptedProvider{
 		replies: []provider.Message{{Role: "assistant", Content: "hi"}},
@@ -392,6 +504,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	if reply != "hi" {
 		t.Errorf("reply = %q, want hi", reply)
 	}
+	a.Wait()
 	if len(p.got) != 2 {
 		t.Errorf("Chat calls = %d, want turn + extract", len(p.got))
 	}
@@ -428,6 +541,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 	if reply != "hi" {
 		t.Errorf("reply = %q, want hi", reply)
 	}
+	a.Wait()
 	list, err := mem.List()
 	if err != nil {
 		t.Fatal(err)
@@ -650,6 +764,34 @@ type stubIndexer struct {
 func (s *stubIndexer) Index(_ context.Context, m memory.Memory) error {
 	s.got = append(s.got, m)
 	return s.err
+}
+
+type blockingExtractProvider struct {
+	mu      sync.Mutex
+	n       int
+	unblock <-chan struct{}
+}
+
+func (p *blockingExtractProvider) Chat(_ context.Context, _ provider.ChatRequest) (provider.Message, error) {
+	p.mu.Lock()
+	n := p.n
+	p.mu.Unlock()
+	if n > 0 {
+		<-p.unblock
+	}
+	p.mu.Lock()
+	p.n++
+	p.mu.Unlock()
+	if n == 0 {
+		return provider.Message{Role: "assistant", Content: "hi"}, nil
+	}
+	return provider.Message{Role: "assistant", Content: `{"memories":["User prefers the Go standard library."]}`}, nil
+}
+
+func (p *blockingExtractProvider) chats() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.n
 }
 
 type scriptedProvider struct {
