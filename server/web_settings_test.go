@@ -29,7 +29,7 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, `href="/settings/extensions"`) {
 		t.Fatalf("settings = %q, want extensions card", body)
 	}
-	if strings.Contains(body, `name="model"`) {
+	if strings.Contains(body, `name="default_model"`) {
 		t.Fatalf("settings = %q, want landing not general form", body)
 	}
 }
@@ -52,14 +52,23 @@ func TestGeneralSettingsPage(t *testing.T) {
 	if !strings.Contains(body, `action="/settings/general"`) {
 		t.Fatalf("general = %q, want general post action", body)
 	}
-	if !strings.Contains(body, `name="provider"`) {
-		t.Fatalf("general = %q, want provider field", body)
+	if !strings.Contains(body, `name="default_provider"`) {
+		t.Fatalf("general = %q, want default provider field", body)
 	}
-	if !strings.Contains(body, `name="model"`) {
-		t.Fatalf("general = %q, want model field", body)
+	if !strings.Contains(body, `name="default_model"`) {
+		t.Fatalf("general = %q, want default model field", body)
+	}
+	if !strings.Contains(body, `name="fast_provider"`) {
+		t.Fatalf("general = %q, want fast provider field", body)
+	}
+	if !strings.Contains(body, `name="fast_model"`) {
+		t.Fatalf("general = %q, want fast model field", body)
 	}
 	if !strings.Contains(body, `name="max_tool_rounds"`) {
 		t.Fatalf("general = %q, want max tool rounds field", body)
+	}
+	if !strings.Contains(body, "lightweight") {
+		t.Fatalf("general = %q, want fast model hint", body)
 	}
 }
 
@@ -68,6 +77,8 @@ func TestSettingsShowsConf(t *testing.T) {
 	cfg := conf.Conf{MaxToolRounds: 12}
 	cfg.DefaultModel.Provider = "openrouter"
 	cfg.DefaultModel.Model = "openai/gpt-4o"
+	cfg.FastModel.Provider = "openrouter"
+	cfg.FastModel.Model = "openai/gpt-4o-mini"
 	if err := conf.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +88,10 @@ func TestSettingsShowsConf(t *testing.T) {
 
 	body := getHTML(t, ts.URL+"/settings/general")
 	if !strings.Contains(body, `value="openai/gpt-4o"`) {
-		t.Fatalf("settings = %q, want model", body)
+		t.Fatalf("settings = %q, want default model", body)
+	}
+	if !strings.Contains(body, `value="openai/gpt-4o-mini"`) {
+		t.Fatalf("settings = %q, want fast model", body)
 	}
 	if !strings.Contains(body, `value="12"`) {
 		t.Fatalf("settings = %q, want max tool rounds", body)
@@ -96,9 +110,11 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
-		"provider":        {"openrouter"},
-		"model":           {"openai/gpt-4o-mini"},
-		"max_tool_rounds": {"8"},
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
+		"max_tool_rounds":  {"8"},
 	})
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", status, body)
@@ -111,7 +127,9 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.DefaultModel.Provider != "openrouter" || got.DefaultModel.Model != "openai/gpt-4o-mini" || got.MaxToolRounds != 8 {
+	if got.DefaultModel.Provider != "openrouter" || got.DefaultModel.Model != "openai/gpt-4o-mini" ||
+		got.FastModel.Provider != "openrouter" || got.FastModel.Model != "openai/gpt-4o-mini" ||
+		got.MaxToolRounds != 8 {
 		t.Fatalf("got = %+v", got)
 	}
 }
@@ -132,8 +150,10 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
-		"provider": {"openrouter"},
-		"model":    {"new-model"},
+		"default_provider": {"openrouter"},
+		"default_model":    {"new-model"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
 	})
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", status, body)
@@ -161,8 +181,10 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
-		"provider": {"openrouter"},
-		"model":    {"  "},
+		"default_provider": {"openrouter"},
+		"default_model":    {"  "},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", status)
@@ -189,8 +211,10 @@ func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
-		"provider": {"openai"},
-		"model":    {"gpt-4o"},
+		"default_provider": {"openai"},
+		"default_model":    {"gpt-4o"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", status)
@@ -217,9 +241,11 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
-		"provider":        {"openrouter"},
-		"model":           {"openai/gpt-4o-mini"},
-		"max_tool_rounds": {"-1"},
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
+		"max_tool_rounds":  {"-1"},
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", status)
@@ -234,13 +260,75 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	}
 }
 
-func TestSettingsSavePreservesFast(t *testing.T) {
+func TestSettingsSaveRequiresFastModel(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-default"
+	old.FastModel.Model = "old-fast"
+	if err := conf.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"  "},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FastModel.Model != "old-fast" {
+		t.Fatalf("FastModel.Model = %q, want unchanged", got.FastModel.Model)
+	}
+}
+
+func TestSettingsSaveRejectsUnknownFastProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-model"
+	old.FastModel.Model = "old-fast"
+	if err := conf.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openai"},
+		"fast_model":       {"gpt-4o"},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FastModel.Model != "old-fast" {
+		t.Fatalf("FastModel.Model = %q, want unchanged", got.FastModel.Model)
+	}
+}
+
+func TestSettingsSaveUpdatesFast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	cfg := conf.Conf{}
 	cfg.DefaultModel.Provider = "openrouter"
 	cfg.DefaultModel.Model = "old-model"
-	cfg.FastModel.Provider = "ollama"
-	cfg.FastModel.Model = "llama3.2"
+	cfg.FastModel.Provider = "openrouter"
+	cfg.FastModel.Model = "old-fast"
 	if err := conf.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -249,8 +337,10 @@ func TestSettingsSavePreservesFast(t *testing.T) {
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
-		"provider": {"openrouter"},
-		"model":    {"openai/gpt-4o-mini"},
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o"},
 	})
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", status, body)
@@ -261,10 +351,10 @@ func TestSettingsSavePreservesFast(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.DefaultModel.Model != "openai/gpt-4o-mini" {
-		t.Fatalf("Default.Model = %q, want openai/gpt-4o-mini", got.DefaultModel.Model)
+		t.Fatalf("DefaultModel.Model = %q, want openai/gpt-4o-mini", got.DefaultModel.Model)
 	}
-	if got.FastModel.Provider != "ollama" || got.FastModel.Model != "llama3.2" {
-		t.Fatalf("fast = %+v, want ollama/llama3.2", got.FastModel)
+	if got.FastModel.Provider != "openrouter" || got.FastModel.Model != "openai/gpt-4o" {
+		t.Fatalf("fast = %+v, want openrouter/openai/gpt-4o", got.FastModel)
 	}
 }
 

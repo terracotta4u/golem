@@ -27,10 +27,12 @@ func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, "settings-general", map[string]any{
-		"Title":         "General",
-		"Provider":      cfg.DefaultModel.Provider,
-		"Model":         cfg.DefaultModel.Model,
-		"MaxToolRounds": cfg.MaxToolRounds,
+		"Title":           "General",
+		"DefaultProvider": cfg.DefaultModel.Provider,
+		"DefaultModel":    cfg.DefaultModel.Model,
+		"FastProvider":    cfg.FastModel.Provider,
+		"FastModel":       cfg.FastModel.Model,
+		"MaxToolRounds":   cfg.MaxToolRounds,
 	})
 }
 
@@ -47,18 +49,14 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	provider := strings.TrimSpace(r.FormValue("provider"))
-	if provider == "" {
-		provider = "openrouter"
-	}
-	if provider != "openrouter" {
-		http.Error(w, "unsupported provider", http.StatusBadRequest)
+	defaultModel, errMsg := parseModelConfig(r, "default_provider", "default_model")
+	if errMsg != "" {
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
-
-	model := strings.TrimSpace(r.FormValue("model"))
-	if model == "" {
-		http.Error(w, "model is required", http.StatusBadRequest)
+	fastModel, errMsg := parseModelConfig(r, "fast_provider", "fast_model")
+	if errMsg != "" {
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -72,12 +70,27 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cfg.DefaultModel.Provider = provider
-	cfg.DefaultModel.Model = model
+	cfg.DefaultModel = defaultModel
+	cfg.FastModel = fastModel
 	cfg.MaxToolRounds = maxRounds
 	if err := conf.Save(cfg); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/settings/general", http.StatusSeeOther)
+}
+
+func parseModelConfig(r *http.Request, providerField, modelField string) (conf.ModelConfig, string) {
+	provider := strings.TrimSpace(r.FormValue(providerField))
+	if provider == "" {
+		provider = "openrouter"
+	}
+	if provider != "openrouter" {
+		return conf.ModelConfig{}, "unsupported provider"
+	}
+	model := strings.TrimSpace(r.FormValue(modelField))
+	if model == "" {
+		return conf.ModelConfig{}, "model is required"
+	}
+	return conf.ModelConfig{Provider: provider, Model: model}, ""
 }
