@@ -50,8 +50,8 @@ func TestExtractParsesJSONArray(t *testing.T) {
 		t.Fatalf("messages = %+v, want system then turn", req.Messages)
 	}
 	sys := req.Messages[0].Content
-	if !strings.Contains(sys, "JSON") {
-		t.Errorf("system missing JSON instruction: %q", sys)
+	if !strings.Contains(sys, "memories") {
+		t.Errorf("Chat prompt missing JSON shape: %q", sys)
 	}
 	if !strings.Contains(sys, "lasting") && !strings.Contains(sys, "durable") {
 		t.Errorf("system missing durable/lasting instruction: %q", sys)
@@ -299,6 +299,34 @@ func TestExtractUsesStructuredOutput(t *testing.T) {
 		if got.Role != m.Role || got.Content != m.Content {
 			t.Errorf("turn message %d = %+v, want %+v", i, got, m)
 		}
+	}
+}
+
+func TestExtractFallsBackWhenStructuredUnsupported(t *testing.T) {
+	p := &structuredProvider{
+		structuredErr: provider.ErrUnsupportedFormat,
+		scriptedProvider: scriptedProvider{replies: []provider.Message{
+			{Role: "assistant", Content: `{"memories":["User prefers the Go standard library."]}`},
+		}},
+	}
+	got, err := Extract(context.Background(), p, []provider.Message{
+		{Role: "user", Content: "I prefer using the Go standard library when possible."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "User prefers the Go standard library." {
+		t.Fatalf("got %v", got)
+	}
+	if len(p.structured) != 1 {
+		t.Errorf("ChatStructured calls = %d, want 1", len(p.structured))
+	}
+	if len(p.got) != 1 {
+		t.Fatalf("Chat calls = %d, want 1 fallback", len(p.got))
+	}
+	sys := p.got[0].Messages[0].Content
+	if !strings.Contains(sys, "memories") {
+		t.Errorf("fallback prompt missing JSON shape: %q", sys)
 	}
 }
 

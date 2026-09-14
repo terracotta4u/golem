@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -14,24 +15,26 @@ const extractPrompt = `Extract lasting facts and preferences about the user from
 
 Each memory should be one durable fact, written in the third person. If there is nothing lasting to remember, return an empty list.`
 
-const extractJSONPrompt = `Reply with a JSON array of strings and nothing else. If there is nothing lasting to remember, reply with [].`
+const extractJSONPrompt = `Reply with {"memories":["..."]} and nothing else. If there is nothing lasting, reply with {"memories":[]}.`
 
 func Extract(ctx context.Context, p provider.Provider, turn []provider.Message) ([]string, error) {
 	// Use structured output when the provider supports it.
 	if s, ok := p.(provider.Structured); ok {
 		raw, err := s.ChatStructured(ctx, extractMessages(turn, false), memorySchema())
-		if err != nil {
+		if err == nil {
+			got, ok := parseMemories(string(raw))
+			if !ok {
+				fmt.Fprintf(os.Stderr, "memory: extract: parse failed: %q\n", clip(string(raw), 200))
+				return nil, nil
+			}
+			return got, nil
+		}
+		if !errors.Is(err, provider.ErrUnsupportedFormat) {
 			return nil, fmt.Errorf("extract memories: %w", err)
 		}
-		got, ok := parseMemories(string(raw))
-		if !ok {
-			fmt.Fprintf(os.Stderr, "memory: extract: parse failed: %q\n", clip(string(raw), 200))
-			return nil, nil
-		}
-		return got, nil
 	}
 
-	// Chat-only providers: ask for JSON in the prompt.
+	// Chat-only providers, or structured output not supported.
 	msg, err := p.Chat(ctx, provider.ChatRequest{Messages: extractMessages(turn, true)})
 	if err != nil {
 		return nil, fmt.Errorf("extract memories: %w", err)
