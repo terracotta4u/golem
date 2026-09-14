@@ -30,7 +30,6 @@ func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
 		"Title":         "General",
 		"Provider":      cfg.Provider,
 		"Model":         cfg.Model,
-		"HasAPIKey":     cfg.APIKey != "",
 		"MaxToolRounds": cfg.MaxToolRounds,
 	})
 }
@@ -73,14 +72,8 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	apiKey := strings.TrimSpace(r.FormValue("api_key"))
-	if apiKey == "" {
-		apiKey = cfg.APIKey
-	}
-
 	cfg.Provider = provider
 	cfg.Model = model
-	cfg.APIKey = apiKey
 	cfg.MaxToolRounds = maxRounds
 	if err := conf.Save(cfg); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

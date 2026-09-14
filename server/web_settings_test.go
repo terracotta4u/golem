@@ -58,9 +58,6 @@ func TestGeneralSettingsPage(t *testing.T) {
 	if !strings.Contains(body, `name="model"`) {
 		t.Fatalf("general = %q, want model field", body)
 	}
-	if !strings.Contains(body, `name="api_key"`) {
-		t.Fatalf("general = %q, want api key field", body)
-	}
 	if !strings.Contains(body, `name="max_tool_rounds"`) {
 		t.Fatalf("general = %q, want max tool rounds field", body)
 	}
@@ -71,7 +68,6 @@ func TestSettingsShowsConf(t *testing.T) {
 	if err := conf.Save(conf.Conf{
 		Provider:      "openrouter",
 		Model:         "openai/gpt-4o",
-		APIKey:        "sk-secret-value",
 		MaxToolRounds: 12,
 	}); err != nil {
 		t.Fatal(err)
@@ -87,17 +83,11 @@ func TestSettingsShowsConf(t *testing.T) {
 	if !strings.Contains(body, `value="12"`) {
 		t.Fatalf("settings = %q, want max tool rounds", body)
 	}
-	if !strings.Contains(body, "Currently set") {
-		t.Fatalf("settings = %q, want api key status", body)
-	}
-	if strings.Contains(body, "sk-secret-value") {
-		t.Fatalf("settings leaked api key")
-	}
 }
 
 func TestSettingsSaveUpdatesConf(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{Model: "old-model", APIKey: "old-key"}); err != nil {
+	if err := conf.Save(conf.Conf{Model: "old-model"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -107,7 +97,6 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 	status, body := postSettings(t, ts.URL, url.Values{
 		"provider":        {"openrouter"},
 		"model":           {"openai/gpt-4o-mini"},
-		"api_key":         {"new-key"},
 		"max_tool_rounds": {"8"},
 	})
 	if status != http.StatusOK {
@@ -121,38 +110,8 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Provider != "openrouter" || got.Model != "openai/gpt-4o-mini" || got.APIKey != "new-key" || got.MaxToolRounds != 8 {
+	if got.Provider != "openrouter" || got.Model != "openai/gpt-4o-mini" || got.MaxToolRounds != 8 {
 		t.Fatalf("got = %+v", got)
-	}
-}
-
-func TestSettingsSaveKeepsAPIKeyWhenBlank(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{Model: "openai/gpt-4o-mini", APIKey: "keep-me"}); err != nil {
-		t.Fatal(err)
-	}
-
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
-	defer ts.Close()
-
-	status, body := postSettings(t, ts.URL, url.Values{
-		"provider": {"openrouter"},
-		"model":    {"openai/gpt-4o"},
-		"api_key":  {""},
-	})
-	if status != http.StatusOK {
-		t.Fatalf("status = %d, want 200: %s", status, body)
-	}
-
-	got, _, err := conf.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.APIKey != "keep-me" {
-		t.Fatalf("APIKey = %q, want keep-me", got.APIKey)
-	}
-	if got.Model != "openai/gpt-4o" {
-		t.Fatalf("Model = %q, want openai/gpt-4o", got.Model)
 	}
 }
 

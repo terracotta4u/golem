@@ -48,10 +48,7 @@ func loadApp() (*app, error) {
 
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
-		apiKey = cfg.APIKey
-	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("set api_key in ~/.golem/etc/conf.json or OPENROUTER_API_KEY")
+		return nil, fmt.Errorf("set OPENROUTER_API_KEY")
 	}
 
 	model := os.Getenv("OPENROUTER_MODEL")

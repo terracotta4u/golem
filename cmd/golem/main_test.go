@@ -14,8 +14,11 @@ func TestRunNeedsAPIKey(t *testing.T) {
 		if err == nil {
 			t.Fatalf("run(%q): expected error when serve has no API key", args)
 		}
-		if !strings.Contains(err.Error(), "api_key") && !strings.Contains(err.Error(), "OPENROUTER_API_KEY") {
-			t.Fatalf("run(%q) error = %q, want it to mention the API key", args, err)
+		if !strings.Contains(err.Error(), "OPENROUTER_API_KEY") {
+			t.Fatalf("run(%q) error = %q, want OPENROUTER_API_KEY", args, err)
+		}
+		if strings.Contains(err.Error(), "conf.json") {
+			t.Fatalf("run(%q) error = %q, want no conf.json fallback", args, err)
 		}
 	}
 }

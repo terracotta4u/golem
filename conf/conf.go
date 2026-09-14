@@ -17,7 +17,6 @@ const (
 type Conf struct {
 	Provider      string               `json:"provider,omitempty"`
 	Model         string               `json:"model"`
-	APIKey        string               `json:"api_key,omitempty"`
 	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
 	Memory        *MemoryConfig        `json:"memory,omitempty"`
 	Extensions    map[string]Extension `json:"extensions,omitempty"`
