@@ -60,11 +60,15 @@ type chatResponse struct {
 }
 
 func (c *Client) Chat(ctx context.Context, req provider.ChatRequest) (provider.Message, error) {
-	body, err := json.Marshal(chatRequest{
+	return c.complete(ctx, chatRequest{
 		Model:    c.model,
 		Messages: req.Messages,
 		Tools:    toTools(req.Tools),
 	})
+}
+
+func (c *Client) complete(ctx context.Context, payload any) (provider.Message, error) {
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return provider.Message{}, fmt.Errorf("marshal request: %w", err)
 	}
