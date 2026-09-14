@@ -2,10 +2,10 @@ package conf
 
 func defaults() Conf {
 	return Conf{
-		Provider: "openrouter",
-		Model:    "openai/gpt-4o-mini",
+		DefaultModel: ModelConfig{Provider: "openrouter", Model: "openai/gpt-4o-mini"},
+		FastModel:    ModelConfig{Provider: "openrouter", Model: "openai/gpt-4o-mini"},
 		Memory: &MemoryConfig{
-			Embedding: EmbeddingConfig{
+			Embedding: ModelConfig{
 				Provider: "openrouter",
 				Model:    "openai/text-embedding-3-small",
 			},

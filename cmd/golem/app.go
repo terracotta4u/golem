@@ -53,7 +53,7 @@ func loadApp() (*app, error) {
 
 	model := os.Getenv("OPENROUTER_MODEL")
 	if model == "" {
-		model = cfg.Model
+		model = cfg.DefaultModel.Model
 	}
 	if model == "" {
 		model = "openai/gpt-4o-mini"

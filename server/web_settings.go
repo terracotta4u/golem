@@ -28,8 +28,8 @@ func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, "settings-general", map[string]any{
 		"Title":         "General",
-		"Provider":      cfg.Provider,
-		"Model":         cfg.Model,
+		"Provider":      cfg.DefaultModel.Provider,
+		"Model":         cfg.DefaultModel.Model,
 		"MaxToolRounds": cfg.MaxToolRounds,
 	})
 }
@@ -72,8 +72,8 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cfg.Provider = provider
-	cfg.Model = model
+	cfg.DefaultModel.Provider = provider
+	cfg.DefaultModel.Model = model
 	cfg.MaxToolRounds = maxRounds
 	if err := conf.Save(cfg); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

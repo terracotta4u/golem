@@ -61,7 +61,6 @@ func TestExtensionsPageListsInstalled(t *testing.T) {
 	writeInstalledExt(t, root, "echo", "0.1.0")
 	writeInstalledExt(t, root, "telegram", "1.2.3")
 	if err := conf.Save(conf.Conf{
-		Model: "openai/gpt-4o-mini",
 		Extensions: map[string]conf.Extension{
 			"echo": {Source: "https://github.com/example/echo"},
 		},
@@ -104,7 +103,6 @@ func TestExtensionDetail(t *testing.T) {
 	}
 	writeInstalledExt(t, root, "echo", "0.1.0")
 	if err := conf.Save(conf.Conf{
-		Model: "openai/gpt-4o-mini",
 		Extensions: map[string]conf.Extension{
 			"echo": {Source: "https://github.com/example/echo", Ref: "HEAD", Revision: "abc123"},
 		},
@@ -173,7 +171,6 @@ func TestExtensionRemove(t *testing.T) {
 	writeInstalledExt(t, root, "echo", "0.1.0")
 	writeInstalledExt(t, root, "telegram", "1.2.3")
 	if err := conf.Save(conf.Conf{
-		Model: "openai/gpt-4o-mini",
 		Extensions: map[string]conf.Extension{
 			"echo":     {Source: "https://github.com/example/echo"},
 			"telegram": {Source: "/tmp/telegram"},

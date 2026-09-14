@@ -15,22 +15,22 @@ const (
 )
 
 type Conf struct {
-	Provider      string               `json:"provider,omitempty"`
-	Model         string               `json:"model"`
+	DefaultModel  ModelConfig          `json:"default_model"`
+	FastModel     ModelConfig          `json:"fast_model"`
 	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
 	Memory        *MemoryConfig        `json:"memory,omitempty"`
 	Extensions    map[string]Extension `json:"extensions,omitempty"`
 }
 
-type MemoryConfig struct {
-	Embedding     EmbeddingConfig `json:"embedding,omitempty"`
-	BudgetTokens  int             `json:"budget_tokens,omitempty"`
-	MinSimilarity float32         `json:"min_similarity,omitempty"`
-}
-
-type EmbeddingConfig struct {
+type ModelConfig struct {
 	Provider string `json:"provider,omitempty"`
 	Model    string `json:"model,omitempty"`
+}
+
+type MemoryConfig struct {
+	Embedding     ModelConfig `json:"embedding,omitempty"`
+	BudgetTokens  int         `json:"budget_tokens,omitempty"`
+	MinSimilarity float32     `json:"min_similarity,omitempty"`
 }
 
 type Extension struct {

@@ -65,11 +65,10 @@ func TestGeneralSettingsPage(t *testing.T) {
 
 func TestSettingsShowsConf(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{
-		Provider:      "openrouter",
-		Model:         "openai/gpt-4o",
-		MaxToolRounds: 12,
-	}); err != nil {
+	cfg := conf.Conf{MaxToolRounds: 12}
+	cfg.DefaultModel.Provider = "openrouter"
+	cfg.DefaultModel.Model = "openai/gpt-4o"
+	if err := conf.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,7 +86,9 @@ func TestSettingsShowsConf(t *testing.T) {
 
 func TestSettingsSaveUpdatesConf(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{Model: "old-model"}); err != nil {
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -110,19 +111,20 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Provider != "openrouter" || got.Model != "openai/gpt-4o-mini" || got.MaxToolRounds != 8 {
+	if got.DefaultModel.Provider != "openrouter" || got.DefaultModel.Model != "openai/gpt-4o-mini" || got.MaxToolRounds != 8 {
 		t.Fatalf("got = %+v", got)
 	}
 }
 
 func TestSettingsSavePreservesExtensions(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{
-		Model: "old-model",
+	old := conf.Conf{
 		Extensions: map[string]conf.Extension{
 			"echo": {Source: "/tmp/echo", Env: map[string]string{"ECHO_TOKEN": "x"}},
 		},
-	}); err != nil {
+	}
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -149,7 +151,9 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 
 func TestSettingsSaveRequiresModel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{Model: "old-model"}); err != nil {
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -168,14 +172,16 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != "old-model" {
-		t.Fatalf("Model = %q, want unchanged", got.Model)
+	if got.DefaultModel.Model != "old-model" {
+		t.Fatalf("Default.Model = %q, want unchanged", got.DefaultModel.Model)
 	}
 }
 
 func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{Model: "old-model"}); err != nil {
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,14 +200,16 @@ func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != "old-model" {
-		t.Fatalf("Model = %q, want unchanged", got.Model)
+	if got.DefaultModel.Model != "old-model" {
+		t.Fatalf("Default.Model = %q, want unchanged", got.DefaultModel.Model)
 	}
 }
 
 func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := conf.Save(conf.Conf{Model: "old-model", MaxToolRounds: 4}); err != nil {
+	old := conf.Conf{MaxToolRounds: 4}
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -221,8 +229,42 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != "old-model" || got.MaxToolRounds != 4 {
+	if got.DefaultModel.Model != "old-model" || got.MaxToolRounds != 4 {
 		t.Fatalf("got = %+v, want unchanged", got)
+	}
+}
+
+func TestSettingsSavePreservesFast(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg := conf.Conf{}
+	cfg.DefaultModel.Provider = "openrouter"
+	cfg.DefaultModel.Model = "old-model"
+	cfg.FastModel.Provider = "ollama"
+	cfg.FastModel.Model = "llama3.2"
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, body := postSettings(t, ts.URL, url.Values{
+		"provider": {"openrouter"},
+		"model":    {"openai/gpt-4o-mini"},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DefaultModel.Model != "openai/gpt-4o-mini" {
+		t.Fatalf("Default.Model = %q, want openai/gpt-4o-mini", got.DefaultModel.Model)
+	}
+	if got.FastModel.Provider != "ollama" || got.FastModel.Model != "llama3.2" {
+		t.Fatalf("fast = %+v, want ollama/llama3.2", got.FastModel)
 	}
 }
 

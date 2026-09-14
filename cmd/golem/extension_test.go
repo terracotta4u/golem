@@ -116,7 +116,6 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeConf(t, conf.Conf{
-		Model: "openai/gpt-4o-mini",
 		Extensions: map[string]conf.Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
@@ -265,7 +264,6 @@ func TestRunExtensionAddGitHubForceKeepsSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeConf(t, conf.Conf{
-		Model: "openai/gpt-4o-mini",
 		Extensions: map[string]conf.Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
