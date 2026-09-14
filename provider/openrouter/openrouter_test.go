@@ -3,6 +3,7 @@ package openrouter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -185,5 +186,42 @@ func TestChatStructuredSendsJSONSchema(t *testing.T) {
 	}
 	if string(got) != wantContent {
 		t.Errorf("content = %s, want %s", got, wantContent)
+	}
+}
+
+func TestChatStructuredUnsupportedFormat(t *testing.T) {
+	cases := []struct {
+		name        string
+		status      int
+		body        string
+		unsupported bool
+	}{
+		{"400 json_schema", http.StatusBadRequest, `{"error":{"message":"This model does not support json_schema response format"}}`, true},
+		{"422 response_format", http.StatusUnprocessableEntity, `{"error":{"message":"Invalid response_format"}}`, true},
+		{"400 structured output", http.StatusBadRequest, `{"error":{"message":"structured output is not supported"}}`, true},
+		{"400 other", http.StatusBadRequest, `{"error":{"message":"invalid api key"}}`, false},
+		{"500 json_schema", http.StatusInternalServerError, `{"error":{"message":"json_schema failed internally"}}`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tc.status)
+				w.Write([]byte(tc.body))
+			}))
+			defer ts.Close()
+
+			c := New("test-key", "openai/gpt-4o-mini")
+			c.url = ts.URL
+			_, err := c.ChatStructured(context.Background(), []provider.Message{
+				{Role: "user", Content: "extract"},
+			}, provider.JSONSchema{Name: "memories"})
+			if err == nil {
+				t.Fatal("want error")
+			}
+			got := errors.Is(err, provider.ErrUnsupportedFormat)
+			if got != tc.unsupported {
+				t.Fatalf("errors.Is(ErrUnsupportedFormat) = %v, want %v\nerr: %v", got, tc.unsupported, err)
+			}
+		})
 	}
 }

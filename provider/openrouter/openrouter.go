@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/terracotta4u/golem/provider"
 )
@@ -128,8 +129,18 @@ func (c *Client) complete(ctx context.Context, payload any) (provider.Message, e
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return provider.Message{}, fmt.Errorf("decode response: %w", err)
 	}
-	if parsed.Error != nil && parsed.Error.Message != "" {
-		return provider.Message{}, fmt.Errorf("openrouter: %s", parsed.Error.Message)
+	errMsg := ""
+	if parsed.Error != nil {
+		errMsg = parsed.Error.Message
+	}
+	if unsupportedFormat(resp.StatusCode, errMsg, raw) {
+		if errMsg == "" {
+			errMsg = string(raw)
+		}
+		return provider.Message{}, fmt.Errorf("%w: %s", provider.ErrUnsupportedFormat, errMsg)
+	}
+	if errMsg != "" {
+		return provider.Message{}, fmt.Errorf("openrouter: %s", errMsg)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return provider.Message{}, fmt.Errorf("openrouter: unexpected status %d: %s", resp.StatusCode, raw)
@@ -157,4 +168,14 @@ func toTools(defs []provider.ToolDef) []chatTool {
 		})
 	}
 	return tools
+}
+
+func unsupportedFormat(status int, errMsg string, raw []byte) bool {
+	if status != http.StatusBadRequest && status != http.StatusUnprocessableEntity {
+		return false
+	}
+	haystack := strings.ToLower(errMsg + " " + string(raw))
+	return strings.Contains(haystack, "response_format") ||
+		strings.Contains(haystack, "json_schema") ||
+		strings.Contains(haystack, "structured output")
 }
