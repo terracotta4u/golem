@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/terracotta4u/golem/conf"
@@ -119,5 +120,43 @@ func TestLoadAppUnknownEmbedderIsStoreOnly(t *testing.T) {
 	}
 	if app.agent.Indexer != nil {
 		t.Error("Indexer set, want nil when embedder resolve fails")
+	}
+}
+
+func TestLoadAppWiresFast(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENROUTER_API_KEY", "test")
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.agent.Fast == nil {
+		t.Fatal("Fast is nil")
+	}
+}
+
+func TestLoadAppUnknownChatProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENROUTER_API_KEY", "test")
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.FastModel.Provider = "ollama"
+	cfg.FastModel.Model = "llama3.2"
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = loadApp()
+	if err == nil {
+		t.Fatal("want error for unknown chat provider")
+	}
+	if !strings.Contains(err.Error(), "ollama") {
+		t.Fatalf("err = %v, want unknown provider ollama", err)
 	}
 }
