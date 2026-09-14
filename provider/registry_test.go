@@ -46,6 +46,61 @@ func TestRegistryUnknownProvider(t *testing.T) {
 	}
 }
 
+func TestRegistryResolvesRegisteredChat(t *testing.T) {
+	reg := NewRegistry()
+	var gotModel, gotKey string
+	stub := stubProvider{reply: Message{Role: "assistant", Content: "ok"}}
+	reg.RegisterChat("stub", func(model, apiKey string) (Provider, error) {
+		gotModel = model
+		gotKey = apiKey
+		return stub, nil
+	})
+
+	got, err := reg.Chat("stub", "openai/gpt-4o-mini", "sk-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotModel != "openai/gpt-4o-mini" {
+		t.Errorf("factory model = %q, want openai/gpt-4o-mini", gotModel)
+	}
+	if gotKey != "sk-test" {
+		t.Errorf("factory apiKey = %q, want sk-test", gotKey)
+	}
+	msg, err := got.Chat(context.Background(), ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg.Content != "ok" {
+		t.Errorf("content = %q, want ok", msg.Content)
+	}
+}
+
+func TestRegistryUnknownChatProvider(t *testing.T) {
+	reg := NewRegistry()
+	reg.RegisterChat("stub", func(string, string) (Provider, error) {
+		return stubProvider{}, nil
+	})
+
+	_, err := reg.Chat("openrouter", "openai/gpt-4o-mini", "sk-test")
+	if err == nil {
+		t.Fatal("want error for unknown provider")
+	}
+	if !strings.Contains(err.Error(), "openrouter") {
+		t.Errorf("err = %v, want unknown provider named", err)
+	}
+}
+
+func TestRegistryChatFactoryError(t *testing.T) {
+	reg := NewRegistry()
+	reg.RegisterChat("stub", func(string, string) (Provider, error) {
+		return nil, errString("no key")
+	})
+	_, err := reg.Chat("stub", "model", "")
+	if err == nil || !strings.Contains(err.Error(), "no key") {
+		t.Fatalf("err = %v, want no key", err)
+	}
+}
+
 func TestRegistryFactoryError(t *testing.T) {
 	reg := NewRegistry()
 	reg.RegisterEmbedder("stub", func(string) (Embedder, error) {
@@ -55,6 +110,14 @@ func TestRegistryFactoryError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "no key") {
 		t.Fatalf("err = %v, want no key", err)
 	}
+}
+
+type stubProvider struct {
+	reply Message
+}
+
+func (s stubProvider) Chat(_ context.Context, _ ChatRequest) (Message, error) {
+	return s.reply, nil
 }
 
 type stubEmbedder struct {
