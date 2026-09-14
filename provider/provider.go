@@ -1,6 +1,12 @@
 package provider
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+	"errors"
+)
+
+var ErrUnsupportedFormat = errors.New("structured output not supported")
 
 type Message struct {
 	Role       string     `json:"role"`
@@ -33,6 +39,17 @@ type ChatRequest struct {
 
 type Provider interface {
 	Chat(ctx context.Context, req ChatRequest) (Message, error)
+}
+
+// Structured is optional. Extract uses it when the provider implements it.
+type Structured interface {
+	ChatStructured(ctx context.Context, msgs []Message, schema JSONSchema) (json.RawMessage, error)
+}
+
+type JSONSchema struct {
+	Name   string
+	Strict bool
+	Schema map[string]any
 }
 
 type Embedder interface {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/terracotta4u/golem/provider"
 )
@@ -34,9 +35,21 @@ func New(apiKey, model string) *Client {
 }
 
 type chatRequest struct {
-	Model    string             `json:"model"`
-	Messages []provider.Message `json:"messages"`
-	Tools    []chatTool         `json:"tools,omitempty"`
+	Model          string             `json:"model"`
+	Messages       []provider.Message `json:"messages"`
+	Tools          []chatTool         `json:"tools,omitempty"`
+	ResponseFormat *responseFormat    `json:"response_format,omitempty"`
+}
+
+type responseFormat struct {
+	Type       string         `json:"type"`
+	JSONSchema jsonSchemaSpec `json:"json_schema"`
+}
+
+type jsonSchemaSpec struct {
+	Name   string         `json:"name"`
+	Strict bool           `json:"strict"`
+	Schema map[string]any `json:"schema"`
 }
 
 type chatTool struct {
@@ -60,11 +73,34 @@ type chatResponse struct {
 }
 
 func (c *Client) Chat(ctx context.Context, req provider.ChatRequest) (provider.Message, error) {
-	body, err := json.Marshal(chatRequest{
+	return c.complete(ctx, chatRequest{
 		Model:    c.model,
 		Messages: req.Messages,
 		Tools:    toTools(req.Tools),
 	})
+}
+
+func (c *Client) ChatStructured(ctx context.Context, msgs []provider.Message, schema provider.JSONSchema) (json.RawMessage, error) {
+	msg, err := c.complete(ctx, chatRequest{
+		Model:    c.model,
+		Messages: msgs,
+		ResponseFormat: &responseFormat{
+			Type: "json_schema",
+			JSONSchema: jsonSchemaSpec{
+				Name:   schema.Name,
+				Strict: schema.Strict,
+				Schema: schema.Schema,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(msg.Content), nil
+}
+
+func (c *Client) complete(ctx context.Context, payload any) (provider.Message, error) {
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return provider.Message{}, fmt.Errorf("marshal request: %w", err)
 	}
@@ -93,8 +129,18 @@ func (c *Client) Chat(ctx context.Context, req provider.ChatRequest) (provider.M
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return provider.Message{}, fmt.Errorf("decode response: %w", err)
 	}
-	if parsed.Error != nil && parsed.Error.Message != "" {
-		return provider.Message{}, fmt.Errorf("openrouter: %s", parsed.Error.Message)
+	errMsg := ""
+	if parsed.Error != nil {
+		errMsg = parsed.Error.Message
+	}
+	if unsupportedFormat(resp.StatusCode, errMsg, raw) {
+		if errMsg == "" {
+			errMsg = string(raw)
+		}
+		return provider.Message{}, fmt.Errorf("%w: %s", provider.ErrUnsupportedFormat, errMsg)
+	}
+	if errMsg != "" {
+		return provider.Message{}, fmt.Errorf("openrouter: %s", errMsg)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return provider.Message{}, fmt.Errorf("openrouter: unexpected status %d: %s", resp.StatusCode, raw)
@@ -122,4 +168,14 @@ func toTools(defs []provider.ToolDef) []chatTool {
 		})
 	}
 	return tools
+}
+
+func unsupportedFormat(status int, errMsg string, raw []byte) bool {
+	if status != http.StatusBadRequest && status != http.StatusUnprocessableEntity {
+		return false
+	}
+	haystack := strings.ToLower(errMsg + " " + string(raw))
+	return strings.Contains(haystack, "response_format") ||
+		strings.Contains(haystack, "json_schema") ||
+		strings.Contains(haystack, "structured output")
 }
