@@ -10,8 +10,6 @@ import (
 const (
 	dirName  = ".golem"
 	fileName = "conf.json"
-	SoulFile = "SOUL.md"
-	UserFile = "USER.md"
 )
 
 type Conf struct {
@@ -130,8 +128,8 @@ func UVPythonDir() (string, error) {
 	return filepath.Join(dir, "python"), nil
 }
 
-// Load creates ~/.golem/etc, SOUL.md, USER.md, and a default conf on first run,
-// then reads the conf. created is true when the conf file did not already exist.
+// Load creates ~/.golem/etc and a default conf on first run, then reads the
+// conf. created is true when the conf file did not already exist.
 func Load() (cfg Conf, created bool, err error) {
 	etc, err := EtcDir()
 	if err != nil {
@@ -139,12 +137,6 @@ func Load() (cfg Conf, created bool, err error) {
 	}
 	if err := os.MkdirAll(etc, 0o700); err != nil {
 		return Conf{}, false, fmt.Errorf("create %s: %w", etc, err)
-	}
-	if err := ensureFile(filepath.Join(etc, SoulFile), ""); err != nil {
-		return Conf{}, false, err
-	}
-	if err := ensureFile(filepath.Join(etc, UserFile), ""); err != nil {
-		return Conf{}, false, err
 	}
 
 	path := filepath.Join(etc, fileName)
@@ -169,20 +161,6 @@ func Load() (cfg Conf, created bool, err error) {
 		}
 	}
 	return cfg, false, nil
-}
-
-func ensureFile(path, contents string) error {
-	_, err := os.Stat(path)
-	if err == nil {
-		return nil
-	}
-	if !os.IsNotExist(err) {
-		return fmt.Errorf("stat %s: %w", path, err)
-	}
-	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
 }
 
 func write(path string, cfg Conf) error {
