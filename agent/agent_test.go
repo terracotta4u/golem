@@ -330,6 +330,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	if reply != "use the standard library" {
 		t.Errorf("reply = %q", reply)
 	}
+	a.Wait()
 	if len(p.got) != 3 {
 		t.Fatalf("Chat calls = %d, want 2 turn + extract", len(p.got))
 	}
@@ -437,6 +438,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	if reply != "hi" {
 		t.Errorf("reply = %q, want hi", reply)
 	}
+	a.Wait()
 	if len(p.got) != 2 {
 		t.Errorf("Chat calls = %d, want turn + extract", len(p.got))
 	}
@@ -473,6 +475,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 	if reply != "hi" {
 		t.Errorf("reply = %q, want hi", reply)
 	}
+	a.Wait()
 	list, err := mem.List()
 	if err != nil {
 		t.Fatal(err)

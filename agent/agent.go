@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,7 @@ type Agent struct {
 	list      []tool.Tool
 	defs      []provider.ToolDef
 	workspace string
+	wg        sync.WaitGroup
 }
 
 func New(p provider.Provider, dir string, tools ...tool.Tool) *Agent {
@@ -94,7 +96,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 			if err := s.persist(); err != nil {
 				return msg.Content, err
 			}
-			remember(ctx, rememberJob{
+			s.agent.goRemember(ctx, rememberJob{
 				provider: s.agent.provider,
 				store:    s.agent.MemoryStore,
 				indexer:  s.agent.Indexer,
@@ -137,6 +139,22 @@ func (s *Session) retrieve(ctx context.Context, query string) {
 		return
 	}
 	s.memories = memory.Retrieve(hits, s.agent.MinSimilarity, s.agent.BudgetTokens, 0, memory.ApproxTokenEstimator{})
+}
+
+func (a *Agent) goRemember(ctx context.Context, job rememberJob) {
+	if job.store == nil {
+		return
+	}
+	ctx = context.WithoutCancel(ctx)
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		remember(ctx, job)
+	}()
+}
+
+func (a *Agent) Wait() {
+	a.wg.Wait()
 }
 
 type rememberJob struct {
