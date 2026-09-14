@@ -74,6 +74,35 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 	}
 }
 
+func TestSendUsesDefaultWhenFastSet(t *testing.T) {
+	def := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "from-default"},
+	}}
+	fast := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "from-fast"},
+	}}
+
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(def, workspace(t))
+	a.Fast = fast
+	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "from-default" {
+		t.Errorf("reply = %q, want from-default", reply)
+	}
+	if len(def.got) != 1 {
+		t.Errorf("default Chat calls = %d, want 1", len(def.got))
+	}
+	if len(fast.got) != 0 {
+		t.Errorf("fast Chat calls = %d, want 0", len(fast.got))
+	}
+}
+
 func TestSendReportsToolResult(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "pong"}
 	p := &scriptedProvider{replies: []provider.Message{

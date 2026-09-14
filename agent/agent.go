@@ -19,6 +19,8 @@ import (
 type Agent struct {
 	// MaxToolRounds caps Chat/tool loops per Send. Zero means no cap.
 	MaxToolRounds int
+	// Fast is an optional cheaper provider for lightweight work. Nil means use the default.
+	Fast provider.Provider
 	// Memory is searched before each Send. Nil skips retrieval.
 	Memory        memory.Searcher
 	MinSimilarity float32
