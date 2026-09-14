@@ -2,9 +2,18 @@ package provider
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
+
+func TestErrUnsupportedFormatWrap(t *testing.T) {
+	err := fmt.Errorf("%w: json_schema", ErrUnsupportedFormat)
+	if !errors.Is(err, ErrUnsupportedFormat) {
+		t.Fatal("wrapped error should match ErrUnsupportedFormat")
+	}
+}
 
 func TestMessageJSONRoundTrip(t *testing.T) {
 	original := Message{
