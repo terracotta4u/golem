@@ -2,6 +2,9 @@ package memory
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -100,14 +103,55 @@ func TestExtractEmptyOrInvalidYieldsNothing(t *testing.T) {
 		p := &scriptedProvider{replies: []provider.Message{
 			{Role: "assistant", Content: content},
 		}}
-		got, err := Extract(context.Background(), p, []provider.Message{
-			{Role: "user", Content: "hi"},
+		var got []string
+		var err error
+		_ = captureStderr(t, func() {
+			got, err = Extract(context.Background(), p, []provider.Message{
+				{Role: "user", Content: "hi"},
+			})
 		})
 		if err != nil {
 			t.Errorf("content %q: err = %v, want nil", content, err)
 		}
 		if len(got) != 0 {
 			t.Errorf("content %q: got %v, want empty", content, got)
+		}
+	}
+}
+
+func TestExtractLogsParseFailure(t *testing.T) {
+	cases := []struct {
+		content string
+		log     bool
+	}{
+		{`{"memories":[]}`, false},
+		{"[]", false},
+		{"not json", true},
+		{`{"memory":"nope"}`, true},
+	}
+	for _, tc := range cases {
+		p := &scriptedProvider{replies: []provider.Message{
+			{Role: "assistant", Content: tc.content},
+		}}
+		var got []string
+		var err error
+		stderr := captureStderr(t, func() {
+			got, err = Extract(context.Background(), p, []provider.Message{
+				{Role: "user", Content: "hi"},
+			})
+		})
+		if err != nil {
+			t.Errorf("content %q: err = %v, want nil", tc.content, err)
+		}
+		if len(got) != 0 {
+			t.Errorf("content %q: got %v, want empty", tc.content, got)
+		}
+		logged := strings.Contains(stderr, "parse failed")
+		if logged != tc.log {
+			t.Errorf("content %q: logged = %v, want %v\nstderr: %q", tc.content, logged, tc.log, stderr)
+		}
+		if tc.log && !strings.Contains(stderr, fmt.Sprintf("%q", tc.content)) {
+			t.Errorf("content %q: stderr missing snippet: %q", tc.content, stderr)
 		}
 	}
 }
@@ -235,3 +279,21 @@ func (p *scriptedProvider) Chat(_ context.Context, req provider.ChatRequest) (pr
 type errString string
 
 func (e errString) Error() string { return string(e) }
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	fn()
+	_ = w.Close()
+	os.Stderr = old
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
