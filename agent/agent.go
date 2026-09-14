@@ -67,6 +67,7 @@ func (a *Agent) Session(st store.Store, conv store.Conversation) *Session {
 func (s *Session) ID() string { return s.conv.ID }
 
 func (s *Session) Send(ctx context.Context, input string) (string, error) {
+	untitled := s.conv.Title == ""
 	s.conv.SetTitleFrom(input)
 	s.conv.Messages = append(s.conv.Messages, provider.Message{Role: "user", Content: input})
 	if err := ctx.Err(); err != nil {
@@ -95,6 +96,9 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 
 		s.conv.Messages = append(s.conv.Messages, msg)
 		if len(msg.ToolCalls) == 0 {
+			if untitled {
+				s.nameChat(ctx, input)
+			}
 			if err := s.persist(); err != nil {
 				return msg.Content, err
 			}

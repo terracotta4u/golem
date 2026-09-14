@@ -88,7 +88,8 @@ func TestSendUsesDefaultWhenFastSet(t *testing.T) {
 	}
 	a := New(def, workspace(t))
 	a.Fast = fast
-	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	conv := store.New("cli")
+	reply, err := a.Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,8 +99,146 @@ func TestSendUsesDefaultWhenFastSet(t *testing.T) {
 	if len(def.got) != 1 {
 		t.Errorf("default Chat calls = %d, want 1", len(def.got))
 	}
+	if len(fast.got) != 1 {
+		t.Errorf("fast Chat calls = %d, want 1 (name)", len(fast.got))
+	}
+
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Title != "from-fast" {
+		t.Errorf("title = %q, want from-fast", saved.Title)
+	}
+}
+
+func TestSendNamesChatFromFast(t *testing.T) {
+	def := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "sure"},
+	}}
+	fast := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: `"Dinner plans"`},
+	}}
+
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(def, workspace(t))
+	a.Fast = fast
+	conv := store.New("cli")
+	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner for Saturday"); err != nil {
+		t.Fatal(err)
+	}
+	if len(fast.got) != 1 {
+		t.Fatalf("fast Chat calls = %d, want 1", len(fast.got))
+	}
+	req := fast.got[0]
+	if len(req.Tools) != 0 {
+		t.Errorf("name tools = %v, want none", req.Tools)
+	}
+	if len(req.Messages) != 2 {
+		t.Fatalf("name messages = %d, want system + user", len(req.Messages))
+	}
+	if req.Messages[0].Role != "system" || !strings.Contains(req.Messages[0].Content, "title") {
+		t.Errorf("name system = %+v, want title prompt", req.Messages[0])
+	}
+	if req.Messages[1].Role != "user" || req.Messages[1].Content != "help me plan dinner for Saturday" {
+		t.Errorf("name user = %+v", req.Messages[1])
+	}
+
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Title != "Dinner plans" {
+		t.Errorf("title = %q, want Dinner plans", saved.Title)
+	}
+}
+
+func TestSendNameFallsBackToFirstMessage(t *testing.T) {
+	def := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "sure"},
+	}}
+	fast := &scriptedProvider{err: errString("fast down")}
+
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(def, workspace(t))
+	a.Fast = fast
+	conv := store.New("cli")
+	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner"); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Title != "help me plan dinner" {
+		t.Errorf("title = %q, want first message", saved.Title)
+	}
+}
+
+func TestSendNameFallsBackWhenFastEmpty(t *testing.T) {
+	def := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "sure"},
+	}}
+	fast := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "  "},
+	}}
+
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(def, workspace(t))
+	a.Fast = fast
+	conv := store.New("cli")
+	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner"); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Title != "help me plan dinner" {
+		t.Errorf("title = %q, want first message", saved.Title)
+	}
+}
+
+func TestSendDoesNotRenameExistingTitle(t *testing.T) {
+	def := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "sure"},
+	}}
+	fast := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "Should not apply"},
+	}}
+
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(def, workspace(t))
+	a.Fast = fast
+	conv := store.New("cli")
+	conv.Title = "Keep me"
+	if _, err := a.Session(st, conv).Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
 	if len(fast.got) != 0 {
 		t.Errorf("fast Chat calls = %d, want 0", len(fast.got))
+	}
+
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Title != "Keep me" {
+		t.Errorf("title = %q, want Keep me", saved.Title)
 	}
 }
 

@@ -49,11 +49,21 @@ func Open(st Store, id, channel string) (Conversation, error) {
 	return c, err
 }
 
+func TitleFrom(text string) string {
+	text = strings.TrimSpace(text)
+	if n := len(text); n >= 2 {
+		if q := text[0]; (q == '"' || q == '\'') && text[n-1] == q {
+			text = text[1 : n-1]
+		}
+	}
+	return truncate(oneLine(text), 80)
+}
+
 func (c *Conversation) SetTitleFrom(text string) {
 	if c.Title != "" {
 		return
 	}
-	c.Title = truncate(oneLine(text), 80)
+	c.Title = TitleFrom(text)
 }
 
 func Last(list []Conversation, channel string) (Conversation, error) {
