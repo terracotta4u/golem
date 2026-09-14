@@ -94,7 +94,14 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 			if err := s.persist(); err != nil {
 				return msg.Content, err
 			}
-			s.remember(ctx, input, msg)
+			remember(ctx, rememberJob{
+				provider: s.agent.provider,
+				store:    s.agent.MemoryStore,
+				indexer:  s.agent.Indexer,
+				convID:   s.conv.ID,
+				input:    input,
+				reply:    msg.Content,
+			})
 			return msg.Content, nil
 		}
 
@@ -132,27 +139,36 @@ func (s *Session) retrieve(ctx context.Context, query string) {
 	s.memories = memory.Retrieve(hits, s.agent.MinSimilarity, s.agent.BudgetTokens, 0, memory.ApproxTokenEstimator{})
 }
 
-func (s *Session) remember(ctx context.Context, input string, reply provider.Message) {
-	if s.agent.MemoryStore == nil {
+type rememberJob struct {
+	provider provider.Provider
+	store    *memory.Store
+	indexer  memory.Indexer
+	convID   string
+	input    string
+	reply    string
+}
+
+func remember(ctx context.Context, job rememberJob) {
+	if job.store == nil {
 		return
 	}
-	contents, err := memory.Extract(ctx, s.agent.provider, []provider.Message{
-		{Role: "user", Content: input},
-		{Role: "assistant", Content: reply.Content},
+	contents, err := memory.Extract(ctx, job.provider, []provider.Message{
+		{Role: "user", Content: job.input},
+		{Role: "assistant", Content: job.reply},
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: extract: %v\n", err)
 		return
 	}
-	saved, err := s.agent.MemoryStore.SaveExtracted(contents, s.conv.ID, uuid.NewString())
+	saved, err := job.store.SaveExtracted(contents, job.convID, uuid.NewString())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: save: %v\n", err)
 	}
-	if s.agent.Indexer == nil {
+	if job.indexer == nil {
 		return
 	}
 	for _, m := range saved {
-		if err := s.agent.Indexer.Index(ctx, m); err != nil {
+		if err := job.indexer.Index(ctx, m); err != nil {
 			fmt.Fprintf(os.Stderr, "memory: index: %v\n", err)
 		}
 	}

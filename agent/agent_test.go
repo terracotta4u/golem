@@ -370,6 +370,51 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	}
 }
 
+func TestRememberSavesWithoutSession(t *testing.T) {
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: `{"memories":["User prefers the Go standard library."]}`},
+	}}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := &stubIndexer{}
+	remember(context.Background(), rememberJob{
+		provider: p,
+		store:    mem,
+		indexer:  idx,
+		convID:   "conv-1",
+		input:    "I prefer using the Go standard library when possible.",
+		reply:    "use the standard library",
+	})
+	if len(p.got) != 1 {
+		t.Fatalf("Chat calls = %d, want extract only", len(p.got))
+	}
+	msgs := p.got[0].Messages
+	if len(msgs) != 3 {
+		t.Fatalf("extract messages = %d, want system + user + assistant", len(msgs))
+	}
+	if msgs[1].Role != "user" || msgs[1].Content != "I prefer using the Go standard library when possible." {
+		t.Errorf("extract user = %+v", msgs[1])
+	}
+	if msgs[2].Role != "assistant" || msgs[2].Content != "use the standard library" {
+		t.Errorf("extract assistant = %+v", msgs[2])
+	}
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Content != "User prefers the Go standard library." {
+		t.Fatalf("saved = %+v", list)
+	}
+	if list[0].ConversationID != "conv-1" || list[0].TurnID == "" {
+		t.Errorf("conv/turn = %s/%s", list[0].ConversationID, list[0].TurnID)
+	}
+	if len(idx.got) != 1 || idx.got[0].ID != list[0].ID {
+		t.Errorf("indexed = %+v, want saved id %s", idx.got, list[0].ID)
+	}
+}
+
 func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	p := &scriptedProvider{
 		replies: []provider.Message{{Role: "assistant", Content: "hi"}},
