@@ -33,7 +33,15 @@ func parseMemories(s string) []string {
 	s = strings.TrimSpace(s)
 
 	var raw []string
-	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+	if strings.HasPrefix(s, "{") {
+		var obj struct {
+			Memories []string `json:"memories"`
+		}
+		if err := json.Unmarshal([]byte(s), &obj); err != nil {
+			return nil
+		}
+		raw = obj.Memories
+	} else if err := json.Unmarshal([]byte(s), &raw); err != nil {
 		return nil
 	}
 	var out []string

@@ -63,10 +63,35 @@ func TestExtractParsesJSONArray(t *testing.T) {
 	}
 }
 
+func TestExtractParsesMemoriesObject(t *testing.T) {
+	p := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: `{"memories":["User is building Golem in Go.", "User values distributing Golem as a single binary."]}`},
+	}}
+	got, err := Extract(context.Background(), p, []provider.Message{
+		{Role: "user", Content: "I'm building Golem in Go because I like being able to distribute a single binary."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"User is building Golem in Go.",
+		"User values distributing Golem as a single binary.",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("got[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestExtractEmptyOrInvalidYieldsNothing(t *testing.T) {
 	cases := []string{
 		"",
 		"[]",
+		`{"memories":[]}`,
 		"not json",
 		`{"memory":"nope"}`,
 		"```json\n[]\n```",
