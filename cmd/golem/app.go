@@ -75,15 +75,7 @@ func loadApp() (*app, error) {
 		return openrouter.New(apiKey, model), nil
 	})
 
-	defaultModel := os.Getenv("OPENROUTER_MODEL")
-	if defaultModel == "" {
-		defaultModel = cfg.DefaultModel.Model
-	}
-	if defaultModel == "" {
-		defaultModel = "openai/gpt-4o-mini"
-	}
-
-	defaultP, err := reg.Chat(cfg.DefaultModel.Provider, defaultModel, chatAPIKey(cfg.DefaultModel.Provider, envKey))
+	defaultP, err := reg.Chat(cfg.DefaultModel.Provider, cfg.DefaultModel.Model, chatAPIKey(cfg.DefaultModel.Provider, envKey))
 	if err != nil {
 		return nil, err
 	}
