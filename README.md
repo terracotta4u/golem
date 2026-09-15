@@ -22,11 +22,10 @@ You should now be able to access the Golem web interface.
 
 ### LLM Setup
 
-Golem has no built-in model. Install a provider extension, then set that provider's key:
+Out of the box, Golem has no built-in model. Install a provider extension, then set that provider's key:
 
-```sh
+```bash
 golem extension add https://github.com/terracotta4u/golem-openrouter
 export OPENROUTER_API_KEY=...
 ```
 
-Default conf still names `openrouter` and OpenRouter model ids. Other providers are separate extensions. 
