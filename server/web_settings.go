@@ -83,7 +83,7 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 func parseModelConfig(r *http.Request, providerField, modelField string) (conf.ModelConfig, string) {
 	provider := strings.TrimSpace(r.FormValue(providerField))
 	if provider == "" {
-		provider = "openrouter"
+		return conf.ModelConfig{}, "provider is required"
 	}
 	model := strings.TrimSpace(r.FormValue(modelField))
 	if model == "" {

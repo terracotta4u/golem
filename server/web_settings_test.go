@@ -169,6 +169,69 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 	}
 }
 
+func TestSettingsSaveRequiresProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old := conf.Conf{}
+	old.DefaultModel.Provider = "old-provider"
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"  "},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DefaultModel.Provider != "old-provider" {
+		t.Fatalf("DefaultModel.Provider = %q, want unchanged", got.DefaultModel.Provider)
+	}
+}
+
+func TestSettingsSaveRequiresFastProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-default"
+	old.FastModel.Provider = "old-fast-provider"
+	old.FastModel.Model = "old-fast"
+	if err := conf.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"  "},
+		"fast_model":       {"openai/gpt-4o-mini"},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FastModel.Provider != "old-fast-provider" {
+		t.Fatalf("FastModel.Provider = %q, want unchanged", got.FastModel.Provider)
+	}
+}
+
 func TestSettingsSaveRequiresModel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	old := conf.Conf{}
