@@ -83,6 +83,9 @@ func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request)
 	defer s.mu.Unlock()
 	s.dropLocked(name)
 
+	// Put each provider capability into the hub so later Chat/Embed lookups
+	// can POST to this extension. One remote client is shared; the model name
+	// is filled in at call time via ForModel.
 	client := remote.New(callback, s.opts.Token)
 	var registered []string
 	rollback := func() {
@@ -109,6 +112,7 @@ func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 		if err := s.hub.Register(cap.ID, b); err != nil {
+			// Undo ids from this request only; dropLocked already cleared the old name.
 			rollback()
 			status := http.StatusBadRequest
 			if strings.Contains(err.Error(), "already registered") {
