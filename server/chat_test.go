@@ -397,10 +397,7 @@ func readSSE(t *testing.T, r io.Reader) []sseEvent {
 		case strings.HasPrefix(line, "event:"):
 			event = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
 		case strings.HasPrefix(line, "data:"):
-			payload := strings.TrimPrefix(line, "data:")
-			if strings.HasPrefix(payload, " ") {
-				payload = payload[1:]
-			}
+			payload := strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " ")
 			if hasData {
 				data += "\n"
 			}
