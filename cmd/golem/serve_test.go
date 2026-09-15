@@ -20,7 +20,6 @@ import (
 
 func TestServeStartsConfiguredExtension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -275,7 +274,6 @@ func TestRunningExtensionsNameMismatch(t *testing.T) {
 
 func TestServeStartsVenvExtension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/provider/openrouter"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
@@ -68,39 +67,12 @@ func loadApp() (*app, error) {
 	}
 
 	hub := provider.NewHub(0)
-	key := os.Getenv("OPENROUTER_API_KEY")
-	if key == "" && usesOpenRouter(cfg) {
-		return nil, fmt.Errorf("set OPENROUTER_API_KEY")
-	}
-	if key != "" {
-		if err := seedOpenRouter(hub, key); err != nil {
-			return nil, err
-		}
-	}
 
 	a := agent.New(provider.NewLazyChat(hub, confModel("default")), dir, tools...)
 	a.Fast = provider.NewLazyChat(hub, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, hub)
 	return &app{cfg: cfg, store: st, agent: a, hub: hub}, nil
-}
-
-func usesOpenRouter(cfg conf.Conf) bool {
-	if cfg.DefaultModel.Provider == "openrouter" || cfg.FastModel.Provider == "openrouter" {
-		return true
-	}
-	return cfg.Memory != nil && cfg.Memory.Embedding.Provider == "openrouter"
-}
-
-func seedOpenRouter(hub *provider.Hub, key string) error {
-	return hub.Register("openrouter", provider.Backend{
-		Chat: provider.NewModelChat(func(model string) provider.Provider {
-			return openrouter.New(key, model)
-		}),
-		Embedder: provider.NewModelEmbedder(func(model string) provider.Embedder {
-			return openrouter.NewEmbedder(key, model)
-		}),
-	})
 }
 
 func confModel(which string) func() (string, string, error) {

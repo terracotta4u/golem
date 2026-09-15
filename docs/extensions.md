@@ -62,7 +62,7 @@ After binding a loopback HTTP server, register. Re-registering the same `name` r
 
 `kind` is required. `kind: "provider"` also requires `id` (the name used in conf `default_model.provider`). Flags `chat`, `structured`, and `embed` tell Golem which callback routes to use. `structured` counts as chat. Unknown kinds are stored and listed; Golem does not call them.
 
-Two live extensions cannot share a provider `id` (`409`). Golem currently seeds in-process OpenRouter as `openrouter`, so that id is taken until the built-in client is removed.
+Two live extensions cannot share a provider `id` (`409`).
 
 `POST /v1/extensions/heartbeat`
 

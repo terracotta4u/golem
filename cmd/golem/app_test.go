@@ -62,7 +62,6 @@ Follow the commit format.
 
 func TestLoadAppWiresMemory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +99,6 @@ func TestLoadAppWiresMemory(t *testing.T) {
 
 func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +129,6 @@ func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 
 func TestLoadAppWiresFast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +144,6 @@ func TestLoadAppWiresFast(t *testing.T) {
 
 func TestLoadAppUnknownChatProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
