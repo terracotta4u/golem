@@ -8,7 +8,6 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/provider/openrouter"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
@@ -18,6 +17,7 @@ type app struct {
 	cfg   conf.Conf
 	store store.Store
 	agent *agent.Agent
+	hub   *provider.Hub
 }
 
 // setup loads ~/.golem, opens the file store, and reports first-run creation.
@@ -66,39 +66,36 @@ func loadApp() (*app, error) {
 		return nil, err
 	}
 
-	envKey := os.Getenv("OPENROUTER_API_KEY")
-	reg := provider.NewRegistry()
-	reg.RegisterChat("openrouter", func(model, apiKey string) (provider.Provider, error) {
-		if apiKey == "" {
-			return nil, fmt.Errorf("set OPENROUTER_API_KEY")
-		}
-		return openrouter.New(apiKey, model), nil
-	})
+	hub := provider.NewHub(0)
 
-	defaultP, err := reg.Chat(cfg.DefaultModel.Provider, cfg.DefaultModel.Model, chatAPIKey(cfg.DefaultModel.Provider, envKey))
-	if err != nil {
-		return nil, err
-	}
-	fastP, err := reg.Chat(cfg.FastModel.Provider, cfg.FastModel.Model, chatAPIKey(cfg.FastModel.Provider, envKey))
-	if err != nil {
-		return nil, err
-	}
-
-	a := agent.New(defaultP, dir, tools...)
-	a.Fast = fastP
+	a := agent.New(provider.NewLazyChat(hub, confModel("default")), dir, tools...)
+	a.Fast = provider.NewLazyChat(hub, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
-	attachMemory(a, cfg, envKey)
-	return &app{cfg: cfg, store: st, agent: a}, nil
+	attachMemory(a, hub)
+	return &app{cfg: cfg, store: st, agent: a, hub: hub}, nil
 }
 
-func chatAPIKey(name, envKey string) string {
-	if name == "openrouter" {
-		return envKey
+func confModel(which string) func() (string, string, error) {
+	return func() (string, string, error) {
+		cfg, _, err := conf.Load()
+		if err != nil {
+			return "", "", err
+		}
+		switch which {
+		case "fast":
+			return cfg.FastModel.Provider, cfg.FastModel.Model, nil
+		case "embed":
+			if cfg.Memory == nil {
+				return "", "", fmt.Errorf("memory is not configured")
+			}
+			return cfg.Memory.Embedding.Provider, cfg.Memory.Embedding.Model, nil
+		default:
+			return cfg.DefaultModel.Provider, cfg.DefaultModel.Model, nil
+		}
 	}
-	return ""
 }
 
-func attachMemory(a *agent.Agent, cfg conf.Conf, apiKey string) {
+func attachMemory(a *agent.Agent, hub *provider.Hub) {
 	path, err := conf.MemoriesDB()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
@@ -111,6 +108,11 @@ func attachMemory(a *agent.Agent, cfg conf.Conf, apiKey string) {
 	}
 	a.MemoryStore = st
 
+	cfg, _, err := conf.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
+		return
+	}
 	mem := cfg.Memory
 	if mem == nil {
 		return
@@ -118,18 +120,8 @@ func attachMemory(a *agent.Agent, cfg conf.Conf, apiKey string) {
 	a.MinSimilarity = mem.MinSimilarity
 	a.BudgetTokens = mem.BudgetTokens
 
-	reg := provider.NewRegistry()
-	reg.RegisterEmbedder("openrouter", func(model string) (provider.Embedder, error) {
-		return openrouter.NewEmbedder(apiKey, model), nil
-	})
-
-	name, model := mem.Embedding.Provider, mem.Embedding.Model
-	emb, err := reg.Embedder(name, model)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "memory: embedder: %v\n", err)
-		return
-	}
-	idx, err := memory.NewIndex(st, emb, name, model)
+	emb := provider.NewLazyEmbedder(hub, confModel("embed"))
+	idx, err := memory.NewIndex(st, emb, mem.Embedding.Provider, mem.Embedding.Model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: index: %v\n", err)
 		return

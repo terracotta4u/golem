@@ -169,6 +169,69 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 	}
 }
 
+func TestSettingsSaveRequiresProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old := conf.Conf{}
+	old.DefaultModel.Provider = "old-provider"
+	old.DefaultModel.Model = "old-model"
+	if err := conf.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"  "},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"openrouter"},
+		"fast_model":       {"openai/gpt-4o-mini"},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DefaultModel.Provider != "old-provider" {
+		t.Fatalf("DefaultModel.Provider = %q, want unchanged", got.DefaultModel.Provider)
+	}
+}
+
+func TestSettingsSaveRequiresFastProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	old := conf.Conf{}
+	old.DefaultModel.Model = "old-default"
+	old.FastModel.Provider = "old-fast-provider"
+	old.FastModel.Model = "old-fast"
+	if err := conf.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	status, _ := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"openrouter"},
+		"default_model":    {"openai/gpt-4o-mini"},
+		"fast_provider":    {"  "},
+		"fast_model":       {"openai/gpt-4o-mini"},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FastModel.Provider != "old-fast-provider" {
+		t.Fatalf("FastModel.Provider = %q, want unchanged", got.FastModel.Provider)
+	}
+}
+
 func TestSettingsSaveRequiresModel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	old := conf.Conf{}
@@ -199,7 +262,7 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 	}
 }
 
-func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
+func TestSettingsSaveAcceptsOtherProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	old := conf.Conf{}
 	old.DefaultModel.Model = "old-model"
@@ -210,22 +273,22 @@ func TestSettingsSaveRejectsUnknownProvider(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
 	defer ts.Close()
 
-	status, _ := postSettings(t, ts.URL, url.Values{
-		"default_provider": {"openai"},
-		"default_model":    {"gpt-4o"},
+	status, body := postSettings(t, ts.URL, url.Values{
+		"default_provider": {"ollama"},
+		"default_model":    {"llama3.2"},
 		"fast_provider":    {"openrouter"},
 		"fast_model":       {"openai/gpt-4o-mini"},
 	})
-	if status != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", status)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
 
 	got, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.DefaultModel.Model != "old-model" {
-		t.Fatalf("Default.Model = %q, want unchanged", got.DefaultModel.Model)
+	if got.DefaultModel.Provider != "ollama" || got.DefaultModel.Model != "llama3.2" {
+		t.Fatalf("default = %+v, want ollama/llama3.2", got.DefaultModel)
 	}
 }
 
@@ -291,7 +354,7 @@ func TestSettingsSaveRequiresFastModel(t *testing.T) {
 	}
 }
 
-func TestSettingsSaveRejectsUnknownFastProvider(t *testing.T) {
+func TestSettingsSaveAcceptsOtherFastProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	old := conf.Conf{}
 	old.DefaultModel.Model = "old-model"
@@ -303,22 +366,22 @@ func TestSettingsSaveRejectsUnknownFastProvider(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
 	defer ts.Close()
 
-	status, _ := postSettings(t, ts.URL, url.Values{
+	status, body := postSettings(t, ts.URL, url.Values{
 		"default_provider": {"openrouter"},
 		"default_model":    {"openai/gpt-4o-mini"},
-		"fast_provider":    {"openai"},
-		"fast_model":       {"gpt-4o"},
+		"fast_provider":    {"ollama"},
+		"fast_model":       {"llama3.2"},
 	})
-	if status != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", status)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
 
 	got, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.FastModel.Model != "old-fast" {
-		t.Fatalf("FastModel.Model = %q, want unchanged", got.FastModel.Model)
+	if got.FastModel.Provider != "ollama" || got.FastModel.Model != "llama3.2" {
+		t.Fatalf("fast = %+v, want ollama/llama3.2", got.FastModel)
 	}
 }
 

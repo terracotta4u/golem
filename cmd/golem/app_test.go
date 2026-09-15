@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/provider"
 )
 
 func TestLoadSkillsCreatesDir(t *testing.T) {
@@ -60,7 +62,6 @@ Follow the commit format.
 
 func TestLoadAppWiresMemory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -96,9 +97,8 @@ func TestLoadAppWiresMemory(t *testing.T) {
 	}
 }
 
-func TestLoadAppUnknownEmbedderIsStoreOnly(t *testing.T) {
+func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -113,19 +113,22 @@ func TestLoadAppUnknownEmbedderIsStoreOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	if app.agent.MemoryStore == nil {
-		t.Fatal("MemoryStore is nil, want store-only")
+		t.Fatal("MemoryStore is nil")
 	}
-	if app.agent.Memory != nil {
-		t.Error("Memory set, want nil when embedder resolve fails")
+	if app.agent.Memory == nil {
+		t.Fatal("Memory is nil")
 	}
-	if app.agent.Indexer != nil {
-		t.Error("Indexer set, want nil when embedder resolve fails")
+	if app.agent.Indexer == nil {
+		t.Fatal("Indexer is nil")
+	}
+	_, err = app.agent.Memory.Search(context.Background(), "hello", 1)
+	if err == nil || !strings.Contains(err.Error(), "ollama") {
+		t.Fatalf("search err = %v, want unknown ollama", err)
 	}
 }
 
 func TestLoadAppWiresFast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	if _, _, err := conf.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +144,6 @@ func TestLoadAppWiresFast(t *testing.T) {
 
 func TestLoadAppUnknownChatProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 	cfg, _, err := conf.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -152,11 +154,12 @@ func TestLoadAppUnknownChatProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = loadApp()
-	if err == nil {
-		t.Fatal("want error for unknown chat provider")
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(err.Error(), "ollama") {
-		t.Fatalf("err = %v, want unknown provider ollama", err)
+	_, err = app.agent.Fast.Chat(context.Background(), provider.ChatRequest{})
+	if err == nil || !strings.Contains(err.Error(), "ollama") {
+		t.Fatalf("fast err = %v, want unknown ollama", err)
 	}
 }

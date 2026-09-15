@@ -59,6 +59,7 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		Store: app.store,
 		Addr:  listen,
 		Token: token,
+		Hub:   app.hub,
 		StartExtension: func(name string) error {
 			cfg, _, err := conf.Load()
 			if err != nil {

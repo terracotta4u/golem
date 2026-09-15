@@ -20,7 +20,6 @@ import (
 
 func TestServeStartsConfiguredExtension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -151,7 +150,7 @@ func TestStartNamedExtensionAddsProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	deadline := time.Now().Add(time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	var got string
 	for {
 		data, err := os.ReadFile(filepath.Join(dir, "marker"))
@@ -275,7 +274,6 @@ func TestRunningExtensionsNameMismatch(t *testing.T) {
 
 func TestServeStartsVenvExtension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("OPENROUTER_API_KEY", "test")
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

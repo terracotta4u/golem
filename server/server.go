@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/store"
 )
 
@@ -34,11 +35,17 @@ type Options struct {
 
 	StartExtension func(name string) error
 	StopExtension  func(name string) error
+
+	Hub *provider.Hub
 }
 
 type Server struct {
 	opts Options
 	tmpl *template.Template
+	hub  *provider.Hub
+	ttl  time.Duration
+	now  func() time.Time
+	exts map[string]*extRecord
 
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
@@ -46,12 +53,20 @@ type Server struct {
 }
 
 func New(opts Options) *Server {
-	return &Server{
+	s := &Server{
 		opts:  opts,
 		tmpl:  parseWeb(),
+		hub:   opts.Hub,
+		ttl:   extensionTTL,
+		now:   time.Now,
+		exts:  make(map[string]*extRecord),
 		locks: make(map[string]*sync.Mutex),
 		turns: make(map[string]*turn),
 	}
+	if s.hub == nil {
+		s.hub = provider.NewHub(0)
+	}
+	return s
 }
 
 func NewToken() string {
@@ -76,6 +91,7 @@ func (s *Server) handlerWith(runCtx context.Context) http.Handler {
 	s.mountStatic(mux)
 	// API endpoints
 	s.mountChat(mux, runCtx)
+	s.mountExtensions(mux)
 	// Web endpoints
 	s.mountWebChat(mux, runCtx)
 	s.mountWebSettings(mux)
@@ -147,6 +163,9 @@ func (s *Server) startExtension(name string) error {
 }
 
 func (s *Server) stopExtension(name string) error {
+	s.mu.Lock()
+	s.dropLocked(name)
+	s.mu.Unlock()
 	if s.opts.StopExtension == nil {
 		return nil
 	}

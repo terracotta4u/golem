@@ -22,4 +22,10 @@ You should now be able to access the Golem web interface.
 
 ### LLM Setup
 
-By default Golem uses [OpenRouter](https://openrouter.ai/). You will need to set an `OPENROUTER_API_KEY` environment variable. 
+Out of the box, Golem has no built-in model. Install a provider extension, then set that provider's key:
+
+```bash
+golem extension add https://github.com/terracotta4u/golem-openrouter
+export OPENROUTER_API_KEY=...
+```
+
