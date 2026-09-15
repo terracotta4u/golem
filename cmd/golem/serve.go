@@ -10,7 +10,6 @@ import (
 
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
-	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/server"
 	"github.com/terracotta4u/golem/supervisor"
 )
@@ -60,7 +59,7 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		Store: app.store,
 		Addr:  listen,
 		Token: token,
-		Hub:   provider.NewHub(0),
+		Hub:   app.hub,
 		StartExtension: func(name string) error {
 			cfg, _, err := conf.Load()
 			if err != nil {

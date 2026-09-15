@@ -10,7 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/store"
 )
 
 func TestRegisterProviderAndChat(t *testing.T) {
@@ -196,6 +199,73 @@ func TestStopExtensionUnregisters(t *testing.T) {
 	}
 	if _, err := s.hub.Get("openrouter"); err == nil {
 		t.Fatal("want unknown provider after stop")
+	}
+}
+
+func TestRegisteredProviderServesTurn(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.DefaultModel.Provider = "stub"
+	cfg.DefaultModel.Model = "stub-model"
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Model != "stub-model" {
+			t.Errorf("model = %q, want stub-model", body.Model)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "from stub"})
+	}))
+	defer cb.Close()
+
+	hub := provider.NewHub(0)
+	st, err := store.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(provider.NewLazyChat(hub, func() (string, string, error) {
+			c, _, err := conf.Load()
+			if err != nil {
+				return "", "", err
+			}
+			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
+		}), t.TempDir()),
+		Store: st,
+		Hub:   hub,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "stub",
+		"callback_url": cb.URL,
+		"capabilities": []any{map[string]any{"kind": "provider", "id": "stub", "chat": true}},
+	})
+
+	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want one done", events)
+	}
+	if got := events[0].text(); got != "from stub" {
+		t.Fatalf("text = %q, want from stub", got)
 	}
 }
 

@@ -85,9 +85,6 @@ func parseModelConfig(r *http.Request, providerField, modelField string) (conf.M
 	if provider == "" {
 		provider = "openrouter"
 	}
-	if provider != "openrouter" {
-		return conf.ModelConfig{}, "unsupported provider"
-	}
 	model := strings.TrimSpace(r.FormValue(modelField))
 	if model == "" {
 		return conf.ModelConfig{}, "model is required"

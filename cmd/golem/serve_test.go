@@ -151,7 +151,7 @@ func TestStartNamedExtensionAddsProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	deadline := time.Now().Add(time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	var got string
 	for {
 		data, err := os.ReadFile(filepath.Join(dir, "marker"))

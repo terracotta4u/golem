@@ -94,13 +94,16 @@ func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request)
 		if cap.Kind != "provider" {
 			continue
 		}
-		bound := client.ForModel("")
 		b := provider.Backend{}
 		if cap.Chat || cap.Structured {
-			b.Chat = bound
+			b.Chat = provider.NewModelChat(func(model string) provider.Provider {
+				return client.ForModel(model)
+			})
 		}
 		if cap.Embed {
-			b.Embedder = bound
+			b.Embedder = provider.NewModelEmbedder(func(model string) provider.Embedder {
+				return client.ForModel(model)
+			})
 		}
 		if b.Chat == nil && b.Embedder == nil {
 			continue
