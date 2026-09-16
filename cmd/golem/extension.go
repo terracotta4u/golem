@@ -27,7 +27,7 @@ func newExtensionAddCmd() *cobra.Command {
 		Use:   "add SOURCE",
 		Short: "Install an extension from a path, zip, or GitHub URL",
 		Example: `  golem extension add ./echo
-  golem extension add --ref v1.2.0 https://github.com/terracotta4u/golem-telegram`,
+  golem extension add https://github.com/terracotta4u/golem-openrouter`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runExtensionAdd(cmd, args[0], force, ref)
