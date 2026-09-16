@@ -65,6 +65,66 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	}
 }
 
+func TestRegisterEmbedOnly(t *testing.T) {
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/embed" {
+			t.Errorf("path = %s, want /v1/embed", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"vectors": [][]float32{{0.1, 0.2}}})
+	}))
+	defer cb.Close()
+
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "golem-embed",
+		"callback_url": cb.URL,
+		"capabilities": []any{map[string]any{"kind": "provider", "id": "local-embed", "embed": true}},
+	})
+
+	b, err := s.hub.Get("local-embed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Chat != nil {
+		t.Fatal("embed-only provider should not register chat")
+	}
+	if b.Embedder == nil {
+		t.Fatal("embed-only provider missing embedder")
+	}
+	vecs, err := b.Embedder.Embed(context.Background(), []string{"hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vecs) != 1 || vecs[0][0] != 0.1 {
+		t.Fatalf("vecs = %v", vecs)
+	}
+}
+
+func TestRegisterProviderRequiresRoute(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
+		"name":         "ext",
+		"callback_url": "http://127.0.0.1:9",
+		"capabilities": []any{map[string]any{"kind": "provider", "id": "p"}},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d (%s), want 400", status, raw)
+	}
+	if !bytes.Contains([]byte(raw), []byte("chat or embed")) {
+		t.Fatalf("body = %s, want chat or embed", raw)
+	}
+	if _, err := s.hub.Get("p"); err == nil {
+		t.Fatal("empty provider should not register")
+	}
+}
+
 func TestRegisterUnknownKindListed(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	ts := httptest.NewServer(s.handler())

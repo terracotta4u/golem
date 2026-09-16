@@ -109,7 +109,9 @@ func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request)
 			})
 		}
 		if b.Chat == nil && b.Embedder == nil {
-			continue
+			rollback()
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "provider must advertise chat or embed"})
+			return
 		}
 		if err := s.hub.Register(cap.ID, b); err != nil {
 			// Undo ids from this request only; dropLocked already cleared the old name.
@@ -230,6 +232,9 @@ func normalizeCaps(caps []capability) ([]capability, error) {
 		}
 		if cap.Kind == "provider" && cap.ID == "" {
 			return nil, fmt.Errorf("provider id is required")
+		}
+		if cap.Kind == "provider" && !cap.Chat && !cap.Structured && !cap.Embed {
+			return nil, fmt.Errorf("provider must advertise chat or embed")
 		}
 		out = append(out, cap)
 	}

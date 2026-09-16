@@ -58,9 +58,15 @@ After binding a loopback HTTP server, register. Re-registering the same `name` r
 
 `200` → `{"ok": true}`.
 
-`callback_url` must be `http` with host `127.0.0.1`, `localhost`, or `::1`. No userinfo. Golem posts to `{callback_url}/v1/chat` (and the other callback paths below).
+`callback_url` must be `http` with host `127.0.0.1`, `localhost`, or `::1`. No userinfo. Golem posts to the advertised routes (`/v1/chat`, `/v1/chat/structured`, `/v1/embed`).
 
-`kind` is required. `kind: "provider"` also requires `id` (the name used in conf `default_model.provider`). Flags `chat`, `structured`, and `embed` tell Golem which callback routes to use. `structured` counts as chat. Unknown kinds are stored and listed; Golem does not call them.
+`kind` is required. `kind: "provider"` also requires `id` (the name used in conf `default_model.provider` or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. `structured` counts as chat. `chat` is optional when `embed` is set (an embeddings-only backend). Unknown kinds are stored and listed; Golem does not call them.
+
+Embeddings-only example:
+
+```json
+{"kind": "provider", "id": "local-embed", "embed": true}
+```
 
 Two live extensions cannot share a provider `id` (`409`).
 
