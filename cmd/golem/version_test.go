@@ -45,13 +45,37 @@ func TestRunVersionPrintsPlatformAndBuild(t *testing.T) {
 	}
 }
 
+func TestRunVersionFlag(t *testing.T) {
+	oldVersion, oldCommit, oldDate := version, commit, date
+	version, commit, date = "0.1.0", "abc1234", "2026-08-31T14:23:00Z"
+	t.Cleanup(func() {
+		version, commit, date = oldVersion, oldCommit, oldDate
+	})
+
+	stdout := captureStdout(t, func() {
+		if err := run([]string{"--version"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	want := []string{
+		"golem 0.1.0 " + runtime.GOOS + "/" + runtime.GOARCH,
+		"commit: abc1234",
+		"built: 2026-08-31T14:23:00Z",
+	}
+	for _, line := range want {
+		if !strings.Contains(stdout, line) {
+			t.Errorf("stdout = %q, want %q", stdout, line)
+		}
+	}
+}
+
 func TestRunVersionRejectsArgs(t *testing.T) {
 	err := run([]string{"version", "extra"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "usage: golem version") {
-		t.Errorf("error = %v, want usage", err)
+	if !strings.Contains(err.Error(), `unknown command "extra" for "golem version"`) {
+		t.Errorf("error = %v, want unknown command", err)
 	}
 }
 

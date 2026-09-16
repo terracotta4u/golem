@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 )
 
 func main() {
@@ -15,15 +16,9 @@ func main() {
 }
 
 func run(args []string) error {
-	// TODO: Add stop command
-	if len(args) > 0 && args[0] == "version" {
-		return runVersion(args[1:])
-	}
-	if len(args) > 0 && args[0] == "extension" {
-		return runExtension(args[1:])
-	}
-	if len(args) > 0 && args[0] == "serve" {
-		args = args[1:]
-	}
-	return runServe(args)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	cmd := newRootCmd()
+	cmd.SetArgs(args)
+	return cmd.ExecuteContext(ctx)
 }
