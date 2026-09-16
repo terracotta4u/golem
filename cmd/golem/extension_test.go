@@ -414,6 +414,25 @@ func stubEchoRuntime(t *testing.T) {
 	t.Cleanup(restore)
 }
 
+func TestRunExtensionRemoveCompletesInstalledNames(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout := captureStdout(t, func() {
+		if err := run([]string{"__complete", "extension", "remove", ""}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(stdout, "echo") {
+		t.Errorf("complete = %q, want echo", stdout)
+	}
+}
+
 func TestRunExtensionRemoveMissing(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	err := run([]string{"extension", "remove", "echo"})

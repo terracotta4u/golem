@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"runtime"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -12,10 +13,22 @@ var (
 	date    = "unknown"
 )
 
-func runVersion(args []string) error {
-	if len(args) != 0 {
-		return fmt.Errorf("usage: golem version")
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVersion(cmd)
+		},
 	}
-	fmt.Fprintf(os.Stdout, "golem %s %s/%s\ncommit: %s\nbuilt: %s\n", version, runtime.GOOS, runtime.GOARCH, commit, date)
-	return nil
+}
+
+func runVersion(cmd *cobra.Command) error {
+	_, err := fmt.Fprint(cmd.OutOrStdout(), versionInfo())
+	return err
+}
+
+func versionInfo() string {
+	return fmt.Sprintf("golem %s %s/%s\ncommit: %s\nbuilt: %s\n", version, runtime.GOOS, runtime.GOARCH, commit, date)
 }

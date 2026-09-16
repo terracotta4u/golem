@@ -15,7 +15,7 @@ curl -fsSL https://terracotta4u.com/golem/install.sh | sh
 You can run Golem from the terminal:
 
 ```bash
-golem
+golem serve
 ```
 
 You should now be able to access the Golem web interface.
