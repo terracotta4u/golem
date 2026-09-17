@@ -14,8 +14,17 @@
       <p class="meta-label">Version</p>
       <p>{{.Version}}</p>
     </div>
-    {{if .Dev}}
+    {{if .Available}}
+    <div class="stack gap-2">
+      <h2>Update available</h2>
+      <p class="field-hint">{{.Latest}} is the latest release.</p>
+      <p class="field-hint">To update, run:</p>
+      <pre class="install-cmd">{{.Install}}</pre>
+    </div>
+    {{else if .Dev}}
     <p class="field-hint">This is a development build.</p>
+    {{else if .Checked}}
+    <p class="field-hint">You are on the latest release.</p>
     {{end}}
   </section>
 </main>

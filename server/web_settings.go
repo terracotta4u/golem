@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/release"
@@ -83,11 +85,18 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSettingsAbout(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	st, checked := s.updateStatus(ctx)
 	ver := release.Display(s.opts.Version)
 	s.render(w, "settings-about", map[string]any{
-		"Title":   "About",
-		"Version": ver,
-		"Dev":     ver == "dev",
+		"Title":     "About",
+		"Version":   ver,
+		"Latest":    release.Display(st.Latest),
+		"Available": st.Available,
+		"Checked":   checked,
+		"Dev":       ver == "dev",
+		"Install":   release.InstallCommand,
 	})
 }
 

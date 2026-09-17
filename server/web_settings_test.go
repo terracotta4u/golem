@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/release"
 )
 
 func TestSettingsPage(t *testing.T) {
@@ -74,6 +75,72 @@ func TestAboutPageDevHint(t *testing.T) {
 	}
 	if !strings.Contains(body, "development build") {
 		t.Fatalf("about = %q, want development build hint", body)
+	}
+}
+
+func TestAboutPageShowsUpdate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	gh := githubLatestRelease(t, "v0.2.0")
+	ts := httptest.NewServer(New(Options{
+		Token:   "secret",
+		Version: "0.1.0",
+		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
+	}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "0.2.0") {
+		t.Fatalf("about = %q, want latest version", body)
+	}
+	if !strings.Contains(body, release.InstallCommand) {
+		t.Fatalf("about = %q, want installer command", body)
+	}
+	if strings.Contains(body, "You are on the latest release.") {
+		t.Fatalf("about = %q, want no latest message when update exists", body)
+	}
+}
+
+func TestAboutPageCurrentRelease(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	gh := githubLatestRelease(t, "v0.1.0")
+	ts := httptest.NewServer(New(Options{
+		Token:   "secret",
+		Version: "0.1.0",
+		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
+	}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "You are on the latest release.") {
+		t.Fatalf("about = %q, want latest release message", body)
+	}
+	if strings.Contains(body, "install.sh") {
+		t.Fatalf("about = %q, want no installer when current", body)
+	}
+}
+
+func TestAboutPageHidesInstallerOnError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusBadGateway)
+	}))
+	t.Cleanup(gh.Close)
+	ts := httptest.NewServer(New(Options{
+		Token:   "secret",
+		Version: "0.1.0",
+		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
+	}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "0.1.0") {
+		t.Fatalf("about = %q, want current version", body)
+	}
+	if strings.Contains(body, "install.sh") {
+		t.Fatalf("about = %q, want no installer on github error", body)
+	}
+	if strings.Contains(body, "You are on the latest release.") {
+		t.Fatalf("about = %q, want no latest message on github error", body)
 	}
 }
 

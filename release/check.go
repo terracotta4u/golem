@@ -14,6 +14,7 @@ const (
 	defaultRepo    = "terracotta4u/golem"
 	defaultAPI     = "https://api.github.com"
 	defaultTimeout = 3 * time.Second
+	InstallCommand = "curl -fsSL https://terracotta4u.com/golem/install.sh | sh"
 )
 
 type Status struct {

@@ -12,14 +12,14 @@ import (
 func (s *Server) reportUpdate(ctx context.Context, w io.Writer) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	st := s.updateStatus(ctx)
+	st, _ := s.updateStatus(ctx)
 	if !st.Available {
 		return
 	}
 	fmt.Fprintf(w, "update available: %s (current %s)\n", release.Display(st.Latest), release.Display(st.Current))
 }
 
-func (s *Server) updateStatus(ctx context.Context) release.Status {
+func (s *Server) updateStatus(ctx context.Context) (release.Status, bool) {
 	s.updateOnce.Do(func() {
 		if s.opts.Release == nil {
 			s.update = release.Status{Current: s.opts.Version}
@@ -35,6 +35,7 @@ func (s *Server) updateStatus(ctx context.Context) release.Status {
 			return
 		}
 		s.update = st
+		s.updateOK = true
 	})
-	return s.update
+	return s.update, s.updateOK
 }

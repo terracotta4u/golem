@@ -57,6 +57,7 @@ type Server struct {
 
 	updateOnce sync.Once
 	update     release.Status
+	updateOK   bool
 }
 
 func New(opts Options) *Server {
