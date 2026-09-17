@@ -110,7 +110,8 @@ func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, e
 	for _, p := range list {
 		ext, err := prepareExtension(cfg, p)
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "extension %s: %v\n", p.Name, err)
+			continue
 		}
 		out = append(out, ext)
 	}
