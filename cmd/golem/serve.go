@@ -10,6 +10,7 @@ import (
 
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
+	"github.com/terracotta4u/golem/release"
 	"github.com/terracotta4u/golem/server"
 	"github.com/terracotta4u/golem/supervisor"
 )
@@ -64,11 +65,13 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 	})
 
 	err = server.New(server.Options{
-		Agent: app.agent,
-		Store: app.store,
-		Addr:  listen,
-		Token: token,
-		Hub:   app.hub,
+		Agent:   app.agent,
+		Store:   app.store,
+		Addr:    listen,
+		Token:   token,
+		Hub:     app.hub,
+		Version: version,
+		Release: &release.Checker{Current: version},
 		StartExtension: func(name string) error {
 			cfg, _, err := conf.Load()
 			if err != nil {

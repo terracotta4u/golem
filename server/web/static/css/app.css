@@ -712,6 +712,15 @@ button.btn-accent:hover {
   font-weight: 600;
 }
 
+.install-cmd {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  background: var(--stone-100);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+}
+
 button.link-danger {
   align-self: start;
   padding: 0;

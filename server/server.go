@@ -19,6 +19,7 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/release"
 	"github.com/terracotta4u/golem/store"
 )
 
@@ -37,6 +38,9 @@ type Options struct {
 	StopExtension  func(name string) error
 
 	Hub *provider.Hub
+
+	Version string
+	Release *release.Checker
 }
 
 type Server struct {
@@ -50,6 +54,10 @@ type Server struct {
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
 	turns map[string]*turn
+
+	updateOnce sync.Once
+	update     release.Status
+	updateOK   bool
 }
 
 func New(opts Options) *Server {
@@ -145,6 +153,7 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 	}()
 
 	fmt.Fprintf(os.Stderr, "golem listening on http://%s\n", ln.Addr())
+	go s.reportUpdate(ctx, os.Stderr)
 	if ready != nil {
 		ready()
 	}

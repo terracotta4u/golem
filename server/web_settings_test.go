@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/release"
 )
 
 func TestSettingsPage(t *testing.T) {
@@ -29,8 +30,117 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, `href="/settings/extensions"`) {
 		t.Fatalf("settings = %q, want extensions card", body)
 	}
+	if !strings.Contains(body, `href="/settings/about"`) {
+		t.Fatalf("settings = %q, want about card", body)
+	}
 	if strings.Contains(body, `name="default_model"`) {
 		t.Fatalf("settings = %q, want landing not general form", body)
+	}
+}
+
+func TestAboutPageShowsVersion(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret", Version: "0.1.0"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "<title>About</title>") {
+		t.Fatalf("about = %q, want About title", body)
+	}
+	if !strings.Contains(body, "<h1>About</h1>") {
+		t.Fatalf("about = %q, want About heading", body)
+	}
+	if !strings.Contains(body, `href="/settings">Settings</a>`) {
+		t.Fatalf("about = %q, want settings breadcrumb", body)
+	}
+	if !strings.Contains(body, "0.1.0") {
+		t.Fatalf("about = %q, want current version", body)
+	}
+	if strings.Contains(body, "development build") {
+		t.Fatalf("about = %q, want no dev hint for a release", body)
+	}
+	if strings.Contains(body, "install.sh") {
+		t.Fatalf("about = %q, want no installer", body)
+	}
+}
+
+func TestAboutPageDevHint(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "dev") {
+		t.Fatalf("about = %q, want dev version", body)
+	}
+	if !strings.Contains(body, "development build") {
+		t.Fatalf("about = %q, want development build hint", body)
+	}
+}
+
+func TestAboutPageShowsUpdate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	gh := githubLatestRelease(t, "v0.2.0")
+	ts := httptest.NewServer(New(Options{
+		Token:   "secret",
+		Version: "0.1.0",
+		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
+	}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "0.2.0") {
+		t.Fatalf("about = %q, want latest version", body)
+	}
+	if !strings.Contains(body, release.InstallCommand) {
+		t.Fatalf("about = %q, want installer command", body)
+	}
+	if strings.Contains(body, "You are on the latest release.") {
+		t.Fatalf("about = %q, want no latest message when update exists", body)
+	}
+}
+
+func TestAboutPageCurrentRelease(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	gh := githubLatestRelease(t, "v0.1.0")
+	ts := httptest.NewServer(New(Options{
+		Token:   "secret",
+		Version: "0.1.0",
+		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
+	}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "You are on the latest release.") {
+		t.Fatalf("about = %q, want latest release message", body)
+	}
+	if strings.Contains(body, "install.sh") {
+		t.Fatalf("about = %q, want no installer when current", body)
+	}
+}
+
+func TestAboutPageHidesInstallerOnError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusBadGateway)
+	}))
+	t.Cleanup(gh.Close)
+	ts := httptest.NewServer(New(Options{
+		Token:   "secret",
+		Version: "0.1.0",
+		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
+	}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "0.1.0") {
+		t.Fatalf("about = %q, want current version", body)
+	}
+	if strings.Contains(body, "install.sh") {
+		t.Fatalf("about = %q, want no installer on github error", body)
+	}
+	if strings.Contains(body, "You are on the latest release.") {
+		t.Fatalf("about = %q, want no latest message on github error", body)
 	}
 }
 
