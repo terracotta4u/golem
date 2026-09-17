@@ -17,6 +17,18 @@ import (
 
 const defaultListen = "127.0.0.1:8743"
 
+const banner = `
+  /$$$$$$            /$$
+ /$$__  $$          | $$
+| $$  \__/  /$$$$$$ | $$  /$$$$$$  /$$$$$$/$$$$
+| $$ /$$$$ /$$__  $$| $$ /$$__  $$| $$_  $$_  $$
+| $$|_  $$| $$  \ $$| $$| $$$$$$$$| $$ \ $$ \ $$
+| $$  \ $$| $$  | $$| $$| $$_____/| $$ | $$ | $$
+|  $$$$$$/|  $$$$$$/| $$|  $$$$$$$| $$ | $$ | $$
+ \______/  \______/ |__/ \_______/|__/ |__/ |__/
+
+`
+
 func newServeCmd() *cobra.Command {
 	var addr, token string
 	cmd := &cobra.Command{
@@ -45,10 +57,11 @@ func runServe(cmd *cobra.Command, addr, token string) error {
 }
 
 func serve(ctx context.Context, app *app, listen, token string) error {
+	fmt.Fprint(os.Stderr, banner)
 	if token == "" {
 		token = server.NewToken()
 	}
-	fmt.Fprintf(os.Stderr, "token: %s\n", token)
+	fmt.Fprintf(os.Stderr, "Token: %s\n\n", token)
 
 	extRoot, err := conf.ExtensionsDir()
 	if err != nil {
