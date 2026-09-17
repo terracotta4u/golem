@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/release"
 )
 
 func (s *Server) mountWebSettings(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings", s.handleSettings)
 	mux.HandleFunc("GET /settings/general", s.handleSettingsGeneral)
 	mux.HandleFunc("POST /settings/general", s.handleSettingsSave)
+	mux.HandleFunc("GET /settings/about", s.handleSettingsAbout)
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -78,6 +80,15 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/settings/general", http.StatusSeeOther)
+}
+
+func (s *Server) handleSettingsAbout(w http.ResponseWriter, r *http.Request) {
+	ver := release.Display(s.opts.Version)
+	s.render(w, "settings-about", map[string]any{
+		"Title":   "About",
+		"Version": ver,
+		"Dev":     ver == "dev",
+	})
 }
 
 func parseModelConfig(r *http.Request, providerField, modelField string) (conf.ModelConfig, string) {

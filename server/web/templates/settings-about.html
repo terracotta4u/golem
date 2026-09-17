@@ -1,0 +1,23 @@
+{{define "settings-about"}}
+{{template "layout-start" .}}
+<nav class="subnav cluster gap-0">
+  <div class="subnav-heading stack gap-0">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/settings">Settings</a>
+    </nav>
+    <h1>About</h1>
+  </div>
+</nav>
+<main class="container container-md stack grow">
+  <section class="panel stack gap-5">
+    <div class="stack gap-1">
+      <p class="meta-label">Version</p>
+      <p>{{.Version}}</p>
+    </div>
+    {{if .Dev}}
+    <p class="field-hint">This is a development build.</p>
+    {{end}}
+  </section>
+</main>
+{{template "layout-end" .}}
+{{end}}

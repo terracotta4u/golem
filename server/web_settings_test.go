@@ -29,8 +29,51 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, `href="/settings/extensions"`) {
 		t.Fatalf("settings = %q, want extensions card", body)
 	}
+	if !strings.Contains(body, `href="/settings/about"`) {
+		t.Fatalf("settings = %q, want about card", body)
+	}
 	if strings.Contains(body, `name="default_model"`) {
 		t.Fatalf("settings = %q, want landing not general form", body)
+	}
+}
+
+func TestAboutPageShowsVersion(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret", Version: "0.1.0"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "<title>About</title>") {
+		t.Fatalf("about = %q, want About title", body)
+	}
+	if !strings.Contains(body, "<h1>About</h1>") {
+		t.Fatalf("about = %q, want About heading", body)
+	}
+	if !strings.Contains(body, `href="/settings">Settings</a>`) {
+		t.Fatalf("about = %q, want settings breadcrumb", body)
+	}
+	if !strings.Contains(body, "0.1.0") {
+		t.Fatalf("about = %q, want current version", body)
+	}
+	if strings.Contains(body, "development build") {
+		t.Fatalf("about = %q, want no dev hint for a release", body)
+	}
+	if strings.Contains(body, "install.sh") {
+		t.Fatalf("about = %q, want no installer", body)
+	}
+}
+
+func TestAboutPageDevHint(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/about")
+	if !strings.Contains(body, "dev") {
+		t.Fatalf("about = %q, want dev version", body)
+	}
+	if !strings.Contains(body, "development build") {
+		t.Fatalf("about = %q, want development build hint", body)
 	}
 }
 
