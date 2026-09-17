@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -59,9 +60,42 @@ func TestListNameMismatch(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(projectTOML("telegram", "0.1.0")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := List(root)
-	if err == nil {
-		t.Fatal("expected error")
+	stderr := captureStderr(t, func() {
+		got, err := List(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 0 {
+			t.Errorf("list = %+v, want empty", got)
+		}
+	})
+	if !strings.Contains(stderr, "does not match") {
+		t.Errorf("stderr = %q, want name mismatch", stderr)
+	}
+}
+
+func TestListSkipsInvalidKeepsValid(t *testing.T) {
+	root := t.TempDir()
+	writeListed(t, root, "echo", "0.1.0")
+	dir := filepath.Join(root, "broken")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(projectTOML("telegram", "0.1.0")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stderr := captureStderr(t, func() {
+		got, err := List(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 || got[0].Name != "echo" {
+			t.Fatalf("list = %+v, want only echo", got)
+		}
+	})
+	if !strings.Contains(stderr, "broken") {
+		t.Errorf("stderr = %q, want skipped broken extension", stderr)
 	}
 }
 

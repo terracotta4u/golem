@@ -45,10 +45,11 @@ func runServe(cmd *cobra.Command, addr, token string) error {
 }
 
 func serve(ctx context.Context, app *app, listen, token string) error {
+	fmt.Fprint(os.Stderr, "The Golem has awoken.\n")
 	if token == "" {
 		token = server.NewToken()
 	}
-	fmt.Fprintf(os.Stderr, "token: %s\n", token)
+	fmt.Fprintf(os.Stderr, "Token: %s\n\n", token)
 
 	extRoot, err := conf.ExtensionsDir()
 	if err != nil {
@@ -97,7 +98,8 @@ func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, e
 	for _, p := range list {
 		ext, err := prepareExtension(cfg, p)
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "extension %s: %v\n", p.Name, err)
+			continue
 		}
 		out = append(out, ext)
 	}

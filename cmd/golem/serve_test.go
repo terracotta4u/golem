@@ -266,9 +266,112 @@ func TestRunningExtensionsNameMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := runningExtensions(conf.Conf{}, root)
-	if err == nil {
-		t.Fatal("expected error")
+	stderr := captureStderr(t, func() {
+		got, err := runningExtensions(conf.Conf{}, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 0 {
+			t.Errorf("extensions = %+v, want none", got)
+		}
+	})
+	if !strings.Contains(stderr, "does not match") {
+		t.Errorf("stderr = %q, want name mismatch", stderr)
+	}
+}
+
+func TestRunningExtensionsSkipsUnprepared(t *testing.T) {
+	root := t.TempDir()
+	dir := writeProject(t, root, "echo")
+	script := writeVenvEcho(t, dir)
+	writeProject(t, root, "broken")
+
+	restore := extension.StubRuntime(runtime.UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			return errors.New("uv failed")
+		},
+	})
+	t.Cleanup(restore)
+
+	stderr := captureStderr(t, func() {
+		got, err := runningExtensions(conf.Conf{}, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 || got[0].Name != "echo" || got[0].Command != script {
+			t.Errorf("got = %+v, want only echo", got)
+		}
+	})
+	if !strings.Contains(stderr, "broken") {
+		t.Errorf("stderr = %q, want skipped broken extension", stderr)
+	}
+}
+
+func TestServeStartsWhenOtherExtensionBroken(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	extDir, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := writeProject(t, extDir, "echo")
+	script := filepath.Join(dir, ".venv", "bin", "echo")
+	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf ok > marker\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	broken := filepath.Join(extDir, "broken")
+	if err := os.MkdirAll(broken, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(broken, "pyproject.toml"), []byte(projectTOML("telegram")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errc := make(chan error, 1)
+	go func() { errc <- serve(ctx, app, addr, "") }()
+
+	deadline := time.Now().Add(5 * time.Second)
+	var got string
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "marker"))
+		if err == nil && len(data) > 0 {
+			got = strings.TrimSpace(string(data))
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("marker = %q (%v), want venv script launched", got, err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if got != "ok" {
+		t.Fatalf("marker = %q, want ok", got)
+	}
+
+	cancel()
+	if err := <-errc; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
 	}
 }
 

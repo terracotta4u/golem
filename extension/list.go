@@ -28,10 +28,12 @@ func List(root string) ([]Project, error) {
 			continue
 		}
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "extension %s: %v\n", e.Name(), err)
+			continue
 		}
 		if p.Name != e.Name() {
-			return nil, fmt.Errorf("extension %s: project name %q does not match", e.Name(), p.Name)
+			fmt.Fprintf(os.Stderr, "extension %s: project name %q does not match\n", e.Name(), p.Name)
+			continue
 		}
 		p.Dir = dir
 		out = append(out, p)
