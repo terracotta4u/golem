@@ -152,7 +152,7 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 		_ = httpSrv.Shutdown(shutCtx)
 	}()
 
-	fmt.Fprintf(os.Stderr, "Golem listening on http://%s\n---\n\n", ln.Addr())
+	fmt.Fprintf(os.Stderr, "Golem listening on http://%s\n\n", ln.Addr())
 	go s.reportUpdate(ctx, os.Stderr)
 	if ready != nil {
 		ready()
