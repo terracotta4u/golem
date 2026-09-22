@@ -1,6 +1,6 @@
 # Extension protocol
 
-Golem runs installed Python packages as subprocesses. Each child gets `GOLEM_URL` (the local server) and `GOLEM_TOKEN`. All `/v1` requests, in both directions, use `Authorization: Bearer <token>` and `Content-Type: application/json`.
+Golem runs installed Python packages as subprocesses. Each child gets `GOLEM_URL` (the local server) and `GOLEM_TOKEN`. All `/v1` requests, in both directions, use `Authorization: Bearer <token>` and `Content-Type: application/json`. The Python client is [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) (source in [`sdk/`](../sdk/)).
 
 There are two roles. A process can do both.
 

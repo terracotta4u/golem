@@ -12,7 +12,7 @@ pip install golem-agent-sdk
 
 ## Usage
 
-Import as `golem`. Golem injects `GOLEM_URL` and `GOLEM_TOKEN` into the process. The wire protocol lives in Golem: [docs/extensions.md](https://github.com/terracotta4u/golem/blob/main/docs/extensions.md).
+Import as `golem`. Golem injects `GOLEM_URL` and `GOLEM_TOKEN` into the process. The wire protocol is [docs/extensions.md](../docs/extensions.md).
 
 The smallest extension registers, prints a line, and stays alive until it is stopped:
 
@@ -98,10 +98,12 @@ golem-openrouter = "golem_openrouter:main"
 
 ## Development
 
-Using uv is strongly recommended:
+Using uv is strongly recommended. From this directory:
 
 ```bash
 uv sync --dev
 uv run pytest
 ```
+
+From the Golem repo root, `make test-sdk` runs ruff and pytest.
 
