@@ -138,7 +138,7 @@ body:not(:has(.sidebar)) {
 .message.user p {
   width: fit-content;
   max-width: 100%;
-  border-radius: var(--space-2) var(--space-2) 0 var(--space-2);
+  border-radius: var(--space-2);
   background: var(--tx);
   color: var(--bg);
   white-space: pre-wrap;
