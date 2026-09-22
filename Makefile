@@ -7,6 +7,9 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DA
 test:
 	go test ./... -count=1
 
+test-sdk:
+	cd sdk && uv sync --dev && uv run ruff check && uv run pytest
+
 build:
 	go build -ldflags "$(LDFLAGS)" -o golem ./cmd/golem
 
