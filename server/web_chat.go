@@ -137,6 +137,7 @@ func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id str
 		"Items":         chatItems(conv.Messages),
 		"Conversations": list,
 		"Sidebar":       true,
+		"PageCSS":       "chat.css",
 	})
 }
 

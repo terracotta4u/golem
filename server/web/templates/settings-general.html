@@ -1,18 +1,18 @@
 {{define "settings-general"}}
 {{template "layout-start" .}}
 <nav class="subnav cluster gap-0">
-  <div class="subnav-heading stack gap-0">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">
+  <div class="subnav-heading stack gap-0 py-3 px-5">
+    <nav class="breadcrumbs type-label" aria-label="Breadcrumb">
       <a href="/settings">Settings</a>
     </nav>
-    <h1>General</h1>
+    <h1 class="type-display">General</h1>
   </div>
 </nav>
 <main class="container container-md stack grow">
-  <section class="panel">
+  <section class="panel p-6">
     <form class="stack gap-5" method="post" action="/settings/general">
       <div class="stack gap-2">
-        <h2>Default model</h2>
+        <h2 class="type-heading">Default model</h2>
         <p class="field-hint">Used for chat and other complex tasks.</p>
       </div>
       <div class="field stack gap-2">
@@ -26,7 +26,7 @@
         <input id="default_model" name="default_model" type="text" required value="{{.DefaultModel}}">
       </div>
       <div class="stack gap-2">
-        <h2>Fast model</h2>
+        <h2 class="type-heading">Fast model</h2>
         <p class="field-hint">Used for lightweight tasks.</p>
       </div>
       <div class="field stack gap-2">

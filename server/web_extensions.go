@@ -53,6 +53,7 @@ func (s *Server) handleExtensions(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "extensions", map[string]any{
 		"Title":      "Extensions",
 		"Extensions": list,
+		"PageCSS":    "settings.css",
 	})
 }
 
@@ -90,6 +91,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		"Source":      origin.Source,
 		"Ref":         origin.Ref,
 		"Revision":    origin.Revision,
+		"PageCSS":     "settings.css",
 	})
 }
 
@@ -131,8 +133,9 @@ func (s *Server) handleExtensionAdd(w http.ResponseWriter, r *http.Request) {
 		from = "url"
 	}
 	s.render(w, "extension-add", map[string]any{
-		"Title": "Add extension",
-		"From":  from,
+		"Title":   "Add extension",
+		"From":    from,
+		"PageCSS": "settings.css",
 	})
 }
 

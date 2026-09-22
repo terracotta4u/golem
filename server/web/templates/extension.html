@@ -1,49 +1,49 @@
 {{define "extension"}}
 {{template "layout-start" .}}
 <nav class="subnav cluster gap-0">
-  <div class="subnav-heading stack gap-0">
-    <nav class="breadcrumbs cluster gap-1" aria-label="Breadcrumb">
+  <div class="subnav-heading stack gap-0 py-3 px-5">
+    <nav class="breadcrumbs type-label cluster gap-1" aria-label="Breadcrumb">
       <a href="/settings">Settings</a>
       <span aria-hidden="true">/</span>
       <a href="/settings/extensions">Extensions</a>
     </nav>
-    <h1>{{.Name}}</h1>
+    <h1 class="type-display">{{.Name}}</h1>
   </div>
 </nav>
 <main class="container container-lg stack grow">
   <div class="row gap-6 items-start">
-    <section class="col-8 panel stack gap-5">
+    <section class="col-8 panel stack gap-5 p-6">
       <div class="stack gap-1">
-        <p class="meta-label">Version</p>
+        <p class="meta-label type-label">Version</p>
         <p>{{.Version}}</p>
       </div>
       {{if .Description}}
       <div class="stack gap-1">
-        <p class="meta-label">Description</p>
+        <p class="meta-label type-label">Description</p>
         <p>{{.Description}}</p>
       </div>
       {{end}}
       {{if .Source}}
       <div class="stack gap-1">
-        <p class="meta-label">Source</p>
+        <p class="meta-label type-label">Source</p>
         <p>{{.Source}}</p>
       </div>
       {{end}}
       {{if .Ref}}
       <div class="stack gap-1">
-        <p class="meta-label">Ref</p>
+        <p class="meta-label type-label">Ref</p>
         <p>{{.Ref}}</p>
       </div>
       {{end}}
       {{if .Revision}}
       <div class="stack gap-1">
-        <p class="meta-label">Revision</p>
+        <p class="meta-label type-label">Revision</p>
         <p>{{.Revision}}</p>
       </div>
       {{end}}
     </section>
-    <section class="col-4 panel stack gap-5">
-      <h2>Manage</h2>
+    <section class="col-4 panel stack gap-5 p-6">
+      <h2 class="type-heading">Manage</h2>
       <form method="post" action="/settings/extensions/{{.Name}}/remove">
         <button type="submit" class="link-danger">Delete</button>
       </form>

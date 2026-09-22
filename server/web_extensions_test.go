@@ -29,7 +29,7 @@ func TestExtensionsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>Extensions</title>") {
 		t.Fatalf("extensions = %q, want Extensions title", body)
 	}
-	if !strings.Contains(body, "<h1>Extensions</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">Extensions</h1>`) {
 		t.Fatalf("extensions = %q, want Extensions heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
@@ -117,7 +117,7 @@ func TestExtensionDetail(t *testing.T) {
 	if !strings.Contains(body, "<title>echo</title>") {
 		t.Fatalf("detail = %q, want echo title", body)
 	}
-	if !strings.Contains(body, "<h1>echo</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">echo</h1>`) {
 		t.Fatalf("detail = %q, want echo heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
@@ -286,7 +286,7 @@ func TestExtensionAddURLForm(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/add")
-	if !strings.Contains(body, "<h1>Add Extension</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">Add Extension</h1>`) {
 		t.Fatalf("add url = %q, want heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
@@ -318,7 +318,7 @@ func TestExtensionAddArchiveForm(t *testing.T) {
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/add?from=archive")
-	if !strings.Contains(body, "<h1>Add Extension</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">Add Extension</h1>`) {
 		t.Fatalf("add archive = %q, want heading", body)
 	}
 	if !strings.Contains(body, `href="/settings/extensions/add?from=url"`) {

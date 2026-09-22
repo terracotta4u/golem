@@ -21,7 +21,7 @@ func TestSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>Settings</title>") {
 		t.Fatalf("settings = %q, want Settings title", body)
 	}
-	if !strings.Contains(body, "<h1>Settings</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">Settings</h1>`) {
 		t.Fatalf("settings = %q, want Settings heading", body)
 	}
 	if !strings.Contains(body, `href="/settings/general"`) {
@@ -47,7 +47,7 @@ func TestAboutPageShowsVersion(t *testing.T) {
 	if !strings.Contains(body, "<title>About</title>") {
 		t.Fatalf("about = %q, want About title", body)
 	}
-	if !strings.Contains(body, "<h1>About</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">About</h1>`) {
 		t.Fatalf("about = %q, want About heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {
@@ -153,7 +153,7 @@ func TestGeneralSettingsPage(t *testing.T) {
 	if !strings.Contains(body, "<title>General</title>") {
 		t.Fatalf("general = %q, want General title", body)
 	}
-	if !strings.Contains(body, "<h1>General</h1>") {
+	if !strings.Contains(body, `<h1 class="type-display">General</h1>`) {
 		t.Fatalf("general = %q, want General heading", body)
 	}
 	if !strings.Contains(body, `href="/settings">Settings</a>`) {

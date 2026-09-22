@@ -3,17 +3,17 @@
 <main class="container container-md stack grow">
   <section id="messages" class="stack gap-3 grow">
     {{if not .Items}}
-    <p class="empty-chat">Ask Golem anything to get started</p>
+    <p class="empty-chat m-0">Ask Golem anything to get started</p>
     {{end}}
     {{range .Items}}
       {{if eq .Role "user"}}
         <div class="message user my-6">
-          <p>{{.Content}}</p>
+          <p class="m-0 py-2 px-3">{{.Content}}</p>
         </div>
       {{else if eq .Role "assistant"}}
         <div class="message assistant">
           {{if .Tools}}
-          <div class="tool-log mb-2">
+          <div class="tool-log stack gap-2 mb-2">
             {{range .Tools}}
               {{template "tool-call" .}}
             {{end}}
@@ -28,7 +28,7 @@
   </section>
   <div class="composer-spacer" aria-hidden="true"></div>
   <form
-    class="composer shadow-lg"
+    class="composer"
     method="post"
     action="/conversations/{{.ID}}/turns"
     hx-post="/conversations/{{.ID}}/turns"
@@ -46,8 +46,8 @@
       autofocus
       hx-on:keydown="if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.repeat) return; event.preventDefault(); this.form.requestSubmit()"
     ></textarea>
-    <div class="composer-bar">
-      <button class="m-0" type="submit" aria-label="Send">
+    <div class="composer-bar cluster justify-end">
+      <button class="m-0 cluster items-center justify-center" type="submit" aria-label="Send">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
           <path fill-rule="evenodd" d="M1.5 1.5A.5.5 0 0 0 1 2v4.8a2.5 2.5 0 0 0 2.5 2.5h9.793l-3.347 3.346a.5.5 0 0 0 .708.708l4.2-4.2a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 8.3H3.5A1.5 1.5 0 0 1 2 6.8V2a.5.5 0 0 0-.5-.5"/>
         </svg>

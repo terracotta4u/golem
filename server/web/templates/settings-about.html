@@ -1,25 +1,25 @@
 {{define "settings-about"}}
 {{template "layout-start" .}}
 <nav class="subnav cluster gap-0">
-  <div class="subnav-heading stack gap-0">
-    <nav class="breadcrumbs" aria-label="Breadcrumb">
+  <div class="subnav-heading stack gap-0 py-3 px-5">
+    <nav class="breadcrumbs type-label" aria-label="Breadcrumb">
       <a href="/settings">Settings</a>
     </nav>
-    <h1>About</h1>
+    <h1 class="type-display">About</h1>
   </div>
 </nav>
 <main class="container container-md stack grow">
-  <section class="panel stack gap-5">
+  <section class="panel stack gap-5 p-6">
     <div class="stack gap-1">
-      <p class="meta-label">Version</p>
+      <p class="meta-label type-label">Version</p>
       <p>{{.Version}}</p>
     </div>
     {{if .Available}}
     <div class="stack gap-2">
-      <h2>Update available</h2>
+      <h2 class="type-heading">Update available</h2>
       <p class="field-hint">{{.Latest}} is the latest release.</p>
       <p class="field-hint">To update, run:</p>
-      <pre class="install-cmd">{{.Install}}</pre>
+      <pre class="install-cmd type-code m-0 py-3 px-4">{{.Install}}</pre>
     </div>
     {{else if .Dev}}
     <p class="field-hint">This is a development build.</p>
