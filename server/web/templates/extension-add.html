@@ -1,21 +1,21 @@
 {{define "extension-add"}}
 {{template "layout-start" .}}
 <nav class="subnav cluster gap-0">
-  <div class="subnav-heading stack gap-0">
-    <nav class="breadcrumbs cluster gap-1" aria-label="Breadcrumb">
+  <div class="subnav-heading stack gap-0 py-3 px-5">
+    <nav class="breadcrumbs type-label cluster gap-1" aria-label="Breadcrumb">
       <a href="/settings">Settings</a>
       <span aria-hidden="true">/</span>
       <a href="/settings/extensions">Extensions</a>
     </nav>
-    <h1>Add Extension</h1>
+    <h1 class="type-display">Add Extension</h1>
   </div>
 </nav>
 <main class="container container-md stack grow">
   <nav class="tabs cluster gap-0" aria-label="Add method">
-    <a class="tab{{if eq .From "url"}} current{{end}}" href="/settings/extensions/add?from=url">URL</a>
-    <a class="tab{{if eq .From "archive"}} current{{end}}" href="/settings/extensions/add?from=archive">Local archive</a>
+    <a class="tab py-3 px-5{{if eq .From "url"}} current{{end}}" href="/settings/extensions/add?from=url">URL</a>
+    <a class="tab py-3 px-5{{if eq .From "archive"}} current{{end}}" href="/settings/extensions/add?from=archive">Local archive</a>
   </nav>
-  <section class="panel stack gap-5">
+  <section class="panel stack gap-5 p-6">
     {{if eq .From "url"}}
     <form class="stack gap-5" method="post" action="/settings/extensions/add/url">
       <div class="field stack gap-2">

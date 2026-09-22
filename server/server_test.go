@@ -109,7 +109,7 @@ func TestStaticCSS(t *testing.T) {
 	if base == "" {
 		t.Fatal("base.css empty")
 	}
-	for _, name := range []string{"colors.css", "spacing.css", "shadows.css", "layout.css", "app.css"} {
+	for _, name := range []string{"../terracotta-ui/terracotta.css", "shadows.css", "app.css"} {
 		if !strings.Contains(base, `url("`+name+`")`) {
 			t.Fatalf("css = %q, want import %s", base, name)
 		}

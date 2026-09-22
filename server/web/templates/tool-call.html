@@ -1,6 +1,6 @@
 {{define "tool-call"}}
 <details class="tool-call">
-  <summary class="tool-summary">
+  <summary class="tool-summary cluster gap-2 py-2 px-3">
     <span class="tool-badge">{{.Name}}</span>
     <span class="tool-preview">{{.Preview}}</span>
     <span class="tool-toggle" aria-hidden="true">
@@ -12,13 +12,13 @@
       </svg>
     </span>
   </summary>
-  <div class="tool-body">
+  <div class="tool-body stack gap-3 p-3">
     <div class="tool-field">
-      <div class="tool-label">Input</div>
+      <div class="tool-label type-label mb-1">Input</div>
       <pre class="tool-args">{{.PrettyArgs}}</pre>
     </div>
     <div class="tool-field">
-      <div class="tool-label">Output</div>
+      <div class="tool-label type-label mb-1">Output</div>
       <pre class="tool-result">{{.Result}}</pre>
     </div>
   </div>
