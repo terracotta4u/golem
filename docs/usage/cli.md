@@ -24,7 +24,7 @@ golem serve --addr 127.0.0.1:9000
 
 `--addr` defaults to `127.0.0.1:8743`. `--token` sets the API token; if you omit it, Golem generates one and prints it.
 
-Extensions added while the server is running are not picked up until you restart `golem serve`.
+Extensions added from the CLI while the server is running are not picked up until you restart `golem serve`. Adding from **Settings → Extensions** starts them immediately.
 
 ## version
 
