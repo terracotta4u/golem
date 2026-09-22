@@ -105,17 +105,32 @@ func TestStaticCSS(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
 	defer ts.Close()
 
-	page := getHTML(t, ts.URL+"/")
+	home := getHTML(t, ts.URL+"/")
 	for _, href := range []string{
 		"/static/terracotta-ui/terracotta.css",
 		"/static/css/app.css",
+		"/static/css/chat.css",
 	} {
-		if !strings.Contains(page, `href="`+href+`"`) {
-			t.Fatalf("page = %q, want stylesheet %s", page, href)
+		if !strings.Contains(home, `href="`+href+`"`) {
+			t.Fatalf("home = %q, want stylesheet %s", home, href)
 		}
 		if body := getStatic(t, ts.URL+href); body == "" {
 			t.Fatalf("%s empty", href)
 		}
+	}
+	if strings.Contains(home, "/static/css/settings.css") {
+		t.Fatalf("home = %q, want no settings stylesheet", home)
+	}
+
+	settings := getHTML(t, ts.URL+"/settings")
+	if !strings.Contains(settings, `href="/static/css/settings.css"`) {
+		t.Fatalf("settings = %q, want settings stylesheet", settings)
+	}
+	if strings.Contains(settings, "/static/css/chat.css") {
+		t.Fatalf("settings = %q, want no chat stylesheet", settings)
+	}
+	if body := getStatic(t, ts.URL+"/static/css/settings.css"); body == "" {
+		t.Fatal("settings.css empty")
 	}
 }
 

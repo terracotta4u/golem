@@ -20,7 +20,8 @@ func (s *Server) mountWebSettings(mux *http.ServeMux) {
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "settings", map[string]any{
-		"Title": "Settings",
+		"Title":   "Settings",
+		"PageCSS": "settings.css",
 	})
 }
 
@@ -37,6 +38,7 @@ func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
 		"FastProvider":    cfg.FastModel.Provider,
 		"FastModel":       cfg.FastModel.Model,
 		"MaxToolRounds":   cfg.MaxToolRounds,
+		"PageCSS":         "settings.css",
 	})
 }
 
@@ -97,6 +99,7 @@ func (s *Server) handleSettingsAbout(w http.ResponseWriter, r *http.Request) {
 		"Checked":   checked,
 		"Dev":       ver == "dev",
 		"Install":   release.InstallCommand,
+		"PageCSS":   "settings.css",
 	})
 }
 
