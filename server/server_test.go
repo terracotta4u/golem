@@ -105,13 +105,17 @@ func TestStaticCSS(t *testing.T) {
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
 	defer ts.Close()
 
-	base := getStatic(t, ts.URL+"/static/css/base.css")
-	if base == "" {
-		t.Fatal("base.css empty")
-	}
-	for _, name := range []string{"../terracotta-ui/terracotta.css", "shadows.css", "app.css"} {
-		if !strings.Contains(base, `url("`+name+`")`) {
-			t.Fatalf("css = %q, want import %s", base, name)
+	page := getHTML(t, ts.URL+"/")
+	for _, href := range []string{
+		"/static/terracotta-ui/terracotta.css",
+		"/static/css/shadows.css",
+		"/static/css/app.css",
+	} {
+		if !strings.Contains(page, `href="`+href+`"`) {
+			t.Fatalf("page = %q, want stylesheet %s", page, href)
+		}
+		if body := getStatic(t, ts.URL+href); body == "" {
+			t.Fatalf("%s empty", href)
 		}
 	}
 }
