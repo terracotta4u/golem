@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Skill struct {
@@ -23,23 +21,18 @@ var nameRE = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 func Parse(data []byte) (Skill, error) {
 	s := strings.ReplaceAll(string(data), "\r\n", "\n")
 	if !strings.HasPrefix(s, "---\n") {
-		return Skill{}, fmt.Errorf("missing YAML frontmatter")
+		return Skill{}, fmt.Errorf("missing frontmatter")
 	}
 	rest := strings.TrimPrefix(s, "---\n")
 	i := strings.Index(rest, "\n---")
 	if i < 0 {
-		return Skill{}, fmt.Errorf("unterminated YAML frontmatter")
+		return Skill{}, fmt.Errorf("unterminated frontmatter")
 	}
 
-	var meta struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
+	name, desc, err := parseFrontmatter(rest[:i])
+	if err != nil {
+		return Skill{}, err
 	}
-	if err := yaml.Unmarshal([]byte(rest[:i]), &meta); err != nil {
-		return Skill{}, fmt.Errorf("frontmatter: %w", err)
-	}
-
-	name := strings.TrimSpace(meta.Name)
 	if name == "" {
 		return Skill{}, fmt.Errorf("missing name")
 	}
@@ -47,13 +40,32 @@ func Parse(data []byte) (Skill, error) {
 		return Skill{}, fmt.Errorf("invalid name %q", name)
 	}
 
-	desc := strings.TrimSpace(meta.Description)
 	if desc == "" {
 		return Skill{}, fmt.Errorf("missing description")
 	}
 
 	body := strings.TrimSpace(strings.TrimPrefix(rest[i+len("\n---"):], "\n"))
 	return Skill{Name: name, Description: desc, Body: body}, nil
+}
+
+func parseFrontmatter(block string) (name, description string, err error) {
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(line, ":")
+		if !ok {
+			return "", "", fmt.Errorf("frontmatter: line %q", line)
+		}
+		switch strings.TrimSpace(key) {
+		case "name":
+			name = strings.TrimSpace(value)
+		case "description":
+			description = strings.TrimSpace(value)
+		}
+	}
+	return name, description, nil
 }
 
 func LoadDir(root string) ([]Skill, error) {
