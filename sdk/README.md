@@ -107,3 +107,17 @@ uv run pytest
 
 From the Golem repo root, `make test-sdk` runs ruff and pytest.
 
+## Releasing
+
+PyPI publishes happen from this repo on `sdk-v*` tags:
+
+1. Bump the version in `pyproject.toml`.
+2. Commit that change on `main`.
+3. Tag the same version and push the tag:
+
+```bash
+git tag sdk-v0.1.2
+git push origin sdk-v0.1.2
+```
+
+The tag must match `pyproject.toml` (`sdk-v0.1.2` for `version = "0.1.2"`). GitHub Actions builds from `sdk/` and uploads to PyPI.
