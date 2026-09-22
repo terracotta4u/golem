@@ -37,5 +37,5 @@ Install the Python SDK from PyPI and import it as `golem`:
 pip install golem-agent-sdk
 ```
 
-Source is in [`sdk/`](sdk/). The wire protocol is in [`docs/extensions.md`](docs/extensions.md).
+Source is in [`sdk/`](sdk/). The wire protocol is in [`docs/develop/protocol.md`](docs/develop/protocol.md).
 

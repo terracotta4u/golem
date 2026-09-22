@@ -12,7 +12,7 @@ pip install golem-agent-sdk
 
 ## Usage
 
-Import as `golem`. Golem injects `GOLEM_URL` and `GOLEM_TOKEN` into the process. The wire protocol is [docs/extensions.md](../docs/extensions.md).
+Import as `golem`. Golem injects `GOLEM_URL` and `GOLEM_TOKEN` into the process. The wire protocol is [docs/develop/protocol.md](../docs/develop/protocol.md).
 
 The smallest extension registers, prints a line, and stays alive until it is stopped:
 
