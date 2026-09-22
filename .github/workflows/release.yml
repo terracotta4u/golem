@@ -21,6 +21,11 @@ jobs:
       - name: Test
         run: make test
 
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Test SDK
+        run: make test-sdk
+
       - name: Dist
         run: make dist VERSION="${GITHUB_REF_NAME#v}"
 
