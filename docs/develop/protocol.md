@@ -1,7 +1,7 @@
 ---
 title: Protocol
 description: HTTP contract between Golem and extension processes.
-weight: 10
+weight: 30
 draft: false
 ---
 

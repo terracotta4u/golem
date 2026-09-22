@@ -14,4 +14,4 @@ Start here:
 1. [Install](getting-started/install.md) Golem on macOS or Linux.
 2. Follow the [quickstart](getting-started/quickstart.md) to run the server, add a provider, and send a first message.
 
-[Usage](usage/_index.md) covers the CLI, configuration, memory, skills, and updates. [Extensions](extensions/_index.md) covers installing providers and channels.
+[Usage](usage/_index.md) covers the CLI, configuration, memory, skills, and updates. [Extensions](extensions/_index.md) covers installing providers and channels. [Develop](develop/_index.md) covers writing them.
