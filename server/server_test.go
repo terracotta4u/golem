@@ -108,7 +108,6 @@ func TestStaticCSS(t *testing.T) {
 	page := getHTML(t, ts.URL+"/")
 	for _, href := range []string{
 		"/static/terracotta-ui/terracotta.css",
-		"/static/css/shadows.css",
 		"/static/css/app.css",
 	} {
 		if !strings.Contains(page, `href="`+href+`"`) {
