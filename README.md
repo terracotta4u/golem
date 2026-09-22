@@ -29,3 +29,13 @@ golem extension add https://github.com/terracotta4u/golem-openrouter
 export OPENROUTER_API_KEY=...
 ```
 
+### Writing extensions
+
+Install the Python SDK from PyPI and import it as `golem`:
+
+```bash
+pip install golem-agent-sdk
+```
+
+Source is in [`sdk/`](sdk/). The wire protocol is in [`docs/extensions.md`](docs/extensions.md).
+
