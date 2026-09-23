@@ -5,19 +5,13 @@ weight: 10
 draft: false
 ---
 
-Golem supports macOS and Linux on amd64 and arm64.
+Golem supports macOS and Linux:
 
 ```bash
 curl -fsSL https://terracotta4u.com/golem/install.sh | sh
 ```
 
-The installer downloads the latest GitHub release, checks the checksum, and puts the `golem` binary in `~/.local/bin`. If that directory is not on your `PATH`, add it:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Confirm the install:
+Run the command above in a terminal. Then, confirm the install:
 
 ```bash
 golem version

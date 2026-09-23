@@ -5,14 +5,6 @@ weight: 10
 draft: false
 ---
 
-```bash
-golem serve
-golem version
-golem extension add SOURCE
-golem extension list
-golem extension remove NAME
-```
-
 ## serve
 
 Starts the HTTP server and every installed extension.
