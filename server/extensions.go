@@ -287,7 +287,7 @@ func normalizeCaps(caps []capability) ([]capability, error) {
 			if cap.Name == "" {
 				return nil, fmt.Errorf("tool name is required")
 			}
-			if err := objectParams(cap.Parameters); err != nil {
+			if _, err := objectParams(cap.Parameters); err != nil {
 				return nil, err
 			}
 		}
@@ -296,15 +296,15 @@ func normalizeCaps(caps []capability) ([]capability, error) {
 	return out, nil
 }
 
-func objectParams(raw json.RawMessage) error {
+func objectParams(raw json.RawMessage) (map[string]any, error) {
 	if len(raw) == 0 {
-		return fmt.Errorf("tool parameters are required")
+		return nil, fmt.Errorf("tool parameters are required")
 	}
 	var obj map[string]any
 	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
-		return fmt.Errorf("tool parameters must be an object")
+		return nil, fmt.Errorf("tool parameters must be an object")
 	}
-	return nil
+	return obj, nil
 }
 
 func parseCallback(raw string) (string, error) {
