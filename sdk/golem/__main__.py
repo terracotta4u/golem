@@ -28,22 +28,27 @@ def serve(
     if argv is None:
         argv = sys.argv[1:]
     name, provider, channel = _args(argv)
-    ext = Extension.from_env(name, heartbeat_interval=heartbeat_interval)
+    provider_impl: tuple[str, Provider] | None = None
+    channel_impl: Channel | None = None
     if provider is not None:
         ident, entry = provider
         impl = _call(entry)
         if not isinstance(impl, Provider):
             raise TypeError(f"{entry} is not a Provider")
-        ext.provider(ident, impl)
+        provider_impl = (ident, impl)
     if channel is not None:
         ident, entry = channel
         impl = _call(entry)
         if not isinstance(impl, Channel):
             raise TypeError(f"{entry} is not a Channel")
         impl.id = ident
-        ext.capability({"kind": "channel", "id": impl.id})
-        ext.task(impl.run)
-    ext.run(stop)
+        channel_impl = impl
+    Extension(
+        name,
+        heartbeat_interval=heartbeat_interval,
+        provider=provider_impl,
+        channel=channel_impl,
+    ).run(stop)
 
 
 def _args(argv: list[str]) -> tuple[str, tuple[str, str] | None, tuple[str, str] | None]:
