@@ -176,7 +176,7 @@ Golem sends this when the model calls a tool from a live extension. The body is 
 {"city": "Lisbon"}
 ```
 
-`200` → `{"result": "sunny in Lisbon"}`. The result is text. A raised exception is a non-200 error body. The tool is included at the start of each agent round and dropped when the extension expires.
+`200` → `{"result": "sunny in Lisbon"}`. The result is text. A dict or list return value is JSON text, such as `{"result": "{\"temp\": 72}"}`. A raised exception is a non-200 error body. The tool is included at the start of each agent round and dropped when the extension expires.
 
 ### Errors
 

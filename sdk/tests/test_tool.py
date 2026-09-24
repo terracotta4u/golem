@@ -1,7 +1,7 @@
 import importlib.util
 from pathlib import Path
 
-from golem.tool import schema
+from golem.tool import invoke, schema
 
 
 def weather(city: str) -> str:
@@ -58,3 +58,15 @@ def test_schema_resolves_postponed_annotations(tmp_path: Path) -> None:
     assert got["parameters"]["properties"]["days"]["type"] == "integer"
     assert got["parameters"]["properties"]["city"]["type"] == "string"
     assert got["parameters"]["required"] == ["city"]
+
+
+def test_invoke_returns_text() -> None:
+    assert invoke(lambda: "sunny", {}) == "sunny"
+    assert invoke(lambda: 3, {}) == "3"
+
+
+def test_invoke_json_for_dict_and_list() -> None:
+    assert invoke(lambda: {"city": "Lisbon", "temp": 72}, {}) == (
+        '{"city": "Lisbon", "temp": 72}'
+    )
+    assert invoke(lambda: ["sunny", "warm"], {}) == '["sunny", "warm"]'
