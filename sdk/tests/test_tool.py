@@ -1,3 +1,6 @@
+import importlib.util
+from pathlib import Path
+
 from golem.tool import schema
 
 
@@ -36,3 +39,22 @@ def test_schema_from_two_functions() -> None:
         },
         "required": ["city"],
     }
+
+
+def test_schema_resolves_postponed_annotations(tmp_path: Path) -> None:
+    path = tmp_path / "postponed_tools.py"
+    path.write_text(
+        "from __future__ import annotations\n"
+        "\n"
+        "def forecast(city: str, days: int = 1) -> str:\n"
+        '    """Daily forecast."""\n'
+        "    return city\n"
+    )
+    spec = importlib.util.spec_from_file_location("postponed_tools_schema", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    got = schema(module.forecast)
+    assert got["parameters"]["properties"]["days"]["type"] == "integer"
+    assert got["parameters"]["properties"]["city"]["type"] == "string"
+    assert got["parameters"]["required"] == ["city"]
