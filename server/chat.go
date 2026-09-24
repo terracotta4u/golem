@@ -12,8 +12,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-
-	"github.com/terracotta4u/golem/conversation"
 )
 
 const subBuf = 32
@@ -251,7 +249,7 @@ func (s *Server) run(ctx context.Context, turnID, convID string, req postTurnReq
 	l.Lock()
 	defer l.Unlock()
 
-	conv, err := conversation.Open(s.opts.Store, convID, req.Channel)
+	conv, err := s.opts.Store.LoadOrCreate(convID, req.Channel)
 	if err != nil {
 		s.finish(turnID, "", err)
 		return

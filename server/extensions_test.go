@@ -294,7 +294,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	defer cb.Close()
 
 	hub := provider.NewHub(0)
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

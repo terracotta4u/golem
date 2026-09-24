@@ -17,7 +17,7 @@ import (
 )
 
 func TestHomeIsNewChat(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestHomeIsNewChat(t *testing.T) {
 }
 
 func TestSidebarListsWebConversations(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestSidebarListsWebConversations(t *testing.T) {
 }
 
 func TestConversationShowsMessages(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestConversationShowsMessages(t *testing.T) {
 }
 
 func TestConversationShowsToolCalls(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestChatItems(t *testing.T) {
 }
 
 func TestConversationUnknownIsEmpty(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 }
 
 func TestConversationWrongChannelNotFound(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestConversationWrongChannelNotFound(t *testing.T) {
 }
 
 func TestWebPostTurn(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestWebPostTurn(t *testing.T) {
 }
 
 func TestWebPostTurnPersists(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func TestWebPostTurnPersists(t *testing.T) {
 }
 
 func TestWebPostTurnPersistsToolCall(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +397,7 @@ func TestWebPostTurnPersistsToolCall(t *testing.T) {
 }
 
 func TestWebPostTurnEmpty(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +411,7 @@ func TestWebPostTurnEmpty(t *testing.T) {
 }
 
 func TestWebPostTurnWrongChannel(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +428,7 @@ func TestWebPostTurnWrongChannel(t *testing.T) {
 }
 
 func TestWebPostTurnEscapesHTML(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,7 +475,7 @@ func postTurnHTML(t *testing.T, base, convID, message string) (int, string) {
 }
 
 func TestWebTurnEventsNotFound(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestWebTurnEventsNotFound(t *testing.T) {
 func TestWebTurnEventsDone(t *testing.T) {
 	waiting := make(chan struct{}, 1)
 	release := make(chan struct{})
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +530,7 @@ func TestWebTurnEventsDone(t *testing.T) {
 }
 
 func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -550,7 +550,7 @@ func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
 }
 
 func TestWebTurnEventsLateSubscriber(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -577,7 +577,7 @@ func TestWebTurnEventsLateSubscriber(t *testing.T) {
 func TestWebTurnEventsLogThenDone(t *testing.T) {
 	waiting := make(chan struct{}, 1)
 	release := make(chan struct{})
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,7 +642,7 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 }
 
 func TestWebTurnEventsError(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

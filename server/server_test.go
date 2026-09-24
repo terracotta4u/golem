@@ -98,7 +98,7 @@ func TestHealthOK(t *testing.T) {
 }
 
 func TestStaticCSS(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

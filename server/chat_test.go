@@ -20,7 +20,7 @@ import (
 )
 
 func TestPostTurnDone(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestGetTurnEventsNotFound(t *testing.T) {
 func TestGetTurnEventsDone(t *testing.T) {
 	waiting := make(chan struct{}, 1)
 	release := make(chan struct{})
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestGetTurnEventsDone(t *testing.T) {
 }
 
 func TestGetTurnEventsLateSubscriber(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestGetTurnEventsLateSubscriber(t *testing.T) {
 func TestGetTurnEventsLogThenDone(t *testing.T) {
 	waiting := make(chan struct{}, 1)
 	release := make(chan struct{})
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +247,7 @@ func TestToolLogPrettyArgs(t *testing.T) {
 }
 
 func TestGetTurnEventsError(t *testing.T) {
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

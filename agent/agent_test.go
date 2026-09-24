@@ -34,7 +34,7 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		{Role: "assistant", Content: "done"},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestSendUsesDefaultWhenFastSet(t *testing.T) {
 		{Role: "assistant", Content: "from-fast"},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestSendNamesChatFromFast(t *testing.T) {
 		{Role: "assistant", Content: `"Dinner plans"`},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestSendNameFallsBackToFirstMessage(t *testing.T) {
 	}}
 	fast := &scriptedProvider{err: errString("fast down")}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestSendNameFallsBackWhenFastEmpty(t *testing.T) {
 		{Role: "assistant", Content: "  "},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestSendDoesNotRenameExistingTitle(t *testing.T) {
 		{Role: "assistant", Content: "Should not apply"},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestSendReportsToolResult(t *testing.T) {
 		},
 		{Role: "assistant", Content: "done"},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ func TestSendIncludesMemoriesInSystemPrompt(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestSendRetrievesMemoryIntoChat(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +381,7 @@ func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
 		},
 		{Role: "assistant", Content: "done"},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestSendSearchErrorStillReplies(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "hi"},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestSendNilMemoryIsUnchanged(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "hi"},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +480,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 		{Role: "assistant", Content: "use the standard library"},
 		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -544,7 +544,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 	unblock := make(chan struct{})
 	p := &blockingExtractProvider{unblock: unblock}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -655,7 +655,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 		replies: []provider.Message{{Role: "assistant", Content: "hi"}},
 		err:     errString("extract down"),
 	}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -690,7 +690,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 		{Role: "assistant", Content: "hi"},
 		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
 	}}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -738,7 +738,7 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		{Role: "assistant", Content: "ok"},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -783,7 +783,7 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 		{Role: "assistant", Content: "done"},
 	}}
 
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -828,7 +828,7 @@ func TestSendAllowsManyToolRounds(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	const rounds = 25
 	p := &scriptedProvider{replies: toolThenReply(rounds, "done")}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,7 +850,7 @@ func TestSendAllowsManyToolRounds(t *testing.T) {
 func TestSendCapsToolRounds(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	p := &scriptedProvider{replies: toolThenReply(5, "done")}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -868,7 +868,7 @@ func TestSendCapsToolRounds(t *testing.T) {
 func TestSendStopsWhenContextCanceled(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	p := &scriptedProvider{replies: toolThenReply(100, "done")}
-	st, err := conversation.NewFileStore(t.TempDir())
+	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

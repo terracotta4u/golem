@@ -35,7 +35,7 @@ func TestSetTitleFromSkipsWhenSet(t *testing.T) {
 }
 
 func TestSaveLoad(t *testing.T) {
-	st, err := NewFileStore(t.TempDir())
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestSaveLoad(t *testing.T) {
 }
 
 func TestListNewestFirstWithoutMessages(t *testing.T) {
-	st, err := NewFileStore(t.TempDir())
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,13 +105,13 @@ func TestListNewestFirstWithoutMessages(t *testing.T) {
 	}
 }
 
-func TestOpenMissingReturnsUnsaved(t *testing.T) {
-	st, err := NewFileStore(t.TempDir())
+func TestLoadOrCreateMissingReturnsUnsaved(t *testing.T) {
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c, err := Open(st, "thread-1", "slack")
+	c, err := st.LoadOrCreate("thread-1", "slack")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestOpenMissingReturnsUnsaved(t *testing.T) {
 
 func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	st, err := NewFileStore(dir)
+	st, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		t.Fatalf("conversations directory present: %v", err)
 	}
 
-	st2, err := NewFileStore(dir)
+	st2, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,7 +20,7 @@ type app struct {
 	hub   *provider.Hub
 }
 
-// setup loads ~/.golem, opens the file store, and reports first-run creation.
+// setup loads ~/.golem, opens the conversation database, and reports first-run creation.
 func setup() (conf.Conf, conversation.Store, error) {
 	cfg, created, err := conf.Load()
 	if err != nil {
@@ -33,7 +33,7 @@ func setup() (conf.Conf, conversation.Store, error) {
 	if created {
 		fmt.Fprintf(os.Stderr, "created %s\n", dir)
 	}
-	st, err := conversation.NewFileStore(dir)
+	st, err := conversation.Open(dir)
 	if err != nil {
 		return conf.Conf{}, nil, err
 	}

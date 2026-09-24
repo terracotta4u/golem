@@ -14,11 +14,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-type FileStore struct {
+type DB struct {
 	db *sql.DB
 }
 
-func NewFileStore(golemDir string) (*FileStore, error) {
+func Open(golemDir string) (*DB, error) {
 	if err := os.MkdirAll(golemDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create %s: %w", golemDir, err)
 	}
@@ -65,10 +65,10 @@ func NewFileStore(golemDir string) (*FileStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("create conversations: %w", err)
 	}
-	return &FileStore{db: db}, nil
+	return &DB{db: db}, nil
 }
 
-func (s *FileStore) Load(id string) (Conversation, error) {
+func (s *DB) Load(id string) (Conversation, error) {
 	var c Conversation
 	var updated string
 	err := s.db.QueryRow(`
@@ -93,7 +93,7 @@ func (s *FileStore) Load(id string) (Conversation, error) {
 	return c, nil
 }
 
-func (s *FileStore) loadMessages(id string) ([]provider.Message, error) {
+func (s *DB) loadMessages(id string) ([]provider.Message, error) {
 	rows, err := s.db.Query(`
 		SELECT seq, role, content, tool_call_id
 		FROM messages
@@ -151,7 +151,7 @@ func (s *FileStore) loadMessages(id string) ([]provider.Message, error) {
 	return msgs, calls.Err()
 }
 
-func (s *FileStore) Save(c Conversation) error {
+func (s *DB) Save(c Conversation) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("save conversation: %w", err)
@@ -197,7 +197,7 @@ func (s *FileStore) Save(c Conversation) error {
 	return nil
 }
 
-func (s *FileStore) List() ([]Conversation, error) {
+func (s *DB) List() ([]Conversation, error) {
 	rows, err := s.db.Query(`
 		SELECT id, channel, title, updated_at
 		FROM conversations

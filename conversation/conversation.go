@@ -24,6 +24,7 @@ type Conversation struct {
 
 type Store interface {
 	Load(id string) (Conversation, error)
+	LoadOrCreate(id, channel string) (Conversation, error)
 	Save(Conversation) error
 	List() ([]Conversation, error)
 }
@@ -35,14 +36,14 @@ func New(channel string) Conversation {
 	}
 }
 
-// Open loads a conversation by id, or returns an unsaved one with that id and
-// channel. Callers that already have a stable identity (a Slack thread, a
-// Telegram chat) should use this instead of New.
-func Open(st Store, id, channel string) (Conversation, error) {
+// LoadOrCreate loads a conversation by id, or returns an unsaved one with that
+// id and channel. Callers that already have a stable identity (a Slack thread,
+// a Telegram chat) should use this instead of New.
+func (db *DB) LoadOrCreate(id, channel string) (Conversation, error) {
 	if id == "" {
 		return Conversation{}, fmt.Errorf("conversation id is required")
 	}
-	c, err := st.Load(id)
+	c, err := db.Load(id)
 	if errors.Is(err, ErrNotFound) {
 		return Conversation{ID: id, Channel: channel}, nil
 	}
