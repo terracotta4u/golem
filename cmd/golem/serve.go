@@ -41,6 +41,7 @@ func runServe(cmd *cobra.Command, addr, token string) error {
 	if err != nil {
 		return err
 	}
+	defer app.conversations.Close()
 	return serve(cmd.Context(), app, addr, token)
 }
 
@@ -67,7 +68,7 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 
 	err = server.New(server.Options{
 		Agent:   app.agent,
-		Store:   app.store,
+		Store:   app.conversations,
 		Addr:    listen,
 		Token:   token,
 		Hub:     app.hub,

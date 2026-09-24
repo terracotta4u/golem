@@ -6,22 +6,22 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/skill"
-	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
 
 type app struct {
-	cfg   conf.Conf
-	store store.Store
-	agent *agent.Agent
-	hub   *provider.Hub
+	cfg           conf.Conf
+	conversations *conversation.DB
+	agent         *agent.Agent
+	hub           *provider.Hub
 }
 
-// setup loads ~/.golem, opens the file store, and reports first-run creation.
-func setup() (conf.Conf, store.Store, error) {
+// setup loads ~/.golem, opens the conversation database, and reports first-run creation.
+func setup() (conf.Conf, *conversation.DB, error) {
 	cfg, created, err := conf.Load()
 	if err != nil {
 		return conf.Conf{}, nil, err
@@ -33,18 +33,24 @@ func setup() (conf.Conf, store.Store, error) {
 	if created {
 		fmt.Fprintf(os.Stderr, "created %s\n", dir)
 	}
-	st, err := store.NewFileStore(dir)
+	conversations, err := conversation.Open(dir)
 	if err != nil {
 		return conf.Conf{}, nil, err
 	}
-	return cfg, st, nil
+	return cfg, conversations, nil
 }
 
 func loadApp() (*app, error) {
-	cfg, st, err := setup()
+	cfg, conversations, err := setup()
 	if err != nil {
 		return nil, err
 	}
+	ok := false
+	defer func() {
+		if !ok {
+			conversations.Close()
+		}
+	}()
 
 	skills, err := loadSkills()
 	if err != nil {
@@ -61,7 +67,7 @@ func loadApp() (*app, error) {
 		tools = append(tools, tool.NewSkill(skills))
 	}
 
-	dir, err := conf.EtcDir()
+	dir, err := conf.Dir()
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +78,8 @@ func loadApp() (*app, error) {
 	a.Fast = provider.NewLazyChat(hub, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, hub)
-	return &app{cfg: cfg, store: st, agent: a, hub: hub}, nil
+	ok = true
+	return &app{cfg: cfg, conversations: conversations, agent: a, hub: hub}, nil
 }
 
 func confModel(which string) func() (string, string, error) {

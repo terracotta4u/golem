@@ -47,15 +47,6 @@ func Dir() (string, error) {
 	return filepath.Join(home, dirName), nil
 }
 
-// EtcDir is ~/.golem/etc.
-func EtcDir() (string, error) {
-	dir, err := Dir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "etc"), nil
-}
-
 // MemoryDir is ~/.golem/memory.
 func MemoryDir() (string, error) {
 	dir, err := Dir()
@@ -128,18 +119,13 @@ func UVPythonDir() (string, error) {
 	return filepath.Join(dir, "python"), nil
 }
 
-// Load creates ~/.golem/etc and a default conf on first run, then reads the
-// conf. created is true when the conf file did not already exist.
+// Load creates ~/.golem and a default conf on first run, then reads the conf.
+// created is true when the conf file did not already exist.
 func Load() (cfg Conf, created bool, err error) {
-	etc, err := EtcDir()
+	path, err := filePath()
 	if err != nil {
 		return Conf{}, false, err
 	}
-	if err := os.MkdirAll(etc, 0o700); err != nil {
-		return Conf{}, false, fmt.Errorf("create %s: %w", etc, err)
-	}
-
-	path := filepath.Join(etc, fileName)
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		cfg := defaults()
@@ -176,14 +162,22 @@ func write(path string, cfg Conf) error {
 }
 
 func Save(cfg Conf) error {
-	etc, err := EtcDir()
+	path, err := filePath()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(etc, 0o700); err != nil {
-		return fmt.Errorf("create %s: %w", etc, err)
+	return write(path, cfg)
+}
+
+func filePath() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
 	}
-	return write(filepath.Join(etc, fileName), cfg)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create %s: %w", dir, err)
+	}
+	return filepath.Join(dir, fileName), nil
 }
 
 func RemoveExtension(cfg *Conf, name string) {

@@ -34,7 +34,7 @@ func TestLoadCreatesConf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "etc", "conf.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "conf.json")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,11 +49,7 @@ func TestLoadCreatesConf(t *testing.T) {
 		t.Errorf("cfg2 = %+v", cfg2)
 	}
 
-	etc, err := EtcDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(etc, fileName))
+	data, err := os.ReadFile(filepath.Join(dir, fileName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,21 +99,6 @@ func TestExtensionsDir(t *testing.T) {
 	}
 	if got != filepath.Join(dir, "extensions") {
 		t.Errorf("ExtensionsDir = %q, want %s/extensions", got, dir)
-	}
-}
-
-func TestEtcDir(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	dir, err := Dir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := EtcDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != filepath.Join(dir, "etc") {
-		t.Errorf("EtcDir = %q, want %s/etc", got, dir)
 	}
 }
 
@@ -239,11 +220,11 @@ func TestLoadWritesMigratedConfToDisk(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	etc, err := EtcDir()
+	dir, err := Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(etc, fileName)
+	path := filepath.Join(dir, fileName)
 	old := `{
   "extensions": {
     "golem-telegram": {

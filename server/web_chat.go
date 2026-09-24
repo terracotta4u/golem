@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/store"
 )
 
 const webChannel = "web"
@@ -22,7 +22,7 @@ func (s *Server) mountWebChat(mux *http.ServeMux, runCtx context.Context) {
 	mux.HandleFunc("GET /turns/{id}", s.handleWebTurn)
 }
 
-func (s *Server) webConversations() ([]store.Conversation, error) {
+func (s *Server) webConversations() ([]conversation.Conversation, error) {
 	if s.opts.Store == nil {
 		return nil, nil
 	}
@@ -30,7 +30,7 @@ func (s *Server) webConversations() ([]store.Conversation, error) {
 	if err != nil {
 		return nil, err
 	}
-	var list []store.Conversation
+	var list []conversation.Conversation
 	for _, c := range all {
 		if c.Channel == webChannel {
 			list = append(list, c)
@@ -59,7 +59,7 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 		if s.opts.Store != nil {
 			c, err := s.opts.Store.Load(convID)
 			switch {
-			case errors.Is(err, store.ErrNotFound):
+			case errors.Is(err, conversation.ErrNotFound):
 			case err != nil:
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -111,11 +111,11 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id string) {
-	conv := store.Conversation{ID: id, Channel: webChannel}
+	conv := conversation.Conversation{ID: id, Channel: webChannel}
 	if s.opts.Store != nil {
 		c, err := s.opts.Store.Load(id)
 		switch {
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, conversation.ErrNotFound):
 		case err != nil:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/release"
-	"github.com/terracotta4u/golem/store"
 )
 
 //go:embed web/templates/*.html web/static
@@ -30,7 +30,7 @@ const maxBody = 1 << 20
 
 type Options struct {
 	Agent *agent.Agent
-	Store store.Store
+	Store conversation.Store
 	Addr  string
 	Token string
 

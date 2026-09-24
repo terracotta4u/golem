@@ -9,8 +9,8 @@ Golem keeps its state in `~/.golem`. The first `golem serve` creates it.
 
 | Path | Purpose |
 |---|---|
-| `~/.golem/etc/conf.json` | Models, memory settings, extension origins |
-| `~/.golem/conversations/` | Chat history |
+| `~/.golem/conf.json` | Models, memory settings, extension origins |
+| `~/.golem/conversations.db` | Chat history |
 | `~/.golem/extensions/` | Installed extension packages |
 | `~/.golem/memory/` | Memory database |
 | `~/.golem/skills/` | Skill folders |

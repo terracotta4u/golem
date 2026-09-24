@@ -1,4 +1,4 @@
-package store
+package conversation
 
 import (
 	"errors"
@@ -15,15 +15,16 @@ import (
 var ErrNotFound = errors.New("conversation not found")
 
 type Conversation struct {
-	ID        string             `json:"id"`
-	Channel   string             `json:"channel"`
-	Title     string             `json:"title,omitempty"`
-	UpdatedAt time.Time          `json:"updated_at"`
-	Messages  []provider.Message `json:"messages"`
+	ID        string
+	Channel   string
+	Title     string
+	UpdatedAt time.Time
+	Messages  []provider.Message
 }
 
 type Store interface {
 	Load(id string) (Conversation, error)
+	LoadOrCreate(id, channel string) (Conversation, error)
 	Save(Conversation) error
 	List() ([]Conversation, error)
 }
@@ -35,14 +36,14 @@ func New(channel string) Conversation {
 	}
 }
 
-// Open loads a conversation by id, or returns an unsaved one with that id and
-// channel. Callers that already have a stable identity (a Slack thread, a
-// Telegram chat) should use this instead of New.
-func Open(st Store, id, channel string) (Conversation, error) {
+// LoadOrCreate loads a conversation by id, or returns an unsaved one with that
+// id and channel. Callers that already have a stable identity (a Slack thread,
+// a Telegram chat) should use this instead of New.
+func (db *DB) LoadOrCreate(id, channel string) (Conversation, error) {
 	if id == "" {
 		return Conversation{}, fmt.Errorf("conversation id is required")
 	}
-	c, err := st.Load(id)
+	c, err := db.Load(id)
 	if errors.Is(err, ErrNotFound) {
 		return Conversation{ID: id, Channel: channel}, nil
 	}
@@ -64,24 +65,6 @@ func (c *Conversation) SetTitleFrom(text string) {
 		return
 	}
 	c.Title = TitleFrom(text)
-}
-
-func Last(list []Conversation, channel string) (Conversation, error) {
-	var best Conversation
-	found := false
-	for _, c := range list {
-		if channel != "" && c.Channel != channel {
-			continue
-		}
-		if !found || c.UpdatedAt.After(best.UpdatedAt) {
-			best = c
-			found = true
-		}
-	}
-	if !found {
-		return Conversation{}, ErrNotFound
-	}
-	return best, nil
 }
 
 func oneLine(s string) string {

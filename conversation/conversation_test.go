@@ -1,4 +1,4 @@
-package store
+package conversation
 
 import (
 	"os"
@@ -35,7 +35,7 @@ func TestSetTitleFromSkipsWhenSet(t *testing.T) {
 }
 
 func TestSaveLoad(t *testing.T) {
-	st, err := NewFileStore(t.TempDir())
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestSaveLoad(t *testing.T) {
 }
 
 func TestListNewestFirstWithoutMessages(t *testing.T) {
-	st, err := NewFileStore(t.TempDir())
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,13 +105,26 @@ func TestListNewestFirstWithoutMessages(t *testing.T) {
 	}
 }
 
-func TestOpenMissingReturnsUnsaved(t *testing.T) {
-	st, err := NewFileStore(t.TempDir())
+func TestClose(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Load("missing"); err == nil {
+		t.Fatal("Load after Close succeeded")
+	}
+}
+
+func TestLoadOrCreateMissingReturnsUnsaved(t *testing.T) {
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c, err := Open(st, "thread-1", "slack")
+	c, err := st.LoadOrCreate("thread-1", "slack")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,34 +136,73 @@ func TestOpenMissingReturnsUnsaved(t *testing.T) {
 	}
 }
 
-func TestRebuildIndexFromJSON(t *testing.T) {
+func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	st, err := NewFileStore(dir)
+	st, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	c := New("cli")
-	c.Title = "from json"
-	c.UpdatedAt = time.Date(2026, 8, 22, 18, 0, 0, 0, time.UTC)
-	c.Messages = []provider.Message{{Role: "user", Content: "hi"}}
+	c.Title = "tools"
+	c.UpdatedAt = time.Date(2026, 8, 22, 18, 0, 0, 123, time.UTC)
+	c.Messages = []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "read",
+					Arguments: `{"path":"a.go"}`,
+				},
+			}},
+		},
+		{Role: "tool", ToolCallID: "call_1", Content: "package main"},
+	}
 	if err := st.Save(c); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.Remove(filepath.Join(dir, "conversations", "conversations.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "conversations.db")); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "conversations")); !os.IsNotExist(err) {
+		t.Fatalf("conversations directory present: %v", err)
 	}
 
-	st2, err := NewFileStore(dir)
+	st2, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := st2.List()
+	got, err := st2.Load(c.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 1 || list[0].ID != c.ID || list[0].Title != "from json" || list[0].Channel != "cli" {
-		t.Fatalf("list = %+v, want rebuilt metadata for %s", list, c.ID)
+	if got.Title != "tools" || got.Channel != "cli" || !got.UpdatedAt.Equal(c.UpdatedAt) {
+		t.Fatalf("got %+v", got)
+	}
+	if len(got.Messages) != 2 {
+		t.Fatalf("messages = %+v", got.Messages)
+	}
+	call := got.Messages[0].ToolCalls
+	if len(call) != 1 || call[0].ID != "call_1" || call[0].Type != "function" || call[0].Function.Name != "read" || call[0].Function.Arguments != `{"path":"a.go"}` {
+		t.Fatalf("tool call = %+v", call)
+	}
+	if got.Messages[1].Role != "tool" || got.Messages[1].ToolCallID != "call_1" || got.Messages[1].Content != "package main" {
+		t.Fatalf("tool result = %+v", got.Messages[1])
+	}
+
+	c.Title = "renamed"
+	c.Messages = []provider.Message{{Role: "user", Content: "next"}}
+	if err := st2.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	got, err = st2.Load(c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "renamed" || len(got.Messages) != 1 || got.Messages[0].Content != "next" || got.Messages[0].ToolCalls != nil {
+		t.Fatalf("after replace = %+v", got)
 	}
 }
