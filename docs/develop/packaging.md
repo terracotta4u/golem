@@ -18,7 +18,7 @@ If a script has the same name as the project, Golem runs that. If there is exact
 name = "golem-echo"
 version = "0.1.0"
 description = "Example Golem extension"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "golem-agent-sdk>=0.1.1",
 ]
