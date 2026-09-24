@@ -7,10 +7,11 @@ draft: false
 
 Golem runs installed Python packages as subprocesses. Each child gets `GOLEM_URL` (the local server) and `GOLEM_TOKEN`. All `/v1` requests, in both directions, use `Authorization: Bearer <token>` and `Content-Type: application/json`. The Python client is [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) (source in [`sdk/`](../../sdk/)).
 
-There are two roles. A process can do both.
+A process can be a channel, a provider, and a source of tools.
 
 - **Channel:** call Golem (Telegram, etc.).
 - **Provider:** Golem calls you for chat, structured output, or embeddings.
+- **Tools:** functions Golem calls during a turn.
 
 ## Channel API (extension → Golem)
 
@@ -75,13 +76,28 @@ Embeddings-only example:
 
 Two live extensions cannot share a provider `id` (`409`).
 
+`kind: "tool"` requires `name` and `parameters` (a JSON Schema object). `description` is optional. The names `read`, `write`, `edit`, `shell`, and `skill` are reserved (`409`). Two live extensions cannot share a tool name (`409`).
+
+```json
+{
+  "kind": "tool",
+  "name": "weather",
+  "description": "Current conditions for a city.",
+  "parameters": {
+    "type": "object",
+    "properties": {"city": {"type": "string"}},
+    "required": ["city"]
+  }
+}
+```
+
 `POST /v1/extensions/heartbeat`
 
 ```json
 {"name": "golem-openrouter"}
 ```
 
-`200` → `{"ok": true}`. Registration expires **30 seconds** after the last successful register or heartbeat. Heartbeat must run on its own timer, not on the thread that handles `/v1/chat` — a long model call must not look like a dead process. Expiry, `golem extension remove`, and stopping the process drop hub entries. After expiry, register again; heartbeat on an unknown name is `404`.
+`200` → `{"ok": true}`. Registration expires **30 seconds** after the last successful register or heartbeat. Heartbeat must run on its own timer, not on the thread that handles a callback — a long call must not look like a dead process. Expiry, `golem extension remove`, and stopping the process drop the extension, including its provider and its tools. After expiry, register again; heartbeat on an unknown name is `404`.
 
 `GET /v1/extensions` — live registrations (`name`, `callback_url`, `capabilities`).
 
@@ -151,6 +167,16 @@ Request:
 ```
 
 `200` → `{"vectors": [[0.1, 0.2], [0.3, 0.4]]}` in input order.
+
+### `POST /v1/tools/{name}`
+
+Golem sends this when the model calls a tool from a live extension. The body is the arguments object:
+
+```json
+{"city": "Lisbon"}
+```
+
+`200` → `{"result": "sunny in Lisbon"}`. The result is text. A raised exception is a non-200 error body. The tool is included at the start of each agent round and dropped when the extension expires.
 
 ### Errors
 

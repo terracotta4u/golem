@@ -28,28 +28,23 @@ type Agent struct {
 	// MemoryStore, if set, records extracted memories after a turn.
 	MemoryStore *memory.Store
 	Indexer     memory.Indexer
+	// Catalog, when set, adds tools that are live for the current round.
+	// A builtin with the same name is kept.
+	Catalog Catalog
 
 	provider  provider.Provider
-	tools     map[string]tool.Tool
 	list      []tool.Tool
-	defs      []provider.ToolDef
 	workspace string
 	wg        sync.WaitGroup
 }
 
+// Catalog is the set of extension tools available right now.
+type Catalog interface {
+	Tools() []tool.Tool
+}
+
 func New(p provider.Provider, dir string, tools ...tool.Tool) *Agent {
-	byName := make(map[string]tool.Tool, len(tools))
-	defs := make([]provider.ToolDef, 0, len(tools))
-	for _, t := range tools {
-		spec := t.Spec()
-		byName[spec.Name] = t
-		defs = append(defs, provider.ToolDef{
-			Name:        spec.Name,
-			Description: spec.Description,
-			Parameters:  spec.Parameters,
-		})
-	}
-	return &Agent{provider: p, tools: byName, list: tools, defs: defs, workspace: dir}
+	return &Agent{provider: p, list: tools, workspace: dir}
 }
 
 type Session struct {
@@ -83,9 +78,10 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 			return "", fmt.Errorf("exceeded %d tool rounds", max)
 		}
 
+		byName, defs := s.agent.roundTools()
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
 			Messages: withContext(systemPrompt(s.memories, s.agent.list...), s.conv.Messages),
-			Tools:    s.agent.defs,
+			Tools:    defs,
 		})
 		if err != nil {
 			if n := len(s.conv.Messages); n > 0 && s.conv.Messages[n-1].Role == "user" {
@@ -114,7 +110,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 		}
 
 		for _, call := range msg.ToolCalls {
-			result := s.agent.runTool(ctx, call)
+			result := s.agent.runTool(ctx, byName, call)
 			if s.OnTool != nil {
 				s.OnTool(call.Function.Name, call.Function.Arguments, result)
 			}
@@ -203,8 +199,34 @@ func (s *Session) persist() error {
 	return s.store.Save(s.conv)
 }
 
-func (a *Agent) runTool(ctx context.Context, call provider.ToolCall) string {
-	t, ok := a.tools[call.Function.Name]
+func (a *Agent) roundTools() (map[string]tool.Tool, []provider.ToolDef) {
+	list := a.list
+	if a.Catalog != nil {
+		if extra := a.Catalog.Tools(); len(extra) > 0 {
+			list = make([]tool.Tool, 0, len(a.list)+len(extra))
+			list = append(list, a.list...)
+			list = append(list, extra...)
+		}
+	}
+	byName := make(map[string]tool.Tool, len(list))
+	defs := make([]provider.ToolDef, 0, len(list))
+	for _, t := range list {
+		spec := t.Spec()
+		if _, ok := byName[spec.Name]; ok {
+			continue
+		}
+		byName[spec.Name] = t
+		defs = append(defs, provider.ToolDef{
+			Name:        spec.Name,
+			Description: spec.Description,
+			Parameters:  spec.Parameters,
+		})
+	}
+	return byName, defs
+}
+
+func (a *Agent) runTool(ctx context.Context, tools map[string]tool.Tool, call provider.ToolCall) string {
+	t, ok := tools[call.Function.Name]
 	if !ok {
 		return fmt.Sprintf("unknown tool: %s", call.Function.Name)
 	}

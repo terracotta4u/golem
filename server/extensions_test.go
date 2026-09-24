@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -154,6 +155,78 @@ func TestRegisterToolListed(t *testing.T) {
 	}
 	if _, err := s.hub.Get("weather"); err == nil {
 		t.Fatal("tool should not register a provider")
+	}
+}
+
+func TestRegisteredToolIsCalled(t *testing.T) {
+	var gotPath, gotAuth string
+	var gotBody []byte
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		var err error
+		gotBody, err = io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"result": "sunny in Lisbon"})
+	}))
+	defer cb.Close()
+
+	p := &gatedScript{gateAt: -1, replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "weather",
+					Arguments: `{"city":"Lisbon"}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "It is sunny."},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(p, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "golem-weather",
+		"callback_url": cb.URL,
+		"capabilities": []any{toolCap("weather")},
+	})
+	id := postTurn(t, ts.URL, "secret", "conv-1", "weather in Lisbon")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 2 || events[0].Event != "log" || events[1].Event != "done" {
+		t.Fatalf("events = %+v, want log then done", events)
+	}
+	if got := events[1].text(); got != "It is sunny." {
+		t.Fatalf("text = %q, want It is sunny.", got)
+	}
+	if line := events[0].line(); !strings.Contains(line, "[weather]") {
+		t.Fatalf("log line = %q", line)
+	}
+	if !strings.Contains(events[0].Data, "sunny in Lisbon") {
+		t.Fatalf("log data = %s", events[0].Data)
+	}
+	if gotPath != "/v1/tools/weather" {
+		t.Fatalf("path = %s", gotPath)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Fatalf("Authorization = %q", gotAuth)
+	}
+	if string(gotBody) != `{"city":"Lisbon"}` {
+		t.Fatalf("body = %s", gotBody)
 	}
 }
 

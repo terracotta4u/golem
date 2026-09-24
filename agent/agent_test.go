@@ -760,6 +760,133 @@ func TestUnknownToolIsMessage(t *testing.T) {
 	}
 }
 
+func TestSendCallsCatalogTool(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "pong"}
+	weather := &stubTool{name: "weather", result: "sunny"}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "weather",
+					Arguments: `{"city":"Lisbon"}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "sunny"},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t), echo)
+	a.Catalog = fixedCatalog{weather}
+	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "weather?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "sunny" {
+		t.Fatalf("reply = %q, want sunny", reply)
+	}
+	if len(weather.calls) != 1 || weather.calls[0] != `{"city":"Lisbon"}` {
+		t.Fatalf("weather calls = %v", weather.calls)
+	}
+	if len(p.got) == 0 || !hasTool(p.got[0].Tools, "echo") || !hasTool(p.got[0].Tools, "weather") {
+		t.Fatalf("tools = %+v, want echo and weather", p.got[0].Tools)
+	}
+}
+
+func TestSendRefreshesCatalogEachRound(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "pong"}
+	weather := &stubTool{name: "weather", result: "sunny"}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:       "call_1",
+				Type:     "function",
+				Function: provider.FunctionCall{Name: "echo", Arguments: `{}`},
+			}},
+		},
+		{Role: "assistant", Content: "done"},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t), echo)
+	a.Catalog = &seqCatalog{rounds: [][]tool.Tool{nil, {weather}}}
+	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.got) != 2 {
+		t.Fatalf("chats = %d, want 2", len(p.got))
+	}
+	if hasTool(p.got[0].Tools, "weather") {
+		t.Fatal("weather was offered before it registered")
+	}
+	if !hasTool(p.got[1].Tools, "weather") || !hasTool(p.got[1].Tools, "echo") {
+		t.Fatalf("second tools = %+v, want echo and weather", p.got[1].Tools)
+	}
+}
+
+func TestSendKeepsBuiltinWhenCatalogRepeatsName(t *testing.T) {
+	builtin := &stubTool{name: "echo", result: "builtin"}
+	ext := &stubTool{name: "echo", result: "extension"}
+	p := &scriptedProvider{replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:       "call_1",
+				Type:     "function",
+				Function: provider.FunctionCall{Name: "echo", Arguments: `{}`},
+			}},
+		},
+		{Role: "assistant", Content: "done"},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(p, workspace(t), builtin)
+	a.Catalog = fixedCatalog{ext}
+	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if len(builtin.calls) != 1 || len(ext.calls) != 0 {
+		t.Fatalf("builtin calls = %v, extension calls = %v", builtin.calls, ext.calls)
+	}
+}
+
+func hasTool(defs []provider.ToolDef, name string) bool {
+	for _, def := range defs {
+		if def.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+type fixedCatalog []tool.Tool
+
+func (c fixedCatalog) Tools() []tool.Tool { return c }
+
+type seqCatalog struct {
+	rounds [][]tool.Tool
+	i      int
+}
+
+func (c *seqCatalog) Tools() []tool.Tool {
+	if c.i >= len(c.rounds) {
+		return nil
+	}
+	tools := c.rounds[c.i]
+	c.i++
+	return tools
+}
+
 func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 	dir := t.TempDir()
 	sk := skill.Skill{
