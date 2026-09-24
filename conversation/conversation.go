@@ -15,11 +15,11 @@ import (
 var ErrNotFound = errors.New("conversation not found")
 
 type Conversation struct {
-	ID        string             `json:"id"`
-	Channel   string             `json:"channel"`
-	Title     string             `json:"title,omitempty"`
-	UpdatedAt time.Time          `json:"updated_at"`
-	Messages  []provider.Message `json:"messages"`
+	ID        string
+	Channel   string
+	Title     string
+	UpdatedAt time.Time
+	Messages  []provider.Message
 }
 
 type Store interface {
