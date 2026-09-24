@@ -5,7 +5,7 @@ weight: 40
 draft: false
 ---
 
-A skill is a folder under `~/.golem/skills/` with a `SKILL.md` file. Golem lists skills in the system prompt. When one applies, the model is told to load it with the `skill` tool before following it.
+A skill is a folder under `~/.golem/skills/` with a `SKILL.md` file. Golem always includes the `skill` tool and a skills section in the system prompt. When one applies, the model is told to load it with the `skill` tool before following it.
 
 Restart `golem serve` after you add or change a skill.
 

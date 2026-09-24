@@ -9,10 +9,10 @@ import (
 	"github.com/terracotta4u/golem/tool"
 )
 
-func TestSystemPromptOmitsCatalogWhenEmpty(t *testing.T) {
-	got := systemPrompt(nil)
-	if strings.Contains(got, "Skills:") || strings.Contains(got, "skill tool") {
-		t.Errorf("empty catalog should omit skills, got %q", got)
+func TestSystemPromptIncludesEmptySkillCatalog(t *testing.T) {
+	got := systemPrompt(nil, tool.NewSkill(nil))
+	if !strings.Contains(got, "skill tool") || !strings.Contains(got, "Skills:") {
+		t.Errorf("empty catalog = %q", got)
 	}
 }
 
