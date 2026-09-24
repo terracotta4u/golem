@@ -102,21 +102,6 @@ func TestExtensionsDir(t *testing.T) {
 	}
 }
 
-func TestEtcDir(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	dir, err := Dir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := EtcDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != filepath.Join(dir, "etc") {
-		t.Errorf("EtcDir = %q, want %s/etc", got, dir)
-	}
-}
-
 func TestRuntimeDir(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	dir, err := Dir()

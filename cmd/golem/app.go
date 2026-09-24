@@ -61,12 +61,9 @@ func loadApp() (*app, error) {
 		tools = append(tools, tool.NewSkill(skills))
 	}
 
-	dir, err := conf.EtcDir()
+	dir, err := conf.Dir()
 	if err != nil {
 		return nil, err
-	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create %s: %w", dir, err)
 	}
 
 	hub := provider.NewHub(0)

@@ -47,15 +47,6 @@ func Dir() (string, error) {
 	return filepath.Join(home, dirName), nil
 }
 
-// EtcDir is ~/.golem/etc.
-func EtcDir() (string, error) {
-	dir, err := Dir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "etc"), nil
-}
-
 // MemoryDir is ~/.golem/memory.
 func MemoryDir() (string, error) {
 	dir, err := Dir()
