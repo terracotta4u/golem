@@ -67,24 +67,6 @@ func (c *Conversation) SetTitleFrom(text string) {
 	c.Title = TitleFrom(text)
 }
 
-func Last(list []Conversation, channel string) (Conversation, error) {
-	var best Conversation
-	found := false
-	for _, c := range list {
-		if channel != "" && c.Channel != channel {
-			continue
-		}
-		if !found || c.UpdatedAt.After(best.UpdatedAt) {
-			best = c
-			found = true
-		}
-	}
-	if !found {
-		return Conversation{}, ErrNotFound
-	}
-	return best, nil
-}
-
 func oneLine(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.ReplaceAll(s, "\n", " ")
