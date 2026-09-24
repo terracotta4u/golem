@@ -40,7 +40,7 @@ func TestInstallCopiesByProjectName(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, FileName)); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(venvScript(dest, "echo"))
+	info, err := os.Stat(venvScript(dest, "python"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,11 +99,12 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, "pkg", "bot.py")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dest, ".venv", "bin", "python")); !os.IsNotExist(err) {
-		t.Fatal("copied source .venv")
-	}
-	if _, err := os.Stat(venvScript(dest, "echo")); err != nil {
+	data, err := os.ReadFile(venvScript(dest, "python"))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if string(data) == "not-a-real-python\n" {
+		t.Fatal("copied source .venv")
 	}
 	if _, err := os.Stat(filepath.Join(dest, "pkg", "__pycache__")); !os.IsNotExist(err) {
 		t.Fatal("copied __pycache__")
@@ -267,7 +268,7 @@ func TestInstallSyncsPyproject(t *testing.T) {
 					Dir:  cmd.Dir,
 					Env:  append([]string{}, cmd.Env...),
 				})
-				writeVenvScript(t, cmd.Dir, "echo")
+				writeVenvScript(t, cmd.Dir, "python")
 				return nil
 			},
 		}, nil
@@ -315,8 +316,8 @@ func TestInstallPyprojectRequiresVenvScript(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "echo") {
-		t.Errorf("error = %v, want missing echo", err)
+	if !strings.Contains(err.Error(), "python interpreter") {
+		t.Errorf("error = %v, want missing python", err)
 	}
 }
 
@@ -325,14 +326,14 @@ func TestInstallPyprojectAcceptsVenvScript(t *testing.T) {
 	destRoot := t.TempDir()
 	writePythonSrc(t, src)
 	stubUV(t, func(cmd *exec.Cmd) error {
-		writeVenvScript(t, cmd.Dir, "echo")
+		writeVenvScript(t, cmd.Dir, "python")
 		return nil
 	})
 
 	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	script := venvScript(filepath.Join(destRoot, "echo"), "echo")
+	script := venvScript(filepath.Join(destRoot, "echo"), "python")
 	info, err := os.Stat(script)
 	if err != nil {
 		t.Fatal(err)
@@ -366,7 +367,7 @@ func TestInstallVenvUsesFinalPath(t *testing.T) {
 		if cmd.Dir == "" {
 			return nil
 		}
-		path := venvScript(cmd.Dir, "echo")
+		path := venvScript(cmd.Dir, "python")
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			return err
 		}
@@ -377,7 +378,7 @@ func TestInstallVenvUsesFinalPath(t *testing.T) {
 	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(venvScript(dest, "echo"))
+	data, err := os.ReadFile(venvScript(dest, "python"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,7 +422,7 @@ func TestInstallPrintsCreatingVenv(t *testing.T) {
 func TestEnsureVenvSkipsWhenPresent(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
-	writeVenvScript(t, dir, "echo")
+	writeVenvScript(t, dir, "python")
 	stubUV(t, func(*exec.Cmd) error {
 		t.Fatal("uv called")
 		return nil
@@ -455,7 +456,7 @@ func TestEnsureVenvRepairsWhenMissing(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	if _, err := os.Stat(venvScript(dir, "echo")); err != nil {
+	if _, err := os.Stat(venvScript(dir, "python")); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stderr, "repairing Python environment for echo") {
@@ -478,7 +479,7 @@ func TestEnsureVenvRepairsWhenScriptMissing(t *testing.T) {
 	if err := EnsureVenv(dir, p); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(venvScript(dir, "echo")); err != nil {
+	if _, err := os.Stat(venvScript(dir, "python")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -511,7 +512,7 @@ func writePythonSrc(t *testing.T, dir string) {
 func stubEchoUV(t *testing.T) {
 	t.Helper()
 	stubUV(t, func(cmd *exec.Cmd) error {
-		writeVenvScript(t, cmd.Dir, "echo")
+		writeVenvScript(t, cmd.Dir, "python")
 		return nil
 	})
 }

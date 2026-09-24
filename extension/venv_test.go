@@ -26,11 +26,11 @@ func TestVenvScriptWindows(t *testing.T) {
 func TestResolveCommandVenvScript(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
-	script := venvScript(dir, "echo")
-	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+	python := venvScript(dir, "python")
+	if err := os.MkdirAll(filepath.Dir(python), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(script, []byte("#!/bin/sh\n"), 0o700); err != nil {
+	if err := os.WriteFile(python, []byte("#!/bin/sh\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,8 +42,9 @@ func TestResolveCommandVenvScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cmd != script || args != nil {
-		t.Errorf("command = %q %v, want %q", cmd, args, script)
+	want := []string{"-m", "golem", "--name", "echo", "--provider", "echo=echo:Echo"}
+	if cmd != python || strings.Join(args, " ") != strings.Join(want, " ") {
+		t.Errorf("command = %q %q, want %q %q", cmd, args, python, want)
 	}
 }
 
@@ -58,7 +59,7 @@ func TestResolveCommandMissingVenvScript(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "echo") {
-		t.Errorf("error = %v, want echo", err)
+	if !strings.Contains(err.Error(), "python interpreter") {
+		t.Errorf("error = %v, want python interpreter", err)
 	}
 }

@@ -11,75 +11,62 @@ Install from PyPI and import as `golem`:
 pip install golem-agent-sdk
 ```
 
-Golem injects `GOLEM_URL` and `GOLEM_TOKEN`. Prefer `Extension.from_env`. The HTTP contract is the [protocol](protocol.md).
-
-## Minimal extension
-
-Register, print a line, and stay alive until Golem stops the process:
-
-```python
-from golem import Extension
-
-
-def hello(client, stop):
-    print("hello world")
-    stop.wait()
-
-
-Extension.from_env("golem-echo").task(hello).run()
-```
-
-The name passed to `from_env` must match the installed package name.
+Golem injects `GOLEM_URL` and `GOLEM_TOKEN`, then runs `python -m golem` with the entrypoint from `[tool.golem]`. The HTTP contract is the [protocol](protocol.md).
 
 ## Providers
 
-A provider is a model backend. Implement at least one of `chat`, `chat_structured`, or `embed`. `run()` binds a loopback server, registers, and heartbeats.
+A provider is a model backend. Implement at least one of `chat`, `chat_structured`, or `embed`. The process binds a loopback server, registers, and heartbeats.
 
 ```python
-from golem import Extension, Message, Provider
+from golem import Message, Provider
 
 
 class Echo(Provider):
     def chat(self, model, messages, tools=None) -> Message:
         return Message(role="assistant", content=messages[-1].content)
-
-
-Extension.from_env("golem-echo").provider("echo", Echo()).run()
 ```
 
-The `id` passed to `provider()` is the name used in Golem conf (`default_model.provider` or `memory.embedding.provider`). An embeddings-only class can omit `chat`:
+```toml
+[tool.golem.provider]
+id = "echo"
+entrypoint = "golem_echo:Echo"
+```
+
+`id` is the name used in Golem conf (`default_model.provider` or `memory.embedding.provider`). An embeddings-only class can omit `chat`:
 
 ```python
 class Embed(Provider):
     def embed(self, model, texts):
         return [[0.1] for _ in texts]
+```
 
-
-Extension.from_env("golem-embed").provider("local-embed", Embed()).run()
+```toml
+[tool.golem.provider]
+id = "local-embed"
+entrypoint = "golem_embed:Embed"
 ```
 
 ## Channels
 
-A channel feeds messages into Golem. `task()` runs your loop. `client.send()` posts a turn and returns the assistant reply. `capability()` advertises the channel.
+A channel feeds messages into Golem. `run` is your loop. `client.send()` posts a turn and returns the assistant reply.
 
 ```python
-from golem import Extension
+from golem import Channel
 
 
-def cli(client, stop):
-    while not stop.is_set():
-        line = input("you: ").strip()
-        if not line:
-            continue
-        print(client.send("local", "cli", line))
+class CLI(Channel):
+    def run(self, client, stop):
+        while not stop.is_set():
+            line = input("you: ").strip()
+            if not line:
+                continue
+            print(client.send("local", self.id, line))
+```
 
-
-(
-    Extension.from_env("golem-cli")
-    .capability({"kind": "channel", "id": "cli"})
-    .task(cli)
-    .run()
-)
+```toml
+[tool.golem.channel]
+id = "cli"
+entrypoint = "golem_cli:CLI"
 ```
 
 `post_turn` and `stream_turn` expose the same flow as SSE events (`log`, `done`, `error`).

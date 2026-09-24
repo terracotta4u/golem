@@ -23,7 +23,7 @@ func TestInstallFromZip(t *testing.T) {
 	if p.Name != "echo" {
 		t.Errorf("name = %q, want echo", p.Name)
 	}
-	info, err := os.Stat(venvScript(filepath.Join(destRoot, "echo"), "echo"))
+	info, err := os.Stat(venvScript(filepath.Join(destRoot, "echo"), "python"))
 	if err != nil {
 		t.Fatal(err)
 	}

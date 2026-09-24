@@ -22,7 +22,6 @@ type Project struct {
 	Name        string
 	Version     string
 	Description string
-	Command     string
 	Dir         string
 	Provider    Decl
 	Channel     Decl
@@ -37,10 +36,9 @@ type golemDecl struct {
 
 type pyproject struct {
 	Project struct {
-		Name        string            `toml:"name"`
-		Version     string            `toml:"version"`
-		Description string            `toml:"description"`
-		Scripts     map[string]string `toml:"scripts"`
+		Name        string `toml:"name"`
+		Version     string `toml:"version"`
+		Description string `toml:"description"`
 	} `toml:"project"`
 	Tool struct {
 		Golem struct {
@@ -70,11 +68,6 @@ func Parse(data []byte) (Project, error) {
 	if proj.Version == "" {
 		return Project{}, fmt.Errorf("missing version")
 	}
-	command, err := scriptName(proj.Name, p.Project.Scripts)
-	if err != nil {
-		return Project{}, err
-	}
-	proj.Command = command
 	provider, err := decl(p.Tool.Golem.Provider, "provider")
 	if err != nil {
 		return Project{}, err
@@ -82,6 +75,9 @@ func Parse(data []byte) (Project, error) {
 	channel, err := decl(p.Tool.Golem.Channel, "channel")
 	if err != nil {
 		return Project{}, err
+	}
+	if provider.ID == "" && channel.ID == "" {
+		return Project{}, fmt.Errorf("declare a provider or channel in [tool.golem]")
 	}
 	proj.Provider = provider
 	proj.Channel = channel
@@ -105,24 +101,6 @@ func decl(raw *golemDecl, kind string) (Decl, error) {
 		return Decl{}, fmt.Errorf("invalid entrypoint %q", entry)
 	}
 	return Decl{ID: id, Entrypoint: entry}, nil
-}
-
-func scriptName(project string, scripts map[string]string) (string, error) {
-	if len(scripts) == 0 {
-		return "", fmt.Errorf("missing [project.scripts]")
-	}
-	if _, ok := scripts[project]; ok {
-		return project, nil
-	}
-	if len(scripts) == 1 {
-		for name := range scripts {
-			if strings.TrimSpace(name) == "" {
-				return "", fmt.Errorf("missing [project.scripts]")
-			}
-			return name, nil
-		}
-	}
-	return "", fmt.Errorf("no [project.scripts] entry for %q", project)
 }
 
 func Load(dir string) (Project, error) {

@@ -20,44 +20,22 @@ func StubRuntime(u runtime.UV) func() {
 }
 
 func EnsureVenv(dir string, p Project) error {
-	if usesModule(p) {
-		if hasVenvPython(dir) {
-			return nil
-		}
-	} else if hasConsoleScript(dir, p) {
+	if hasVenvPython(dir) {
 		return nil
 	}
 	fmt.Fprintf(os.Stderr, "repairing Python environment for %s\n", p.Name)
 	if err := prepareVenv(dir, p); err != nil {
 		return fmt.Errorf("extension %q: cannot prepare Python environment: %w", p.Name, err)
 	}
-	if usesModule(p) {
-		return ensurePython(dir, p)
-	}
-	return ensureScript(dir, p)
+	return ensurePython(dir, p)
 }
 
 func ResolveCommand(dir string, p Project) (string, []string, error) {
-	if usesModule(p) {
-		python := venvScript(dir, "python")
-		if _, err := os.Stat(python); err != nil {
-			return "", nil, fmt.Errorf("extension %q has no python interpreter", p.Name)
-		}
-		return python, moduleArgs(p), nil
+	python := venvScript(dir, "python")
+	if _, err := os.Stat(python); err != nil {
+		return "", nil, fmt.Errorf("extension %q has no python interpreter", p.Name)
 	}
-	command := strings.TrimSpace(p.Command)
-	if command == "" {
-		return "", nil, fmt.Errorf("extension %q has no console script", p.Name)
-	}
-	script := venvScript(dir, command)
-	if _, err := os.Stat(script); err != nil {
-		return "", nil, fmt.Errorf("extension %q has no console script %q", p.Name, command)
-	}
-	return script, nil, nil
-}
-
-func usesModule(p Project) bool {
-	return p.Provider.ID != "" || p.Channel.ID != ""
+	return python, moduleArgs(p), nil
 }
 
 func moduleArgs(p Project) []string {
@@ -114,26 +92,8 @@ func ensurePython(dir string, p Project) error {
 	return os.Chmod(python, 0o700)
 }
 
-func ensureScript(dir string, p Project) error {
-	command := strings.TrimSpace(p.Command)
-	script := venvScript(dir, command)
-	if _, err := os.Stat(script); err != nil {
-		return fmt.Errorf("extension %q has no console script %q", p.Name, command)
-	}
-	return os.Chmod(script, 0o700)
-}
-
 func hasVenvPython(dir string) bool {
 	_, err := os.Stat(venvScript(dir, "python"))
-	return err == nil
-}
-
-func hasConsoleScript(dir string, p Project) bool {
-	command := strings.TrimSpace(p.Command)
-	if command == "" {
-		return false
-	}
-	_, err := os.Stat(venvScript(dir, command))
 	return err == nil
 }
 

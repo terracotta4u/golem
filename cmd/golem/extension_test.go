@@ -390,8 +390,9 @@ const echoPyproject = `[project]
 name = "echo"
 version = "0.1.0"
 
-[project.scripts]
-echo = "echo:main"
+[tool.golem.provider]
+id = "echo"
+entrypoint = "echo:Echo"
 `
 
 func stubEchoRuntime(t *testing.T) {
@@ -404,7 +405,7 @@ func stubEchoRuntime(t *testing.T) {
 			if cmd.Dir == "" {
 				return nil
 			}
-			path := filepath.Join(cmd.Dir, ".venv", "bin", "echo")
+			path := filepath.Join(cmd.Dir, ".venv", "bin", "python")
 			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 				return err
 			}

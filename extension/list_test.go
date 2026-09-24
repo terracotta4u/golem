@@ -131,5 +131,5 @@ func writeListed(t *testing.T, root, name, version string) {
 }
 
 func projectTOML(name, version string) string {
-	return fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[project.scripts]\n%s = %q\n", name, version, name, name+":main")
+	return fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[tool.golem.provider]\nid = %q\nentrypoint = %q\n", name, version, name, name+":Echo")
 }
