@@ -1,7 +1,3 @@
-"""Parse an extension ``pyproject.toml`` into the ``[tool.golem]`` declaration."""
-
-from __future__ import annotations
-
 import tomllib
 from dataclasses import dataclass
 from typing import Any
