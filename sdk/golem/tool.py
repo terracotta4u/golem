@@ -1,4 +1,5 @@
 import inspect
+import json
 from collections.abc import Callable
 from typing import Any, get_type_hints
 
@@ -62,9 +63,12 @@ def invoke(fn: Callable[..., Any], args: dict[str, Any]) -> str:
         args: Arguments object from ``POST /v1/tools/{name}``.
 
     Returns:
-        The string the function returned, or ``str`` of another return value.
+        The string the function returned. A dict or list is JSON text.
+        Anything else is ``str`` of the return value.
     """
     result = fn(**args)
     if isinstance(result, str):
         return result
+    if isinstance(result, (dict, list)):
+        return json.dumps(result, ensure_ascii=False)
     return str(result)

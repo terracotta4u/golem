@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"sort"
 
 	"github.com/terracotta4u/golem/tool"
 )
@@ -26,8 +28,9 @@ func (s *Server) Tools() []tool.Tool {
 			if cap.Kind != "tool" {
 				continue
 			}
-			params := map[string]any{}
-			if err := json.Unmarshal(cap.Parameters, &params); err != nil {
+			params, err := objectParams(cap.Parameters)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, cap.Name, err)
 				continue
 			}
 			out = append(out, extensionTool{
@@ -39,6 +42,9 @@ func (s *Server) Tools() []tool.Tool {
 			})
 		}
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Spec().Name < out[j].Spec().Name
+	})
 	return out
 }
 

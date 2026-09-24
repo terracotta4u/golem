@@ -57,15 +57,7 @@ func loadApp() (*app, error) {
 		return nil, err
 	}
 
-	tools := []tool.Tool{
-		tool.NewRead(),
-		tool.NewWrite(),
-		tool.NewEdit(),
-		tool.NewShell(),
-	}
-	if len(skills) > 0 {
-		tools = append(tools, tool.NewSkill(skills))
-	}
+	tools := tool.Builtins(skills)
 
 	dir, err := conf.Dir()
 	if err != nil {

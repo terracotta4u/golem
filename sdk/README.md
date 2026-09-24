@@ -86,7 +86,7 @@ tools = [weather]
 tools = "golem_weather:tools"
 ```
 
-Golem launches this as `python -m golem --name golem-weather --tools golem_weather:tools`. A request arrives as `POST /v1/tools/weather` with the arguments object, and the response is `{"result":"<text>"}`.
+Golem launches this as `python -m golem --name golem-weather --tools golem_weather:tools`. A request arrives as `POST /v1/tools/weather` with the arguments object, and the response is `{"result":"<text>"}`. A dict or list return value is JSON text inside that string.
 
 ## Packaging Extensions
 

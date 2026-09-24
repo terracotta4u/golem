@@ -89,6 +89,6 @@ tools = [weather]
 tools = "golem_weather:tools"
 ```
 
-Once the extension is registered, Golem adds the tool at the start of each turn and posts the arguments object to `/v1/tools/weather`. The response is `{"result":"<text>"}`. A raised exception is HTTP 500. The tool leaves the catalog when the extension expires.
+Once the extension is registered, Golem adds the tool at the start of each turn and posts the arguments object to `/v1/tools/weather`. The response is `{"result":"<text>"}`. A dict or list return value is JSON text inside that string. A raised exception is HTTP 500. The tool leaves the catalog when the extension expires.
 
 Ship the package as described in [packaging](packaging.md).
