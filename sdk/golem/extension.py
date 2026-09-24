@@ -9,8 +9,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import FrameType
 from typing import Any
 
+from golem.channel import Channel
 from golem.client import Client, GolemError
 from golem.provider import JSONSchema, Message, Provider, ToolDef, UnsupportedFormat
+from golem.tool import invoke
+from golem.tool import schema as tool_schema
 
 Task = Callable[[Client, threading.Event], None]
 
@@ -18,9 +21,9 @@ Task = Callable[[Client, threading.Event], None]
 class Extension:
     """A Golem extension process: register, heartbeat, and optional callbacks.
 
-    Chain ``provider``, ``capability``, and ``task``, then call ``run``.
-    ``run`` binds a loopback HTTP server, registers with Golem, and blocks
-    until SIGINT/SIGTERM or the optional ``stop`` event.
+    ``python -m golem`` constructs this. ``run`` binds a loopback HTTP server,
+    registers with Golem, and blocks until SIGINT/SIGTERM or the optional
+    ``stop`` event.
 
     Attributes:
         name: Extension name sent on register and heartbeat.
@@ -35,6 +38,9 @@ class Extension:
         token: str = "",
         *,
         heartbeat_interval: float = 10.0,
+        provider: tuple[str, Provider] | None = None,
+        channel: Channel | None = None,
+        tools: list[Callable[..., Any]] | None = None,
     ) -> None:
         """Create an extension.
 
@@ -46,9 +52,18 @@ class Extension:
                 otherwise.
             heartbeat_interval: Seconds between heartbeats. Keep this well
                 under Golem's 30s registration TTL.
+            provider: ``(id, implementation)``. Override ``chat``,
+                ``chat_structured``, and/or ``embed`` to advertise those
+                routes. At least one is required when this is set.
+            channel: Loop advertised as ``{"kind": "channel", "id": channel.id}``
+                and started after register.
+            tools: Functions advertised as ``kind: tool`` and served at
+                ``POST /v1/tools/{name}``.
 
         Raises:
-            ValueError: ``name`` is empty.
+            ValueError: ``name`` is empty, the provider id is empty, the
+                provider implements no route, the channel id is empty, or
+                two tools share a name.
         """
         name = name.strip()
         if not name:
@@ -65,77 +80,40 @@ class Extension:
         self._provider: Provider | None = None
         self._tasks: list[Task] = []
         self._extra_caps: list[dict[str, Any]] = []
+        self._tools: dict[str, Callable[..., Any]] = {}
+        if provider is not None:
+            self._set_provider(*provider)
+        if channel is not None:
+            self._set_channel(channel)
+        if tools:
+            self._set_tools(tools)
 
-    @classmethod
-    def from_env(cls, name: str, **kwargs: Any) -> Extension:
-        """Build an extension using ``GOLEM_URL`` and ``GOLEM_TOKEN``.
-
-        Args:
-            name: Extension name. Must match the installed package name.
-            **kwargs: Forwarded to ``Extension``, typically
-                ``heartbeat_interval``.
-        """
-        return cls(name, Client.from_env(), **kwargs)
-
-    def provider(self, provider_id: str, impl: Provider) -> Extension:
-        """Attach a model backend. Golem will POST the advertised routes.
-
-        Args:
-            provider_id: Name used in Golem conf (``default_model.provider``
-                or ``memory.embedding.provider``).
-            impl: Provider implementation. Override ``chat``,
-                ``chat_structured``, and/or ``embed`` to advertise those
-                routes. At least one is required.
-
-        Returns:
-            This extension, for chaining.
-
-        Raises:
-            ValueError: ``provider_id`` is empty, a provider is already set,
-                or ``impl`` overrides none of the routes.
-        """
+    def _set_provider(self, provider_id: str, impl: Provider) -> None:
         provider_id = provider_id.strip()
         if not provider_id:
             raise ValueError("provider id is required")
-        if self._provider is not None:
-            raise ValueError("provider already set")
         if not any(
             _overrides(impl, method) for method in ("chat", "chat_structured", "embed")
         ):
             raise ValueError("provider must implement chat, chat_structured, or embed")
         self._provider_id = provider_id
         self._provider = impl
-        return self
 
-    def capability(self, cap: dict[str, Any]) -> Extension:
-        """Advertise an extra capability at register time.
+    def _set_channel(self, channel: Channel) -> None:
+        channel_id = channel.id.strip()
+        if not channel_id:
+            raise ValueError("channel id is required")
+        self._extra_caps.append({"kind": "channel", "id": channel_id})
+        self._tasks.append(channel.run)
 
-        Use this for channels and other kinds Golem stores but does not
-        call as a provider.
-
-        Args:
-            cap: Capability object, for example
-                ``{"kind": "channel", "id": "cli"}``.
-
-        Returns:
-            This extension, for chaining.
-        """
-        self._extra_caps.append(cap)
-        return self
-
-    def task(self, fn: Task) -> Extension:
-        """Run ``fn`` in a background thread after a successful register.
-
-        Args:
-            fn: ``fn(client, stop)``. Block on ``stop.wait()`` until Golem
-                shuts the process down. ``client`` is this extension's
-                ``Client``.
-
-        Returns:
-            This extension, for chaining.
-        """
-        self._tasks.append(fn)
-        return self
+    def _set_tools(self, tools: list[Callable[..., Any]]) -> None:
+        for fn in tools:
+            spec = tool_schema(fn)
+            name = str(spec["name"])
+            if name in self._tools:
+                raise ValueError(f"tool {name} already set")
+            self._tools[name] = fn
+            self._extra_caps.append({"kind": "tool", **spec})
 
     def run(self, stop: threading.Event | None = None) -> None:
         """Bind a loopback server, register, heartbeat, and block.
@@ -232,6 +210,8 @@ class Extension:
         return caps
 
     def _dispatch(self, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        if path.startswith("/v1/tools/"):
+            return self._invoke_tool(path.removeprefix("/v1/tools/").strip("/"), body)
         if self._provider is None:
             return 404, _error("not found")
         model = str(body.get("model") or "")
@@ -263,6 +243,15 @@ class Extension:
         except Exception as exc:  # noqa: BLE001
             return 500, _error(str(exc))
         return 404, _error("not found")
+
+    def _invoke_tool(self, name: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        fn = self._tools.get(name)
+        if fn is None:
+            return 404, _error("not found")
+        try:
+            return 200, {"result": invoke(fn, body)}
+        except Exception as exc:  # noqa: BLE001
+            return 500, _error(str(exc))
 
 
 def _overrides(provider: Provider, method: str) -> bool:

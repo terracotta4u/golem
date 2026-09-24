@@ -110,7 +110,7 @@ func installDir(src, destRoot string, force bool) (Project, error) {
 	if err := prepareVenv(dest, p); err != nil {
 		return restoreDest(dest, backup, err)
 	}
-	if err := ensureScript(dest, p); err != nil {
+	if err := ensurePython(dest, p); err != nil {
 		return restoreDest(dest, backup, err)
 	}
 	if backup != "" {

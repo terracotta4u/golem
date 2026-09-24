@@ -10,7 +10,7 @@ An extension is a Python package Golem runs as a child process. There are two ro
 - **Provider** — a model backend. Golem calls it for chat, structured output, and/or embeddings.
 - **Channel** — another way to send messages in (a chat app, a CLI, and so on).
 
-Packages live in `~/.golem/extensions/`. Golem takes the name from `pyproject.toml` and runs that package's console script.
+Packages live in `~/.golem/extensions/`. Golem takes the name from `pyproject.toml` and runs `python -m golem` with the provider, channel, or tools declared there.
 
 ## Install
 

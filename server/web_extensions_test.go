@@ -485,7 +485,7 @@ func writeInstalledExt(t *testing.T, root, name, version string) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\ndescription = %q\n\n[project.scripts]\n%s = %q\n", name, version, name+" extension", name, name+":main")
+	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\ndescription = %q\n\n[tool.golem.provider]\nid = %q\nentrypoint = %q\n", name, version, name+" extension", name, name+":Echo")
 	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(toml), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -503,7 +503,7 @@ func writeExtZip(t *testing.T, path, name, version string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[project.scripts]\n%s = %q\n", name, version, name, name+":main")
+	toml := fmt.Sprintf("[project]\nname = %q\nversion = %q\n\n[tool.golem.provider]\nid = %q\nentrypoint = %q\n", name, version, name, name+":Echo")
 	if _, err := io.WriteString(w, toml); err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +569,7 @@ func stubEchoRuntime(t *testing.T) {
 			if cmd.Dir == "" {
 				return nil
 			}
-			path := filepath.Join(cmd.Dir, ".venv", "bin", "echo")
+			path := filepath.Join(cmd.Dir, ".venv", "bin", "python")
 			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 				return err
 			}

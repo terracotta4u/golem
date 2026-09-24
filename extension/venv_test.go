@@ -26,11 +26,11 @@ func TestVenvScriptWindows(t *testing.T) {
 func TestResolveCommandVenvScript(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)
-	script := venvScript(dir, "echo")
-	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
+	python := venvScript(dir, "python")
+	if err := os.MkdirAll(filepath.Dir(python), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(script, []byte("#!/bin/sh\n"), 0o700); err != nil {
+	if err := os.WriteFile(python, []byte("#!/bin/sh\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -38,12 +38,47 @@ func TestResolveCommandVenvScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd, err := ResolveCommand(dir, p)
+	cmd, args, err := ResolveCommand(dir, p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cmd != script {
-		t.Errorf("command = %q, want %q", cmd, script)
+	want := []string{"-m", "golem", "--name", "echo", "--provider", "echo=echo:Echo"}
+	if cmd != python || strings.Join(args, " ") != strings.Join(want, " ") {
+		t.Errorf("command = %q %q, want %q %q", cmd, args, python, want)
+	}
+}
+
+func TestResolveCommandTools(t *testing.T) {
+	dir := t.TempDir()
+	toml := `
+[project]
+name = "golem-weather"
+version = "0.1.0"
+
+[tool.golem]
+tools = "golem_weather:tools"
+`
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(toml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	python := venvScript(dir, "python")
+	if err := os.MkdirAll(filepath.Dir(python), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(python, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, args, err := ResolveCommand(dir, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-m", "golem", "--name", "golem-weather", "--tools", "golem_weather:tools"}
+	if strings.Join(args, " ") != strings.Join(want, " ") {
+		t.Errorf("args = %q, want %q", args, want)
 	}
 }
 
@@ -54,11 +89,11 @@ func TestResolveCommandMissingVenvScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ResolveCommand(dir, p)
+	_, _, err = ResolveCommand(dir, p)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "echo") {
-		t.Errorf("error = %v, want echo", err)
+	if !strings.Contains(err.Error(), "python interpreter") {
+		t.Errorf("error = %v, want python interpreter", err)
 	}
 }

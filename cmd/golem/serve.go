@@ -129,13 +129,14 @@ func prepareExtension(cfg conf.Conf, p extension.Project) (supervisor.Extension,
 	if err := extension.EnsureVenv(p.Dir, p); err != nil {
 		return supervisor.Extension{}, err
 	}
-	command, err := extension.ResolveCommand(p.Dir, p)
+	command, args, err := extension.ResolveCommand(p.Dir, p)
 	if err != nil {
 		return supervisor.Extension{}, err
 	}
 	return supervisor.Extension{
 		Name:    p.Name,
 		Command: command,
+		Args:    args,
 		Env:     entry.Env,
 		Dir:     p.Dir,
 	}, nil

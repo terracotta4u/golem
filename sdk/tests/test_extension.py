@@ -8,7 +8,15 @@ from typing import Any
 
 import pytest
 
-from golem import Extension, GolemError, Message, Provider, ToolCall, UnsupportedFormat
+from golem import (
+    Channel,
+    Extension,
+    GolemError,
+    Message,
+    Provider,
+    ToolCall,
+    UnsupportedFormat,
+)
 from golem.provider import FunctionCall, JSONSchema, ToolDef
 
 
@@ -174,8 +182,12 @@ def test_run_registers_and_dispatches(golem: _Golem) -> None:
     stop = threading.Event()
     fake = Fake()
     ext = Extension(
-        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("openrouter", fake)
+        "golem-openrouter",
+        golem.url,
+        golem.token,
+        heartbeat_interval=0.05,
+        provider=("openrouter", fake),
+    )
     thread = _start(ext, stop)
     try:
         reg = _wait_registered(golem)
@@ -215,8 +227,9 @@ def test_run_registers_and_dispatches(golem: _Golem) -> None:
 def test_structured_embed_and_unsupported(golem: _Golem) -> None:
     stop = threading.Event()
     ext = Extension(
-        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("openrouter", Fake())
+        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05,
+        provider=("openrouter", Fake()),
+    )
     thread = _start(ext, stop)
     try:
         url = _wait_registered(golem)["callback_url"]
@@ -269,8 +282,9 @@ def test_structured_embed_and_unsupported(golem: _Golem) -> None:
 def test_callback_requires_token(golem: _Golem) -> None:
     stop = threading.Event()
     ext = Extension(
-        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("openrouter", Fake())
+        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05,
+        provider=("openrouter", Fake()),
+    )
     thread = _start(ext, stop)
     try:
         url = _wait_registered(golem)["callback_url"]
@@ -287,8 +301,9 @@ def test_heartbeat_during_slow_chat(golem: _Golem) -> None:
     stop = threading.Event()
     entered = threading.Event()
     ext = Extension(
-        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("openrouter", Fake(slow=entered))
+        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05,
+        provider=("openrouter", Fake(slow=entered)),
+    )
     thread = _start(ext, stop)
     try:
         url = _wait_registered(golem)["callback_url"]
@@ -307,24 +322,29 @@ def test_heartbeat_during_slow_chat(golem: _Golem) -> None:
         _stop(thread, stop)
 
 
-def test_task_and_extra_capability(golem: _Golem) -> None:
+def test_channel_is_advertised_and_started(golem: _Golem) -> None:
     stop = threading.Event()
     ran = threading.Event()
 
-    def loop(client: Any, done: threading.Event) -> None:
-        assert client.url == golem.url
-        ran.set()
-        done.wait()
+    class CLI(Channel):
+        def run(self, client: Any, done: threading.Event) -> None:
+            assert client.url == golem.url
+            ran.set()
+            done.wait()
 
-    ext = (
-        Extension("custom", golem.url, golem.token, heartbeat_interval=0.05)
-        .capability({"kind": "widget", "id": "w1"})
-        .task(loop)
+    cli = CLI()
+    cli.id = "cli"
+    ext = Extension(
+        "golem-cli",
+        golem.url,
+        golem.token,
+        heartbeat_interval=0.05,
+        channel=cli,
     )
     thread = _start(ext, stop)
     try:
         reg = _wait_registered(golem)
-        assert reg["capabilities"] == [{"kind": "widget", "id": "w1"}]
+        assert reg["capabilities"] == [{"kind": "channel", "id": "cli"}]
         assert ran.wait(timeout=2)
     finally:
         _stop(thread, stop)
@@ -332,16 +352,19 @@ def test_task_and_extra_capability(golem: _Golem) -> None:
 
 def test_provider_requires_a_route() -> None:
     with pytest.raises(ValueError, match="chat, chat_structured, or embed"):
-        Extension("golem-embed", "http://127.0.0.1:9").provider(
-            "embed", EmptyProvider()
+        Extension(
+            "golem-embed",
+            "http://127.0.0.1:9",
+            provider=("embed", EmptyProvider()),
         )
 
 
 def test_embed_only_omits_chat(golem: _Golem) -> None:
     stop = threading.Event()
     ext = Extension(
-        "golem-embed", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("local-embed", EmbedOnly())
+        "golem-embed", golem.url, golem.token, heartbeat_interval=0.05,
+        provider=("local-embed", EmbedOnly()),
+    )
     thread = _start(ext, stop)
     try:
         reg = _wait_registered(golem)
@@ -376,8 +399,9 @@ def test_embed_only_omits_chat(golem: _Golem) -> None:
 def test_chat_only_omits_structured_and_embed(golem: _Golem) -> None:
     stop = threading.Event()
     ext = Extension(
-        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("openrouter", ChatOnly())
+        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05,
+        provider=("openrouter", ChatOnly()),
+    )
     thread = _start(ext, stop)
     try:
         cap = _wait_registered(golem)["capabilities"][0]
@@ -391,8 +415,9 @@ def test_chat_only_omits_structured_and_embed(golem: _Golem) -> None:
 def test_reregister_after_heartbeat_404(golem: _Golem) -> None:
     stop = threading.Event()
     ext = Extension(
-        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05
-    ).provider("openrouter", ChatOnly())
+        "golem-openrouter", golem.url, golem.token, heartbeat_interval=0.05,
+        provider=("openrouter", ChatOnly()),
+    )
     thread = _start(ext, stop)
     try:
         _wait_registered(golem)
@@ -413,8 +438,10 @@ def test_from_env(monkeypatch: pytest.MonkeyPatch, golem: _Golem) -> None:
     monkeypatch.setenv("GOLEM_URL", golem.url)
     monkeypatch.setenv("GOLEM_TOKEN", golem.token)
     stop = threading.Event()
-    ext = Extension.from_env("golem-openrouter", heartbeat_interval=0.05).provider(
-        "openrouter", ChatOnly()
+    ext = Extension(
+        "golem-openrouter",
+        heartbeat_interval=0.05,
+        provider=("openrouter", ChatOnly()),
     )
     thread = _start(ext, stop)
     try:

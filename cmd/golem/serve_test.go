@@ -37,7 +37,7 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	}
 	dir := writeProject(t, extDir, "echo")
 	out := filepath.Join(t.TempDir(), "env")
-	script := filepath.Join(dir, ".venv", "bin", "echo")
+	script := filepath.Join(dir, ".venv", "bin", "python")
 	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -130,10 +130,52 @@ func TestPrepareExtension(t *testing.T) {
 	}
 }
 
+func TestPrepareExtensionModule(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "golem-echo")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	toml := `[project]
+name = "golem-echo"
+version = "0.1.0"
+
+[tool.golem.provider]
+id = "echo"
+entrypoint = "golem_echo:Echo"
+`
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(toml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	python := filepath.Join(dir, ".venv", "bin", "python")
+	if err := os.MkdirAll(filepath.Dir(python), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(python, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := extension.List(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := prepareExtension(conf.Conf{}, list[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Command != python || got.Dir != dir {
+		t.Errorf("command = %q dir = %q", got.Command, got.Dir)
+	}
+	want := []string{"-m", "golem", "--name", "golem-echo", "--provider", "echo=golem_echo:Echo"}
+	if strings.Join(got.Args, " ") != strings.Join(want, " ") {
+		t.Errorf("args = %q, want %q", got.Args, want)
+	}
+}
+
 func TestStartNamedExtensionAddsProcess(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
-	script := filepath.Join(dir, ".venv", "bin", "echo")
+	script := filepath.Join(dir, ".venv", "bin", "python")
 	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +252,7 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 			if cmd.Dir == "" {
 				return nil
 			}
-			script := filepath.Join(cmd.Dir, ".venv", "bin", "echo")
+			script := filepath.Join(cmd.Dir, ".venv", "bin", "python")
 			if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
 				return err
 			}
@@ -226,7 +268,7 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	if runs == 0 {
 		t.Fatal("did not repair missing .venv")
 	}
-	script := filepath.Join(dir, ".venv", "bin", "echo")
+	script := filepath.Join(dir, ".venv", "bin", "python")
 	if len(got) != 1 || got[0].Command != script {
 		t.Errorf("Command = %q, want %q", got[0].Command, script)
 	}
@@ -328,7 +370,7 @@ func TestServeStartsWhenOtherExtensionBroken(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := writeProject(t, extDir, "echo")
-	script := filepath.Join(dir, ".venv", "bin", "echo")
+	script := filepath.Join(dir, ".venv", "bin", "python")
 	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +435,7 @@ func TestServeStartsVenvExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := writeProject(t, extDir, "echo")
-	script := filepath.Join(dir, ".venv", "bin", "echo")
+	script := filepath.Join(dir, ".venv", "bin", "python")
 	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +489,7 @@ func writeProject(t *testing.T, root, name string) string {
 
 func writeVenvEcho(t *testing.T, dir string) string {
 	t.Helper()
-	script := filepath.Join(dir, ".venv", "bin", "echo")
+	script := filepath.Join(dir, ".venv", "bin", "python")
 	if err := os.MkdirAll(filepath.Dir(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -458,5 +500,5 @@ func writeVenvEcho(t *testing.T, dir string) string {
 }
 
 func projectTOML(name string) string {
-	return "[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\n\n[project.scripts]\n" + name + " = \"" + name + ":main\"\n"
+	return "[project]\nname = \"" + name + "\"\nversion = \"0.1.0\"\n\n[tool.golem.provider]\nid = \"" + name + "\"\nentrypoint = \"" + name + ":Echo\"\n"
 }

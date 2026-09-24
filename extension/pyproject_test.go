@@ -14,21 +14,25 @@ name = "telegram"
 version = "1.0.0"
 description = "Telegram bot"
 
-[project.scripts]
-telegram = "telegram:main"
+[tool.golem.provider]
+id = "telegram"
+entrypoint = "telegram:Bot"
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "telegram" || got.Version != "1.0.0" || got.Command != "telegram" || got.Description != "Telegram bot" {
+	if got.Name != "telegram" || got.Version != "1.0.0" || got.Description != "Telegram bot" {
 		t.Errorf("project = %+v", got)
+	}
+	if got.Provider != (Decl{ID: "telegram", Entrypoint: "telegram:Bot"}) {
+		t.Errorf("Provider = %+v", got.Provider)
 	}
 }
 
-func TestParseRequiresNameVersionScripts(t *testing.T) {
+func TestParseRequiresNameVersionAndRole(t *testing.T) {
 	for _, data := range []string{
-		"[project]\nversion = \"1.0.0\"\n[project.scripts]\nbot = \"bot:main\"\n",
-		"[project]\nname = \"telegram\"\n[project.scripts]\ntelegram = \"telegram:main\"\n",
+		"[project]\nversion = \"1.0.0\"\n[tool.golem.provider]\nid = \"bot\"\nentrypoint = \"bot:Bot\"\n",
+		"[project]\nname = \"telegram\"\n[tool.golem.provider]\nid = \"telegram\"\nentrypoint = \"telegram:Bot\"\n",
 		"[project]\nname = \"telegram\"\nversion = \"1.0.0\"\n",
 	} {
 		if _, err := Parse([]byte(data)); err == nil {
@@ -43,64 +47,96 @@ func TestParseRejectsInvalidName(t *testing.T) {
 name = "Telegram Bot"
 version = "1.0.0"
 
-[project.scripts]
-bot = "bot:main"
+[tool.golem.provider]
+id = "bot"
+entrypoint = "bot:Bot"
 `))
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
-func TestParseUsesMatchingScript(t *testing.T) {
+func TestParseProviderAndChannel(t *testing.T) {
 	got, err := Parse([]byte(`
 [project]
-name = "echo"
+name = "golem-echo"
 version = "0.1.0"
 
-[project.scripts]
-echo = "echo:main"
-other = "other:main"
+[tool.golem]
+tools = "golem_echo:tools"
+
+[tool.golem.provider]
+id = "echo"
+entrypoint = "pkg.mod:Echo"
+
+[tool.golem.channel]
+id = "cli"
+entrypoint = "golem_cli:CLI"
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Command != "echo" {
-		t.Errorf("Command = %q, want echo", got.Command)
+	if got.Provider != (Decl{ID: "echo", Entrypoint: "pkg.mod:Echo"}) {
+		t.Errorf("Provider = %+v", got.Provider)
+	}
+	if got.Channel != (Decl{ID: "cli", Entrypoint: "golem_cli:CLI"}) {
+		t.Errorf("Channel = %+v", got.Channel)
+	}
+	if got.Tools != "golem_echo:tools" {
+		t.Errorf("Tools = %q", got.Tools)
 	}
 }
 
-func TestParseSingleUnmatchedScript(t *testing.T) {
+func TestParseToolsOnly(t *testing.T) {
 	got, err := Parse([]byte(`
 [project]
-name = "echo"
+name = "golem-weather"
 version = "0.1.0"
 
-[project.scripts]
-run = "echo:main"
+[tool.golem]
+tools = "golem_weather:tools"
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Command != "run" {
-		t.Errorf("Command = %q, want run", got.Command)
+	if got.Tools != "golem_weather:tools" || got.Provider.ID != "" || got.Channel.ID != "" {
+		t.Errorf("project = %+v", got)
+	}
+	_, err = Parse([]byte(`
+[project]
+name = "golem-weather"
+version = "0.1.0"
+
+[tool.golem]
+tools = "not-an-entrypoint"
+`))
+	if err == nil || !strings.Contains(err.Error(), "invalid entrypoint") {
+		t.Fatalf("Parse(bad tools) error = %v", err)
 	}
 }
 
-func TestParseRejectsAmbiguousScripts(t *testing.T) {
-	_, err := Parse([]byte(`
-[project]
-name = "echo"
-version = "0.1.0"
-
-[project.scripts]
-one = "one:main"
-two = "two:main"
-`))
-	if err == nil {
-		t.Fatal("expected error")
+func TestParseGolemDeclErrors(t *testing.T) {
+	const head = "[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"
+	cases := []struct {
+		body string
+		want string
+	}{
+		{"[tool.golem.provider]\nentrypoint = \"pkg:Echo\"\n", "provider id is required"},
+		{"[tool.golem.provider]\nid = \" \"\nentrypoint = \"pkg:Echo\"\n", "provider id is required"},
+		{"[tool.golem.provider]\nid = \"echo\"\n", "provider entrypoint is required"},
+		{"[tool.golem.channel]\nentrypoint = \"pkg:CLI\"\n", "channel id is required"},
+		{"[tool.golem.channel]\nid = \"cli\"\n", "channel entrypoint is required"},
+		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \"Echo\"\n", "invalid entrypoint"},
+		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \":Echo\"\n", "invalid entrypoint"},
+		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \"pkg:\"\n", "invalid entrypoint"},
+		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \"pkg:Echo:extra\"\n", "invalid entrypoint"},
+		{"", "provider, channel, or tools"},
 	}
-	if !strings.Contains(err.Error(), "project.scripts") {
-		t.Errorf("error = %v, want project.scripts", err)
+	for _, tc := range cases {
+		_, err := Parse([]byte(head + tc.body))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("Parse(%s) error = %v, want %s", tc.body, err, tc.want)
+		}
 	}
 }
 
@@ -112,7 +148,7 @@ func TestLoadReadsPyproject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "echo" || got.Version != "0.1.0" || got.Command != "echo" {
+	if got.Name != "echo" || got.Version != "0.1.0" || got.Provider.ID != "echo" {
 		t.Errorf("project = %+v", got)
 	}
 }

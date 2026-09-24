@@ -74,6 +74,9 @@ func New(opts Options) *Server {
 	if s.hub == nil {
 		s.hub = provider.NewHub(0)
 	}
+	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
+		s.opts.Agent.Catalog = s
+	}
 	return s
 }
 
