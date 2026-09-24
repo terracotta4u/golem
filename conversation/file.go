@@ -1,22 +1,21 @@
 package conversation
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/terracotta4u/golem/provider"
 
 	_ "modernc.org/sqlite"
 )
 
 type FileStore struct {
-	dir string
-	db  *sql.DB
+	db *sql.DB
 }
 
 func NewFileStore(golemDir string) (*FileStore, error) {
@@ -25,9 +24,14 @@ func NewFileStore(golemDir string) (*FileStore, error) {
 		return nil, fmt.Errorf("create %s: %w", dir, err)
 	}
 
-	db, err := sql.Open("sqlite", filepath.Join(dir, "conversations.db"))
+	dsn := (&url.URL{
+		Scheme:   "file",
+		Path:     filepath.ToSlash(filepath.Join(dir, "conversations.db")),
+		RawQuery: "_foreign_keys=1&_busy_timeout=5000",
+	}).String()
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open index: %w", err)
+		return nil, fmt.Errorf("open conversations: %w", err)
 	}
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS conversations (
@@ -36,77 +40,160 @@ func NewFileStore(golemDir string) (*FileStore, error) {
 			title TEXT NOT NULL DEFAULT '',
 			updated_at TEXT NOT NULL
 		);
+		CREATE TABLE IF NOT EXISTS messages (
+			conversation_id TEXT NOT NULL,
+			seq INTEGER NOT NULL,
+			role TEXT NOT NULL,
+			content TEXT NOT NULL DEFAULT '',
+			tool_call_id TEXT NOT NULL DEFAULT '',
+			PRIMARY KEY (conversation_id, seq),
+			FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+		);
+		CREATE TABLE IF NOT EXISTS tool_calls (
+			conversation_id TEXT NOT NULL,
+			message_seq INTEGER NOT NULL,
+			call_seq INTEGER NOT NULL,
+			id TEXT NOT NULL,
+			type TEXT NOT NULL DEFAULT '',
+			name TEXT NOT NULL,
+			arguments TEXT NOT NULL DEFAULT '',
+			PRIMARY KEY (conversation_id, message_seq, call_seq),
+			FOREIGN KEY (conversation_id, message_seq)
+				REFERENCES messages(conversation_id, seq) ON DELETE CASCADE
+		);
+		CREATE INDEX IF NOT EXISTS conversations_by_updated ON conversations (updated_at DESC);
 	`); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("create index: %w", err)
+		return nil, fmt.Errorf("create conversations: %w", err)
 	}
-
-	s := &FileStore{dir: dir, db: db}
-	if err := s.rebuild(); err != nil {
-		db.Close()
-		return nil, err
-	}
-	return s, nil
-}
-
-func (s *FileStore) rebuild() error {
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(s.dir, e.Name()))
-		if err != nil {
-			return err
-		}
-		var c Conversation
-		if err := json.Unmarshal(data, &c); err != nil {
-			continue
-		}
-		if err := s.upsert(c); err != nil {
-			return err
-		}
-	}
-	return nil
+	return &FileStore{db: db}, nil
 }
 
 func (s *FileStore) Load(id string) (Conversation, error) {
-	data, err := os.ReadFile(s.path(id))
-	if os.IsNotExist(err) {
+	var c Conversation
+	var updated string
+	err := s.db.QueryRow(`
+		SELECT id, channel, title, updated_at
+		FROM conversations
+		WHERE id = ?
+	`, id).Scan(&c.ID, &c.Channel, &c.Title, &updated)
+	if errors.Is(err, sql.ErrNoRows) {
 		return Conversation{}, ErrNotFound
 	}
 	if err != nil {
 		return Conversation{}, err
 	}
-	var c Conversation
-	if err := json.Unmarshal(data, &c); err != nil {
-		return Conversation{}, fmt.Errorf("parse conversation %s: %w", id, err)
+	c.UpdatedAt, err = parseUpdated(c.ID, updated)
+	if err != nil {
+		return Conversation{}, err
+	}
+	c.Messages, err = s.loadMessages(id)
+	if err != nil {
+		return Conversation{}, err
 	}
 	return c, nil
 }
 
-func (s *FileStore) Save(c Conversation) error {
-	data, err := json.MarshalIndent(c, "", "  ")
+func (s *FileStore) loadMessages(id string) ([]provider.Message, error) {
+	rows, err := s.db.Query(`
+		SELECT seq, role, content, tool_call_id
+		FROM messages
+		WHERE conversation_id = ?
+		ORDER BY seq
+	`, id)
 	if err != nil {
-		return fmt.Errorf("encode conversation: %w", err)
-	}
-	data = append(data, '\n')
-
-	path := s.path(c.ID)
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return fmt.Errorf("write conversation: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("write conversation: %w", err)
+		return nil, err
 	}
 
-	if err := s.upsert(c); err != nil {
-		return err
+	bySeq := map[int]int{}
+	var msgs []provider.Message
+	for rows.Next() {
+		var seq int
+		var m provider.Message
+		if err := rows.Scan(&seq, &m.Role, &m.Content, &m.ToolCallID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		bySeq[seq] = len(msgs)
+		msgs = append(msgs, m)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	if len(msgs) == 0 {
+		return nil, nil
+	}
+
+	calls, err := s.db.Query(`
+		SELECT message_seq, id, type, name, arguments
+		FROM tool_calls
+		WHERE conversation_id = ?
+		ORDER BY message_seq, call_seq
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer calls.Close()
+
+	for calls.Next() {
+		var seq int
+		var call provider.ToolCall
+		if err := calls.Scan(&seq, &call.ID, &call.Type, &call.Function.Name, &call.Function.Arguments); err != nil {
+			return nil, err
+		}
+		i, ok := bySeq[seq]
+		if !ok {
+			return nil, fmt.Errorf("tool call for missing message %d in %s", seq, id)
+		}
+		msgs[i].ToolCalls = append(msgs[i].ToolCalls, call)
+	}
+	return msgs, calls.Err()
+}
+
+func (s *FileStore) Save(c Conversation) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("save conversation: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		INSERT INTO conversations (id, channel, title, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			channel = excluded.channel,
+			title = excluded.title,
+			updated_at = excluded.updated_at
+	`, c.ID, c.Channel, c.Title, formatUpdated(c.UpdatedAt)); err != nil {
+		return fmt.Errorf("save conversation: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM tool_calls WHERE conversation_id = ?`, c.ID); err != nil {
+		return fmt.Errorf("save conversation: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM messages WHERE conversation_id = ?`, c.ID); err != nil {
+		return fmt.Errorf("save conversation: %w", err)
+	}
+	for seq, m := range c.Messages {
+		if _, err := tx.Exec(`
+			INSERT INTO messages (conversation_id, seq, role, content, tool_call_id)
+			VALUES (?, ?, ?, ?, ?)
+		`, c.ID, seq, m.Role, m.Content, m.ToolCallID); err != nil {
+			return fmt.Errorf("save message %d: %w", seq, err)
+		}
+		for callSeq, call := range m.ToolCalls {
+			if _, err := tx.Exec(`
+				INSERT INTO tool_calls (
+					conversation_id, message_seq, call_seq, id, type, name, arguments
+				) VALUES (?, ?, ?, ?, ?, ?, ?)
+			`, c.ID, seq, callSeq, call.ID, call.Type, call.Function.Name, call.Function.Arguments); err != nil {
+				return fmt.Errorf("save tool call %d.%d: %w", seq, callSeq, err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("save conversation: %w", err)
 	}
 	return nil
 }
@@ -129,31 +216,23 @@ func (s *FileStore) List() ([]Conversation, error) {
 		if err := rows.Scan(&c.ID, &c.Channel, &c.Title, &updated); err != nil {
 			return nil, err
 		}
-		c.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated)
+		c.UpdatedAt, err = parseUpdated(c.ID, updated)
 		if err != nil {
-			return nil, fmt.Errorf("parse updated_at for %s: %w", c.ID, err)
+			return nil, err
 		}
 		out = append(out, c)
 	}
 	return out, rows.Err()
 }
 
-func (s *FileStore) upsert(c Conversation) error {
-	_, err := s.db.Exec(`
-		INSERT INTO conversations (id, channel, title, updated_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			channel = excluded.channel,
-			title = excluded.title,
-			updated_at = excluded.updated_at
-	`, c.ID, c.Channel, c.Title, c.UpdatedAt.UTC().Format(time.RFC3339Nano))
-	if err != nil {
-		return fmt.Errorf("index conversation: %w", err)
-	}
-	return nil
+func formatUpdated(t time.Time) string {
+	return t.UTC().Format("2006-01-02T15:04:05.000000000Z")
 }
 
-func (s *FileStore) path(id string) string {
-	sum := sha256.Sum256([]byte(id))
-	return filepath.Join(s.dir, hex.EncodeToString(sum[:])+".json")
+func parseUpdated(id, updated string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339Nano, updated)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse updated_at for %s: %w", id, err)
+	}
+	return t, nil
 }
