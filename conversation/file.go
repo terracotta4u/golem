@@ -19,14 +19,13 @@ type FileStore struct {
 }
 
 func NewFileStore(golemDir string) (*FileStore, error) {
-	dir := filepath.Join(golemDir, "conversations")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create %s: %w", dir, err)
+	if err := os.MkdirAll(golemDir, 0o700); err != nil {
+		return nil, fmt.Errorf("create %s: %w", golemDir, err)
 	}
 
 	dsn := (&url.URL{
 		Scheme:   "file",
-		Path:     filepath.ToSlash(filepath.Join(dir, "conversations.db")),
+		Path:     filepath.ToSlash(filepath.Join(golemDir, "conversations.db")),
 		RawQuery: "_foreign_keys=1&_busy_timeout=5000",
 	}).String()
 	db, err := sql.Open("sqlite", dsn)
