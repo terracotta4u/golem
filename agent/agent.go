@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -54,13 +54,13 @@ func New(p provider.Provider, dir string, tools ...tool.Tool) *Agent {
 
 type Session struct {
 	agent    *Agent
-	store    store.Store
-	conv     store.Conversation
+	store    conversation.Store
+	conv     conversation.Conversation
 	memories []memory.Memory
 	OnTool   func(name, args, result string)
 }
 
-func (a *Agent) Session(st store.Store, conv store.Conversation) *Session {
+func (a *Agent) Session(st conversation.Store, conv conversation.Conversation) *Session {
 	return &Session{agent: a, store: st, conv: conv}
 }
 

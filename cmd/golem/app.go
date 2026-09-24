@@ -6,22 +6,22 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/skill"
-	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
 
 type app struct {
 	cfg   conf.Conf
-	store store.Store
+	store conversation.Store
 	agent *agent.Agent
 	hub   *provider.Hub
 }
 
 // setup loads ~/.golem, opens the file store, and reports first-run creation.
-func setup() (conf.Conf, store.Store, error) {
+func setup() (conf.Conf, conversation.Store, error) {
 	cfg, created, err := conf.Load()
 	if err != nil {
 		return conf.Conf{}, nil, err
@@ -33,7 +33,7 @@ func setup() (conf.Conf, store.Store, error) {
 	if created {
 		fmt.Fprintf(os.Stderr, "created %s\n", dir)
 	}
-	st, err := store.NewFileStore(dir)
+	st, err := conversation.NewFileStore(dir)
 	if err != nil {
 		return conf.Conf{}, nil, err
 	}

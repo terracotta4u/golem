@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terracotta4u/golem/store"
+	"github.com/terracotta4u/golem/conversation"
 )
 
 func TestStartStopExtensionNilNoop(t *testing.T) {
@@ -98,7 +98,7 @@ func TestHealthOK(t *testing.T) {
 }
 
 func TestStaticCSS(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

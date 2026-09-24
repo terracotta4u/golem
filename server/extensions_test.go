@@ -12,8 +12,8 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/store"
 )
 
 func TestRegisterProviderAndChat(t *testing.T) {
@@ -294,7 +294,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	defer cb.Close()
 
 	hub := provider.NewHub(0)
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

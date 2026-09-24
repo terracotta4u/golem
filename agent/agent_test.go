@@ -10,10 +10,10 @@ import (
 
 	"strings"
 
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/skill"
-	"github.com/terracotta4u/golem/store"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -34,12 +34,12 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 		{Role: "assistant", Content: "done"},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	dir := workspace(t)
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	reply, err := New(p, dir, echo).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
@@ -82,13 +82,13 @@ func TestSendUsesDefaultWhenFastSet(t *testing.T) {
 		{Role: "assistant", Content: "from-fast"},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(def, workspace(t))
 	a.Fast = fast
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	reply, err := a.Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
@@ -120,13 +120,13 @@ func TestSendNamesChatFromFast(t *testing.T) {
 		{Role: "assistant", Content: `"Dinner plans"`},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(def, workspace(t))
 	a.Fast = fast
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner for Saturday"); err != nil {
 		t.Fatal(err)
 	}
@@ -162,13 +162,13 @@ func TestSendNameFallsBackToFirstMessage(t *testing.T) {
 	}}
 	fast := &scriptedProvider{err: errString("fast down")}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(def, workspace(t))
 	a.Fast = fast
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner"); err != nil {
 		t.Fatal(err)
 	}
@@ -190,13 +190,13 @@ func TestSendNameFallsBackWhenFastEmpty(t *testing.T) {
 		{Role: "assistant", Content: "  "},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(def, workspace(t))
 	a.Fast = fast
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner"); err != nil {
 		t.Fatal(err)
 	}
@@ -218,13 +218,13 @@ func TestSendDoesNotRenameExistingTitle(t *testing.T) {
 		{Role: "assistant", Content: "Should not apply"},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(def, workspace(t))
 	a.Fast = fast
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	conv.Title = "Keep me"
 	if _, err := a.Session(st, conv).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
@@ -258,11 +258,11 @@ func TestSendReportsToolResult(t *testing.T) {
 		},
 		{Role: "assistant", Content: "done"},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := New(p, workspace(t), echo).Session(st, store.New("cli"))
+	sess := New(p, workspace(t), echo).Session(st, conversation.New("cli"))
 	var got struct{ name, args, result string }
 	sess.OnTool = func(name, args, result string) {
 		got.name, got.args, got.result = name, args, result
@@ -294,11 +294,11 @@ func TestSendIncludesMemoriesInSystemPrompt(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := New(p, dir).Session(st, store.New("cli"))
+	sess := New(p, dir).Session(st, conversation.New("cli"))
 	sess.memories = []memory.Memory{{Content: "User prefers the Go standard library."}}
 	if _, err := sess.Send(context.Background(), "Should I add a router dependency?"); err != nil {
 		t.Fatal(err)
@@ -332,7 +332,7 @@ func TestSendRetrievesMemoryIntoChat(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +344,7 @@ func TestSendRetrievesMemoryIntoChat(t *testing.T) {
 	a.Memory = idx
 	a.MinSimilarity = 0.5
 	a.BudgetTokens = 800
-	if _, err := a.Session(st, store.New("cli")).Send(context.Background(), "Should I add a router dependency?"); err != nil {
+	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "Should I add a router dependency?"); err != nil {
 		t.Fatal(err)
 	}
 	if len(idx.queries) != 1 || idx.queries[0] != "Should I add a router dependency?" {
@@ -381,7 +381,7 @@ func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
 		},
 		{Role: "assistant", Content: "done"},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,7 +392,7 @@ func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
 	a.Memory = idx
 	a.MinSimilarity = 0.5
 	a.BudgetTokens = 800
-	if _, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello"); err != nil {
+	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
 	}
 	if len(idx.queries) != 1 {
@@ -415,13 +415,13 @@ func TestSendSearchErrorStillReplies(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "hi"},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(p, workspace(t))
 	a.Memory = &stubSearcher{err: errString("index down")}
-	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,11 +441,11 @@ func TestSendNilMemoryIsUnchanged(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "hi"},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := New(p, dir).Session(st, store.New("cli")).Send(context.Background(), "hello"); err != nil {
+	if _, err := New(p, dir).Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
 	}
 	if len(p.got) == 0 {
@@ -480,7 +480,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 		{Role: "assistant", Content: "use the standard library"},
 		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -492,7 +492,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	a := New(p, workspace(t), echo)
 	a.MemoryStore = mem
 	a.Indexer = idx
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	reply, err := a.Session(st, conv).Send(context.Background(), "I prefer using the Go standard library when possible.")
 	if err != nil {
 		t.Fatal(err)
@@ -544,7 +544,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 	unblock := make(chan struct{})
 	p := &blockingExtractProvider{unblock: unblock}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,7 +567,7 @@ func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 	var sendErr error
 	go func() {
 		defer close(done)
-		reply, sendErr = a.Session(st, store.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
+		reply, sendErr = a.Session(st, conversation.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
 	}()
 	select {
 	case <-done:
@@ -655,7 +655,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 		replies: []provider.Message{{Role: "assistant", Content: "hi"}},
 		err:     errString("extract down"),
 	}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -665,7 +665,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	}
 	a := New(p, workspace(t))
 	a.MemoryStore = mem
-	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -690,7 +690,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 		{Role: "assistant", Content: "hi"},
 		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
 	}}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -702,7 +702,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 	a := New(p, workspace(t))
 	a.MemoryStore = mem
 	a.Indexer = idx
-	reply, err := a.Session(st, store.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
+	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -738,11 +738,11 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		{Role: "assistant", Content: "ok"},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	reply, err := New(p, workspace(t)).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
@@ -783,11 +783,11 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 		{Role: "assistant", Content: "done"},
 	}}
 
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	conv := store.New("cli")
+	conv := conversation.New("cli")
 	reply, err := New(p, workspace(t), tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
@@ -828,11 +828,11 @@ func TestSendAllowsManyToolRounds(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	const rounds = 25
 	p := &scriptedProvider{replies: toolThenReply(rounds, "done")}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	reply, err := New(p, workspace(t), echo).Session(st, store.New("cli")).Send(context.Background(), "hello")
+	reply, err := New(p, workspace(t), echo).Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,13 +850,13 @@ func TestSendAllowsManyToolRounds(t *testing.T) {
 func TestSendCapsToolRounds(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	p := &scriptedProvider{replies: toolThenReply(5, "done")}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := New(p, workspace(t), echo)
 	a.MaxToolRounds = 2
-	_, err = a.Session(st, store.New("cli")).Send(context.Background(), "hello")
+	_, err = a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err == nil || !strings.Contains(err.Error(), "exceeded 2 tool rounds") {
 		t.Fatalf("err = %v, want exceeded 2 tool rounds", err)
 	}
@@ -868,13 +868,13 @@ func TestSendCapsToolRounds(t *testing.T) {
 func TestSendStopsWhenContextCanceled(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	p := &scriptedProvider{replies: toolThenReply(100, "done")}
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = New(p, workspace(t), echo).Session(st, store.New("cli")).Send(ctx, "hello")
+	_, err = New(p, workspace(t), echo).Session(st, conversation.New("cli")).Send(ctx, "hello")
 	if err != context.Canceled {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}

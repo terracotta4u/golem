@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/store"
 )
 
 func TestHomeIsNewChat(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,17 +43,17 @@ func TestHomeIsNewChat(t *testing.T) {
 }
 
 func TestSidebarListsWebConversations(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.Save(store.Conversation{ID: "web-1", Channel: "web", Title: "Dinner plans"}); err != nil {
+	if err := st.Save(conversation.Conversation{ID: "web-1", Channel: "web", Title: "Dinner plans"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.Save(store.Conversation{ID: "web-2", Channel: "web", Title: "Lunch plans"}); err != nil {
+	if err := st.Save(conversation.Conversation{ID: "web-2", Channel: "web", Title: "Lunch plans"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.Save(store.Conversation{ID: "cli-1", Channel: "cli", Title: "Secret cli chat"}); err != nil {
+	if err := st.Save(conversation.Conversation{ID: "cli-1", Channel: "cli", Title: "Secret cli chat"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,11 +78,11 @@ func TestSidebarListsWebConversations(t *testing.T) {
 }
 
 func TestConversationShowsMessages(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	conv := store.Conversation{
+	conv := conversation.Conversation{
 		ID:      "web-1",
 		Channel: "web",
 		Title:   "Dinner plans",
@@ -117,11 +117,11 @@ func TestConversationShowsMessages(t *testing.T) {
 }
 
 func TestConversationShowsToolCalls(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	conv := store.Conversation{
+	conv := conversation.Conversation{
 		ID:      "web-1",
 		Channel: "web",
 		Title:   "Echo",
@@ -250,7 +250,7 @@ func TestChatItems(t *testing.T) {
 }
 
 func TestConversationUnknownIsEmpty(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,11 +267,11 @@ func TestConversationUnknownIsEmpty(t *testing.T) {
 }
 
 func TestConversationWrongChannelNotFound(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	conv := store.Conversation{ID: "tg-1", Channel: "telegram", Title: "Telegram chat"}
+	conv := conversation.Conversation{ID: "tg-1", Channel: "telegram", Title: "Telegram chat"}
 	if err := st.Save(conv); err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestConversationWrongChannelNotFound(t *testing.T) {
 }
 
 func TestWebPostTurn(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestWebPostTurn(t *testing.T) {
 }
 
 func TestWebPostTurnPersists(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func TestWebPostTurnPersists(t *testing.T) {
 }
 
 func TestWebPostTurnPersistsToolCall(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +397,7 @@ func TestWebPostTurnPersistsToolCall(t *testing.T) {
 }
 
 func TestWebPostTurnEmpty(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,11 +411,11 @@ func TestWebPostTurnEmpty(t *testing.T) {
 }
 
 func TestWebPostTurnWrongChannel(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.Save(store.Conversation{ID: "tg-1", Channel: "telegram"}); err != nil {
+	if err := st.Save(conversation.Conversation{ID: "tg-1", Channel: "telegram"}); err != nil {
 		t.Fatal(err)
 	}
 	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
@@ -428,7 +428,7 @@ func TestWebPostTurnWrongChannel(t *testing.T) {
 }
 
 func TestWebPostTurnEscapesHTML(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,7 +475,7 @@ func postTurnHTML(t *testing.T, base, convID, message string) (int, string) {
 }
 
 func TestWebTurnEventsNotFound(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestWebTurnEventsNotFound(t *testing.T) {
 func TestWebTurnEventsDone(t *testing.T) {
 	waiting := make(chan struct{}, 1)
 	release := make(chan struct{})
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +530,7 @@ func TestWebTurnEventsDone(t *testing.T) {
 }
 
 func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -550,7 +550,7 @@ func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
 }
 
 func TestWebTurnEventsLateSubscriber(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -577,7 +577,7 @@ func TestWebTurnEventsLateSubscriber(t *testing.T) {
 func TestWebTurnEventsLogThenDone(t *testing.T) {
 	waiting := make(chan struct{}, 1)
 	release := make(chan struct{})
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,7 +642,7 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 }
 
 func TestWebTurnEventsError(t *testing.T) {
-	st, err := store.NewFileStore(t.TempDir())
+	st, err := conversation.NewFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
