@@ -28,4 +28,4 @@ Or in the web UI: **Settings → Extensions → Add extension** (GitHub URL or z
 
 ## Keys
 
-Golem injects `GOLEM_URL` and `GOLEM_TOKEN`. API keys come from the environment of `golem serve`, or from `extensions.<name>.env` in `~/.golem/etc/conf.json`. See [Configuration](../usage/configuration.md).
+Golem injects `GOLEM_URL` and `GOLEM_TOKEN`. API keys come from the environment of `golem serve`, or from `extensions.<name>.env` in `~/.golem/conf.json`. See [Configuration](../usage/configuration.md).

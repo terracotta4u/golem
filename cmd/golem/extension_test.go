@@ -494,7 +494,7 @@ func stubGitHub(t *testing.T, owner, repo, ref, sha string) *httptest.Server {
 
 func writeConf(t *testing.T, cfg conf.Conf) {
 	t.Helper()
-	dir, err := conf.EtcDir()
+	dir, err := conf.Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
