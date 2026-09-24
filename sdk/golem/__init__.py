@@ -1,5 +1,4 @@
-"""Python SDK for Golem extensions (channels, providers, and other processes)."""
-
+from golem.channel import Channel
 from golem.client import Client, GolemError, TurnEvent
 from golem.extension import Extension
 from golem.provider import (
@@ -13,6 +12,7 @@ from golem.provider import (
 )
 
 __all__ = [
+    "Channel",
     "Client",
     "Extension",
     "FunctionCall",
