@@ -14,10 +14,10 @@ import (
 )
 
 type app struct {
-	cfg   conf.Conf
-	store *conversation.DB
-	agent *agent.Agent
-	hub   *provider.Hub
+	cfg           conf.Conf
+	conversations *conversation.DB
+	agent         *agent.Agent
+	hub           *provider.Hub
 }
 
 // setup loads ~/.golem, opens the conversation database, and reports first-run creation.
@@ -33,22 +33,22 @@ func setup() (conf.Conf, *conversation.DB, error) {
 	if created {
 		fmt.Fprintf(os.Stderr, "created %s\n", dir)
 	}
-	st, err := conversation.Open(dir)
+	conversations, err := conversation.Open(dir)
 	if err != nil {
 		return conf.Conf{}, nil, err
 	}
-	return cfg, st, nil
+	return cfg, conversations, nil
 }
 
 func loadApp() (*app, error) {
-	cfg, st, err := setup()
+	cfg, conversations, err := setup()
 	if err != nil {
 		return nil, err
 	}
 	ok := false
 	defer func() {
 		if !ok {
-			st.Close()
+			conversations.Close()
 		}
 	}()
 
@@ -79,7 +79,7 @@ func loadApp() (*app, error) {
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, hub)
 	ok = true
-	return &app{cfg: cfg, store: st, agent: a, hub: hub}, nil
+	return &app{cfg: cfg, conversations: conversations, agent: a, hub: hub}, nil
 }
 
 func confModel(which string) func() (string, string, error) {
