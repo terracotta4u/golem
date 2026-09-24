@@ -125,6 +125,164 @@ func TestRegisterProviderRequiresRoute(t *testing.T) {
 	}
 }
 
+func TestRegisterToolListed(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "golem-weather",
+		"callback_url": "http://127.0.0.1:9",
+		"capabilities": []any{map[string]any{
+			"kind":        "tool",
+			"name":        "weather",
+			"description": "Current conditions for a city.",
+			"parameters":  map[string]any{"type": "object", "properties": map[string]any{"city": map[string]any{"type": "string"}}},
+		}},
+	})
+
+	list := listExts(t, ts.URL, "secret")
+	if len(list) != 1 || len(list[0].Capabilities) != 1 {
+		t.Fatalf("list = %+v", list)
+	}
+	cap := list[0].Capabilities[0]
+	if cap.Kind != "tool" || cap.Name != "weather" || cap.Description != "Current conditions for a city." {
+		t.Fatalf("capability = %+v", cap)
+	}
+	if !bytes.Contains(cap.Parameters, []byte(`"city"`)) {
+		t.Fatalf("parameters = %s", cap.Parameters)
+	}
+	if _, err := s.hub.Get("weather"); err == nil {
+		t.Fatal("tool should not register a provider")
+	}
+}
+
+func TestRegisterToolRejectsBuiltin(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	for _, name := range []string{"read", "write", "edit", "shell", "skill"} {
+		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
+			"name":         "golem-weather",
+			"callback_url": "http://127.0.0.1:9",
+			"capabilities": []any{toolCap(name)},
+		})
+		if status != http.StatusConflict || !bytes.Contains([]byte(raw), []byte("builtin")) {
+			t.Fatalf("tool %s status = %d (%s), want 409 builtin", name, status, raw)
+		}
+	}
+	if len(listExts(t, ts.URL, "secret")) != 0 {
+		t.Fatal("rejected tool should not be listed")
+	}
+}
+
+func TestRegisterToolRejectsDuplicate(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "one",
+		"callback_url": "http://127.0.0.1:9",
+		"capabilities": []any{toolCap("weather")},
+	})
+	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
+		"name":         "two",
+		"callback_url": "http://127.0.0.1:10",
+		"capabilities": []any{toolCap("weather")},
+	})
+	if status != http.StatusConflict {
+		t.Fatalf("status = %d (%s), want 409", status, raw)
+	}
+	list := listExts(t, ts.URL, "secret")
+	if len(list) != 1 || list[0].Name != "one" {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
+func TestRegisterToolReplaceSameExtension(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	body := map[string]any{
+		"name":         "golem-weather",
+		"callback_url": "http://127.0.0.1:9",
+		"capabilities": []any{toolCap("weather")},
+	}
+	registerExt(t, ts.URL, "secret", body)
+	body["callback_url"] = "http://127.0.0.1:10"
+	registerExt(t, ts.URL, "secret", body)
+
+	list := listExts(t, ts.URL, "secret")
+	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Capabilities[0].Name != "weather" {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
+func TestRegisterToolExpires(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return now }
+	s.ttl = time.Minute
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "one",
+		"callback_url": "http://127.0.0.1:9",
+		"capabilities": []any{toolCap("weather")},
+	})
+	now = now.Add(time.Minute)
+	if len(listExts(t, ts.URL, "secret")) != 0 {
+		t.Fatal("want empty list after ttl")
+	}
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "two",
+		"callback_url": "http://127.0.0.1:10",
+		"capabilities": []any{toolCap("weather")},
+	})
+	list := listExts(t, ts.URL, "secret")
+	if len(list) != 1 || list[0].Name != "two" {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
+func TestRegisterToolRequiresFields(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	cases := []struct {
+		cap  map[string]any
+		want string
+	}{
+		{map[string]any{"kind": "tool", "parameters": map[string]any{"type": "object"}}, "tool name is required"},
+		{map[string]any{"kind": "tool", "name": "weather"}, "tool parameters are required"},
+		{map[string]any{"kind": "tool", "name": "weather", "parameters": []any{}}, "tool parameters must be an object"},
+	}
+	for _, tc := range cases {
+		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
+			"name":         "golem-weather",
+			"callback_url": "http://127.0.0.1:9",
+			"capabilities": []any{tc.cap},
+		})
+		if status != http.StatusBadRequest || !bytes.Contains([]byte(raw), []byte(tc.want)) {
+			t.Fatalf("cap %v status = %d (%s), want 400 %s", tc.cap, status, raw, tc.want)
+		}
+	}
+}
+
+func toolCap(name string) map[string]any {
+	return map[string]any{
+		"kind":        "tool",
+		"name":        name,
+		"description": "A tool.",
+		"parameters":  map[string]any{"type": "object", "properties": map[string]any{}},
+	}
+}
+
 func TestRegisterUnknownKindListed(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	ts := httptest.NewServer(s.handler())

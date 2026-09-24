@@ -16,11 +16,23 @@ import (
 const extensionTTL = 30 * time.Second
 
 type capability struct {
-	Kind       string `json:"kind"`
-	ID         string `json:"id,omitempty"`
-	Chat       bool   `json:"chat,omitempty"`
-	Structured bool   `json:"structured,omitempty"`
-	Embed      bool   `json:"embed,omitempty"`
+	Kind        string          `json:"kind"`
+	ID          string          `json:"id,omitempty"`
+	Chat        bool            `json:"chat,omitempty"`
+	Structured  bool            `json:"structured,omitempty"`
+	Embed       bool            `json:"embed,omitempty"`
+	Name        string          `json:"name,omitempty"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+// builtinTools are the names the agent already exposes.
+var builtinTools = map[string]struct{}{
+	"read":  {},
+	"write": {},
+	"edit":  {},
+	"shell": {},
+	"skill": {},
 }
 
 type extRecord struct {
@@ -82,6 +94,10 @@ func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.dropLocked(name)
+	if err := s.toolConflictLocked(caps); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
 
 	// Put each provider capability into the hub so later Chat/Embed lookups
 	// can POST to this extension. One remote client is shared; the model name
@@ -190,6 +206,43 @@ func (s *Server) handleListExtensions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"extensions": list})
 }
 
+func (s *Server) toolConflictLocked(caps []capability) error {
+	taken := map[string]struct{}{}
+	for _, cap := range caps {
+		if cap.Kind != "tool" {
+			continue
+		}
+		if _, ok := builtinTools[cap.Name]; ok {
+			return fmt.Errorf("tool %q conflicts with a builtin", cap.Name)
+		}
+		if _, ok := taken[cap.Name]; ok {
+			return fmt.Errorf("tool %q is already registered", cap.Name)
+		}
+		taken[cap.Name] = struct{}{}
+	}
+	if len(taken) == 0 {
+		return nil
+	}
+	for name, e := range s.exts {
+		if !s.fresh(e) {
+			s.dropLocked(name)
+			continue
+		}
+		for _, cap := range e.caps {
+			if cap.Kind == "tool" {
+				if _, ok := taken[cap.Name]; ok {
+					return fmt.Errorf("tool %q is already registered", cap.Name)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Server) fresh(e *extRecord) bool {
+	return e.expiry.IsZero() || s.now().Before(e.expiry)
+}
+
 func (s *Server) dropLocked(name string) {
 	e, ok := s.exts[name]
 	if !ok {
@@ -208,7 +261,7 @@ func (s *Server) liveLocked(name string) (*extRecord, bool) {
 	if !ok {
 		return nil, false
 	}
-	if !e.expiry.IsZero() && !s.now().Before(e.expiry) {
+	if !s.fresh(e) {
 		s.dropLocked(name)
 		return nil, false
 	}
@@ -236,9 +289,30 @@ func normalizeCaps(caps []capability) ([]capability, error) {
 		if cap.Kind == "provider" && !cap.Chat && !cap.Structured && !cap.Embed {
 			return nil, fmt.Errorf("provider must advertise chat or embed")
 		}
+		if cap.Kind == "tool" {
+			cap.Name = strings.TrimSpace(cap.Name)
+			cap.Description = strings.TrimSpace(cap.Description)
+			if cap.Name == "" {
+				return nil, fmt.Errorf("tool name is required")
+			}
+			if err := objectParams(cap.Parameters); err != nil {
+				return nil, err
+			}
+		}
 		out = append(out, cap)
 	}
 	return out, nil
+}
+
+func objectParams(raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return fmt.Errorf("tool parameters are required")
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
+		return fmt.Errorf("tool parameters must be an object")
+	}
+	return nil
 }
 
 func parseCallback(raw string) (string, error) {
