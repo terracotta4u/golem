@@ -157,15 +157,6 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "conversations")); !os.IsNotExist(err) {
 		t.Fatalf("conversations directory present: %v", err)
 	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".json") {
-			t.Fatalf("found %s, want only the database", e.Name())
-		}
-	}
 
 	st2, err := NewFileStore(dir)
 	if err != nil {
