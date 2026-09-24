@@ -25,6 +25,7 @@ type Project struct {
 	Dir         string
 	Provider    Decl
 	Channel     Decl
+	Tools       string
 }
 
 var nameRE = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -44,6 +45,7 @@ type pyproject struct {
 		Golem struct {
 			Provider *golemDecl `toml:"provider"`
 			Channel  *golemDecl `toml:"channel"`
+			Tools    string     `toml:"tools"`
 		} `toml:"golem"`
 	} `toml:"tool"`
 }
@@ -76,11 +78,18 @@ func Parse(data []byte) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	if provider.ID == "" && channel.ID == "" {
-		return Project{}, fmt.Errorf("declare a provider or channel in [tool.golem]")
+	tools := strings.TrimSpace(p.Tool.Golem.Tools)
+	if tools != "" {
+		if err := entrypoint(tools); err != nil {
+			return Project{}, err
+		}
+	}
+	if provider.ID == "" && channel.ID == "" && tools == "" {
+		return Project{}, fmt.Errorf("declare a provider, channel, or tools in [tool.golem]")
 	}
 	proj.Provider = provider
 	proj.Channel = channel
+	proj.Tools = tools
 	return proj, nil
 }
 
@@ -96,11 +105,18 @@ func decl(raw *golemDecl, kind string) (Decl, error) {
 	if entry == "" {
 		return Decl{}, fmt.Errorf("%s entrypoint is required", kind)
 	}
-	module, attr, ok := strings.Cut(entry, ":")
-	if !ok || module == "" || attr == "" || strings.Contains(attr, ":") {
-		return Decl{}, fmt.Errorf("invalid entrypoint %q", entry)
+	if err := entrypoint(entry); err != nil {
+		return Decl{}, err
 	}
 	return Decl{ID: id, Entrypoint: entry}, nil
+}
+
+func entrypoint(entry string) error {
+	module, attr, ok := strings.Cut(entry, ":")
+	if !ok || module == "" || attr == "" || strings.Contains(attr, ":") {
+		return fmt.Errorf("invalid entrypoint %q", entry)
+	}
+	return nil
 }
 
 func Load(dir string) (Project, error) {

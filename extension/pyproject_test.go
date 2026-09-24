@@ -82,6 +82,37 @@ entrypoint = "golem_cli:CLI"
 	if got.Channel != (Decl{ID: "cli", Entrypoint: "golem_cli:CLI"}) {
 		t.Errorf("Channel = %+v", got.Channel)
 	}
+	if got.Tools != "golem_echo:tools" {
+		t.Errorf("Tools = %q", got.Tools)
+	}
+}
+
+func TestParseToolsOnly(t *testing.T) {
+	got, err := Parse([]byte(`
+[project]
+name = "golem-weather"
+version = "0.1.0"
+
+[tool.golem]
+tools = "golem_weather:tools"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Tools != "golem_weather:tools" || got.Provider.ID != "" || got.Channel.ID != "" {
+		t.Errorf("project = %+v", got)
+	}
+	_, err = Parse([]byte(`
+[project]
+name = "golem-weather"
+version = "0.1.0"
+
+[tool.golem]
+tools = "not-an-entrypoint"
+`))
+	if err == nil || !strings.Contains(err.Error(), "invalid entrypoint") {
+		t.Fatalf("Parse(bad tools) error = %v", err)
+	}
 }
 
 func TestParseGolemDeclErrors(t *testing.T) {
@@ -99,7 +130,7 @@ func TestParseGolemDeclErrors(t *testing.T) {
 		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \":Echo\"\n", "invalid entrypoint"},
 		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \"pkg:\"\n", "invalid entrypoint"},
 		{"[tool.golem.provider]\nid = \"echo\"\nentrypoint = \"pkg:Echo:extra\"\n", "invalid entrypoint"},
-		{"", "provider or channel"},
+		{"", "provider, channel, or tools"},
 	}
 	for _, tc := range cases {
 		_, err := Parse([]byte(head + tc.body))

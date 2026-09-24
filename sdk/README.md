@@ -68,9 +68,29 @@ entrypoint = "golem_cli:CLI"
 
 `post_turn` and `stream_turn` expose the same flow as SSE events (`log`, `done`, `error`).
 
+### Tool Extensions
+
+A tool is a function Golem can call. The name is the function name, the description is the first docstring line, and parameters come from the annotations. Point `[tool.golem]` at a list of those functions, or at one function:
+
+```python
+def weather(city: str) -> str:
+    """Current conditions for a city."""
+    return "sunny in " + city
+
+
+tools = [weather]
+```
+
+```toml
+[tool.golem]
+tools = "golem_weather:tools"
+```
+
+Golem launches this as `python -m golem --name golem-weather --tools golem_weather:tools`. A request arrives as `POST /v1/tools/weather` with the arguments object, and the response is `{"result":"<text>"}`.
+
 ## Packaging Extensions
 
-Ship the extension as a Python package. Golem takes the name and description from `pyproject.toml`, reads `[tool.golem]`, and runs `python -m golem` with that provider or channel:
+Ship the extension as a Python package. Golem takes the name and description from `pyproject.toml`, reads `[tool.golem]`, and runs `python -m golem` with that provider, channel, or tools list:
 
 ```toml
 [project]

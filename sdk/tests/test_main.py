@@ -18,6 +18,18 @@ class Echo(Provider):
         return Message(role="assistant", content="echo:" + text)
 '''
 
+_TOOLS = '''
+def weather(city: str) -> str:
+    """Current conditions for a city."""
+    return "sunny in " + city
+
+def broken(city: str) -> str:
+    """Always fails."""
+    raise RuntimeError("no station")
+
+tools = [weather, broken]
+'''
+
 _CHANNEL = '''
 import threading
 from golem import Channel
@@ -154,11 +166,54 @@ def test_channel_registers_and_runs(
         thread.join(timeout=2)
 
 
+def test_tools_register_and_answer(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, golem: _Golem
+) -> None:
+    (tmp_path / "golem_weather.py").write_text(_TOOLS)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    stop = threading.Event()
+    thread = threading.Thread(
+        target=serve,
+        kwargs={
+            "argv": ["--name", "golem-weather", "--tools", "golem_weather:tools"],
+            "stop": stop,
+            "heartbeat_interval": 0.05,
+        },
+        daemon=True,
+    )
+    thread.start()
+    try:
+        assert golem.registered.wait(timeout=3)
+        caps = golem.registers[0]["capabilities"]
+        assert [cap["name"] for cap in caps] == ["weather", "broken"]
+        assert caps[0]["kind"] == "tool"
+        assert caps[0]["description"] == "Current conditions for a city."
+        status, body = _callback_post(
+            golem.registers[0]["callback_url"],
+            "/v1/tools/weather",
+            golem.token,
+            {"city": "Lisbon"},
+        )
+        assert status == 200
+        assert body == {"result": "sunny in Lisbon"}
+        status, body = _callback_post(
+            golem.registers[0]["callback_url"],
+            "/v1/tools/broken",
+            golem.token,
+            {"city": "Lisbon"},
+        )
+        assert status == 500
+        assert "no station" in body["error"]["message"]
+    finally:
+        stop.set()
+        thread.join(timeout=2)
+
+
 @pytest.mark.parametrize(
     ("argv", "match"),
     [
         ([], "name is required"),
-        (["--name", "golem-echo"], "pass --provider or --channel"),
+        (["--name", "golem-echo"], "pass --provider, --channel, or --tools"),
         (["--name", "golem-echo", "--provider", "echo"], "invalid provider"),
         (
             ["--name", "golem-echo", "--provider", "echo=Echo"],

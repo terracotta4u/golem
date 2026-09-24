@@ -46,6 +46,9 @@ func moduleArgs(p Project) []string {
 	if p.Channel.ID != "" {
 		args = append(args, "--channel", p.Channel.ID+"="+p.Channel.Entrypoint)
 	}
+	if p.Tools != "" {
+		args = append(args, "--tools", p.Tools)
+	}
 	return args
 }
 

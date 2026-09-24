@@ -12,6 +12,8 @@ from typing import Any
 from golem.channel import Channel
 from golem.client import Client, GolemError
 from golem.provider import JSONSchema, Message, Provider, ToolDef, UnsupportedFormat
+from golem.tool import invoke
+from golem.tool import schema as tool_schema
 
 Task = Callable[[Client, threading.Event], None]
 
@@ -38,6 +40,7 @@ class Extension:
         heartbeat_interval: float = 10.0,
         provider: tuple[str, Provider] | None = None,
         channel: Channel | None = None,
+        tools: list[Callable[..., Any]] | None = None,
     ) -> None:
         """Create an extension.
 
@@ -54,10 +57,13 @@ class Extension:
                 routes. At least one is required when this is set.
             channel: Loop advertised as ``{"kind": "channel", "id": channel.id}``
                 and started after register.
+            tools: Functions advertised as ``kind: tool`` and served at
+                ``POST /v1/tools/{name}``.
 
         Raises:
             ValueError: ``name`` is empty, the provider id is empty, the
-                provider implements no route, or the channel id is empty.
+                provider implements no route, the channel id is empty, or
+                two tools share a name.
         """
         name = name.strip()
         if not name:
@@ -74,10 +80,13 @@ class Extension:
         self._provider: Provider | None = None
         self._tasks: list[Task] = []
         self._extra_caps: list[dict[str, Any]] = []
+        self._tools: dict[str, Callable[..., Any]] = {}
         if provider is not None:
             self._set_provider(*provider)
         if channel is not None:
             self._set_channel(channel)
+        if tools:
+            self._set_tools(tools)
 
     def _set_provider(self, provider_id: str, impl: Provider) -> None:
         provider_id = provider_id.strip()
@@ -96,6 +105,15 @@ class Extension:
             raise ValueError("channel id is required")
         self._extra_caps.append({"kind": "channel", "id": channel_id})
         self._tasks.append(channel.run)
+
+    def _set_tools(self, tools: list[Callable[..., Any]]) -> None:
+        for fn in tools:
+            spec = tool_schema(fn)
+            name = str(spec["name"])
+            if name in self._tools:
+                raise ValueError(f"tool {name} already set")
+            self._tools[name] = fn
+            self._extra_caps.append({"kind": "tool", **spec})
 
     def run(self, stop: threading.Event | None = None) -> None:
         """Bind a loopback server, register, heartbeat, and block.
@@ -192,6 +210,8 @@ class Extension:
         return caps
 
     def _dispatch(self, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        if path.startswith("/v1/tools/"):
+            return self._invoke_tool(path.removeprefix("/v1/tools/").strip("/"), body)
         if self._provider is None:
             return 404, _error("not found")
         model = str(body.get("model") or "")
@@ -223,6 +243,15 @@ class Extension:
         except Exception as exc:  # noqa: BLE001
             return 500, _error(str(exc))
         return 404, _error("not found")
+
+    def _invoke_tool(self, name: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        fn = self._tools.get(name)
+        if fn is None:
+            return 404, _error("not found")
+        try:
+            return 200, {"result": invoke(fn, body)}
+        except Exception as exc:  # noqa: BLE001
+            return 500, _error(str(exc))
 
 
 def _overrides(provider: Provider, method: str) -> bool:

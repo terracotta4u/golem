@@ -5,11 +5,11 @@ weight: 10
 draft: false
 ---
 
-An extension is a Python project with a `pyproject.toml`. `golem extension add` copies it into `~/.golem/extensions/<name>/`, creates a venv with Python 3.12, and runs `uv sync`. Then `golem serve` starts `.venv/bin/python -m golem` with the provider or channel from `[tool.golem]`.
+An extension is a Python project with a `pyproject.toml`. `golem extension add` copies it into `~/.golem/extensions/<name>/`, creates a venv with Python 3.12, and runs `uv sync`. Then `golem serve` starts `.venv/bin/python -m golem` with the provider, channel, or tools from `[tool.golem]`.
 
 ## pyproject.toml
 
-Golem requires `name`, `version`, and at least one of `[tool.golem.provider]` or `[tool.golem.channel]`. `name` is lowercase letters, digits, and hyphens (max 64 characters). That name is the install directory and the `golem extension remove` argument.
+Golem requires `name`, `version`, and at least one of a provider, a channel, or `tools`. `name` is lowercase letters, digits, and hyphens (max 64 characters). That name is the install directory and the `golem extension remove` argument.
 
 ```toml
 [project]
@@ -34,6 +34,13 @@ A channel uses the same shape:
 [tool.golem.channel]
 id = "cli"
 entrypoint = "golem_cli:CLI"
+```
+
+Tools are one list of functions. The attribute is the list, or a single function:
+
+```toml
+[tool.golem]
+tools = "golem_weather:tools"
 ```
 
 ## Install for development

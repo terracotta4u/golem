@@ -48,6 +48,40 @@ func TestResolveCommandVenvScript(t *testing.T) {
 	}
 }
 
+func TestResolveCommandTools(t *testing.T) {
+	dir := t.TempDir()
+	toml := `
+[project]
+name = "golem-weather"
+version = "0.1.0"
+
+[tool.golem]
+tools = "golem_weather:tools"
+`
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(toml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	python := venvScript(dir, "python")
+	if err := os.MkdirAll(filepath.Dir(python), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(python, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, args, err := ResolveCommand(dir, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-m", "golem", "--name", "golem-weather", "--tools", "golem_weather:tools"}
+	if strings.Join(args, " ") != strings.Join(want, " ") {
+		t.Errorf("args = %q, want %q", args, want)
+	}
+}
+
 func TestResolveCommandMissingVenvScript(t *testing.T) {
 	dir := t.TempDir()
 	writePythonSrc(t, dir)

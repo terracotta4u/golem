@@ -1,6 +1,6 @@
 ---
 title: Python SDK
-description: Build providers and channels with golem-agent-sdk.
+description: Build providers, channels, and tools with golem-agent-sdk.
 weight: 20
 draft: false
 ---
@@ -70,5 +70,25 @@ entrypoint = "golem_cli:CLI"
 ```
 
 `post_turn` and `stream_turn` expose the same flow as SSE events (`log`, `done`, `error`).
+
+## Tools
+
+A tool is a function Golem can call. The name is the function name, the description is the first docstring line, and parameters come from the annotations. Point `[tool.golem]` at a list, or at one function.
+
+```python
+def weather(city: str) -> str:
+    """Current conditions for a city."""
+    return "sunny in " + city
+
+
+tools = [weather]
+```
+
+```toml
+[tool.golem]
+tools = "golem_weather:tools"
+```
+
+Golem posts the arguments object to `/v1/tools/weather`. The response is `{"result":"<text>"}`. A raised exception is HTTP 500.
 
 Ship the package as described in [packaging](packaging.md).
