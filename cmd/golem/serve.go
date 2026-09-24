@@ -41,6 +41,7 @@ func runServe(cmd *cobra.Command, addr, token string) error {
 	if err != nil {
 		return err
 	}
+	defer app.store.Close()
 	return serve(cmd.Context(), app, addr, token)
 }
 

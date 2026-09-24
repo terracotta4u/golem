@@ -15,13 +15,13 @@ import (
 
 type app struct {
 	cfg   conf.Conf
-	store conversation.Store
+	store *conversation.DB
 	agent *agent.Agent
 	hub   *provider.Hub
 }
 
 // setup loads ~/.golem, opens the conversation database, and reports first-run creation.
-func setup() (conf.Conf, conversation.Store, error) {
+func setup() (conf.Conf, *conversation.DB, error) {
 	cfg, created, err := conf.Load()
 	if err != nil {
 		return conf.Conf{}, nil, err
@@ -45,6 +45,12 @@ func loadApp() (*app, error) {
 	if err != nil {
 		return nil, err
 	}
+	ok := false
+	defer func() {
+		if !ok {
+			st.Close()
+		}
+	}()
 
 	skills, err := loadSkills()
 	if err != nil {
@@ -72,6 +78,7 @@ func loadApp() (*app, error) {
 	a.Fast = provider.NewLazyChat(hub, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, hub)
+	ok = true
 	return &app{cfg: cfg, store: st, agent: a, hub: hub}, nil
 }
 

@@ -68,6 +68,10 @@ func Open(golemDir string) (*DB, error) {
 	return &DB{db: db}, nil
 }
 
+func (s *DB) Close() error {
+	return s.db.Close()
+}
+
 func (s *DB) Load(id string) (Conversation, error) {
 	var c Conversation
 	var updated string

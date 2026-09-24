@@ -105,6 +105,19 @@ func TestListNewestFirstWithoutMessages(t *testing.T) {
 	}
 }
 
+func TestClose(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Load("missing"); err == nil {
+		t.Fatal("Load after Close succeeded")
+	}
+}
+
 func TestLoadOrCreateMissingReturnsUnsaved(t *testing.T) {
 	st, err := Open(t.TempDir())
 	if err != nil {
