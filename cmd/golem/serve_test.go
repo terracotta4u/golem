@@ -130,6 +130,51 @@ func TestPrepareExtension(t *testing.T) {
 	}
 }
 
+func TestPrepareExtensionModule(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "golem-echo")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	toml := `[project]
+name = "golem-echo"
+version = "0.1.0"
+
+[project.scripts]
+golem-echo = "golem_echo:main"
+
+[tool.golem.provider]
+id = "echo"
+entrypoint = "golem_echo:Echo"
+`
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(toml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	python := filepath.Join(dir, ".venv", "bin", "python")
+	if err := os.MkdirAll(filepath.Dir(python), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(python, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := extension.List(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := prepareExtension(conf.Conf{}, list[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Command != python || got.Dir != dir {
+		t.Errorf("command = %q dir = %q", got.Command, got.Dir)
+	}
+	want := []string{"-m", "golem", "--name", "golem-echo", "--provider", "echo=golem_echo:Echo"}
+	if strings.Join(got.Args, " ") != strings.Join(want, " ") {
+		t.Errorf("args = %q, want %q", got.Args, want)
+	}
+}
+
 func TestStartNamedExtensionAddsProcess(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")

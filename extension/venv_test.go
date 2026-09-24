@@ -38,12 +38,12 @@ func TestResolveCommandVenvScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd, err := ResolveCommand(dir, p)
+	cmd, args, err := ResolveCommand(dir, p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cmd != script {
-		t.Errorf("command = %q, want %q", cmd, script)
+	if cmd != script || args != nil {
+		t.Errorf("command = %q %v, want %q", cmd, args, script)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestResolveCommandMissingVenvScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ResolveCommand(dir, p)
+	_, _, err = ResolveCommand(dir, p)
 	if err == nil {
 		t.Fatal("expected error")
 	}
