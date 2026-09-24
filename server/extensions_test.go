@@ -15,6 +15,7 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
 )
 
 func TestRegisterProviderAndChat(t *testing.T) {
@@ -297,8 +298,8 @@ func TestRegisterToolReplaceSameExtension(t *testing.T) {
 func TestRegisterToolExpires(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s.now = func() time.Time { return now }
-	s.ttl = time.Minute
+	s.reg.Now = func() time.Time { return now }
+	s.reg.TTL = time.Minute
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
 
@@ -449,8 +450,8 @@ func TestRegisterReplacesSameName(t *testing.T) {
 func TestHeartbeatExpires(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s.now = func() time.Time { return now }
-	s.ttl = time.Minute
+	s.reg.Now = func() time.Time { return now }
+	s.reg.TTL = time.Minute
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
 
@@ -582,7 +583,7 @@ func registerExt(t *testing.T, base, token string, body map[string]any) {
 	}
 }
 
-func listExts(t *testing.T, base, token string) []extJSON {
+func listExts(t *testing.T, base, token string) []registry.Extension {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, base+"/v1/extensions", nil)
 	if err != nil {
@@ -604,7 +605,7 @@ func listExts(t *testing.T, base, token string) []extJSON {
 		t.Fatalf("list status = %d: %s", resp.StatusCode, raw)
 	}
 	var out struct {
-		Extensions []extJSON `json:"extensions"`
+		Extensions []registry.Extension `json:"extensions"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
