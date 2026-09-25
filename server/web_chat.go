@@ -11,6 +11,7 @@ import (
 
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/server/web"
 )
 
 const webChannel = "web"
@@ -78,7 +79,7 @@ func (s *Server) handleWebTurn(w http.ResponseWriter, r *http.Request) {
 			}
 			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend">`+card+`</hx-partial>`)
 		case "done":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(markdownHTML(ev.text))+`</hx-partial>`) {
+			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(web.Markdown(ev.text))+`</hx-partial>`) {
 				return false
 			}
 			return writeSSE(w, "close", "")

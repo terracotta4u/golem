@@ -3,16 +3,12 @@ package server
 import (
 	"context"
 	"crypto/rand"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"html/template"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,10 +16,8 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/release"
+	"github.com/terracotta4u/golem/server/web"
 )
-
-//go:embed web/templates/*.html web/static
-var webFS embed.FS
 
 const maxBody = 1 << 20
 
@@ -43,9 +37,9 @@ type Options struct {
 }
 
 type Server struct {
-	opts Options
-	tmpl *template.Template
-	reg  *registry.Registry
+	opts  Options
+	pages *web.Pages
+	reg   *registry.Registry
 
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
@@ -59,7 +53,7 @@ type Server struct {
 func New(opts Options) *Server {
 	s := &Server{
 		opts:  opts,
-		tmpl:  parseWeb(),
+		pages: web.New(),
 		locks: make(map[string]*sync.Mutex),
 		turns: make(map[string]*turn),
 	}
@@ -91,31 +85,12 @@ func (s *Server) handler() http.Handler {
 	return s.Handler()
 }
 
-func parseWeb() *template.Template {
-	return template.Must(template.New("").Funcs(template.FuncMap{
-		"markdown": markdownHTML,
-	}).ParseFS(webFS, "web/templates/*.html"))
-}
-
-func (s *Server) static() http.Handler {
-	static, err := fs.Sub(webFS, "web/static")
-	if err != nil {
-		panic(err)
-	}
-	return http.StripPrefix("/static/", http.FileServer(http.FS(static)))
-}
-
 func (s *Server) render(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.pages.Render(w, name, data)
 }
 
 func (s *Server) execute(name string, data any) (string, error) {
-	var b strings.Builder
-	err := s.tmpl.ExecuteTemplate(&b, name, data)
-	return b.String(), err
+	return s.pages.Execute(name, data)
 }
 
 func (s *Server) Listen(ctx context.Context, ready func()) error {

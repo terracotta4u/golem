@@ -8,7 +8,7 @@ import (
 func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle("GET /static/", s.static())
+	mux.Handle("GET /static/", s.pages.Static())
 
 	// API routes
 	mux.Handle("GET /v1/health", s.bearer(http.HandlerFunc(s.handleHealth)))
