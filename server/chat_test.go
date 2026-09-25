@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -490,4 +492,151 @@ type errProvider struct {
 
 func (p *errProvider) Chat(_ context.Context, _ provider.ChatRequest) (provider.Message, error) {
 	return provider.Message{}, p.err
+}
+
+func TestRegisteredToolIsCalled(t *testing.T) {
+	var gotPath, gotAuth string
+	var gotBody []byte
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		var err error
+		gotBody, err = io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"result": "sunny in Lisbon"})
+	}))
+	defer cb.Close()
+
+	p := &gatedScript{gateAt: -1, replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "weather",
+					Arguments: `{"city":"Lisbon"}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "It is sunny."},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(p, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "golem-weather",
+		"callback_url": cb.URL,
+		"tools":        []any{toolCap("weather")},
+	})
+	id := postTurn(t, ts.URL, "secret", "conv-1", "weather in Lisbon")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 2 || events[0].Event != "log" || events[1].Event != "done" {
+		t.Fatalf("events = %+v, want log then done", events)
+	}
+	if got := events[1].text(); got != "It is sunny." {
+		t.Fatalf("text = %q, want It is sunny.", got)
+	}
+	if line := events[0].line(); !strings.Contains(line, "[weather]") {
+		t.Fatalf("log line = %q", line)
+	}
+	if !strings.Contains(events[0].Data, "sunny in Lisbon") {
+		t.Fatalf("log data = %s", events[0].Data)
+	}
+	if gotPath != "/v1/tools/weather" {
+		t.Fatalf("path = %s", gotPath)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Fatalf("Authorization = %q", gotAuth)
+	}
+	if string(gotBody) != `{"city":"Lisbon"}` {
+		t.Fatalf("body = %s", gotBody)
+	}
+}
+
+func TestRegisteredProviderServesTurn(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.DefaultModel.Provider = "stub"
+	cfg.DefaultModel.Model = "stub-model"
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Model != "stub-model" {
+			t.Errorf("model = %q, want stub-model", body.Model)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "from stub"})
+	}))
+	defer cb.Close()
+
+	reg := registry.New("")
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
+			c, _, err := conf.Load()
+			if err != nil {
+				return "", "", err
+			}
+			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
+		}), t.TempDir()),
+		Store:    st,
+		Registry: reg,
+		Token:    "secret",
+	})
+	ts := httptest.NewServer(s.handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "stub",
+		"callback_url": cb.URL,
+		"providers":    []any{map[string]any{"id": "stub", "chat": true}},
+	})
+
+	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want one done", events)
+	}
+	if got := events[0].text(); got != "from stub" {
+		t.Fatalf("text = %q, want from stub", got)
+	}
+}
+
+func toolCap(name string) map[string]any {
+	return map[string]any{
+		"name":        name,
+		"description": "A tool.",
+		"parameters":  map[string]any{"type": "object", "properties": map[string]any{}},
+	}
 }

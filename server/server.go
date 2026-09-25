@@ -16,6 +16,7 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/release"
+	"github.com/terracotta4u/golem/server/api"
 	"github.com/terracotta4u/golem/server/web"
 )
 
@@ -41,6 +42,7 @@ type Server struct {
 	pages      *web.Pages
 	settings   *web.Settings
 	extensions *web.Extensions
+	regAPI     *api.Extensions
 	reg        *registry.Registry
 
 	mu    sync.Mutex
@@ -70,6 +72,7 @@ func New(opts Options) *Server {
 	}
 	s.settings = web.NewSettings(s.pages, opts.Version, s.updateStatus)
 	s.extensions = web.NewExtensions(s.pages, s.startExtension, s.stopExtension)
+	s.regAPI = api.NewExtensions(s.reg)
 	return s
 }
 
@@ -140,10 +143,6 @@ func (s *Server) stopExtension(name string) error {
 		return nil
 	}
 	return s.opts.StopExtension(name)
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
