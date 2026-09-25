@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// getHTML is a helper function that fetches a page for the chat, settings, and extension tests.
 func getHTML(t *testing.T, url string) string {
 	t.Helper()
 	resp, err := http.Get(url)
