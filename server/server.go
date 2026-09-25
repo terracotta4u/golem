@@ -19,7 +19,7 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conversation"
-	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/release"
 )
 
@@ -37,7 +37,7 @@ type Options struct {
 	StartExtension func(name string) error
 	StopExtension  func(name string) error
 
-	Hub *provider.Hub
+	Registry *registry.Registry
 
 	Version string
 	Release *release.Checker
@@ -46,10 +46,7 @@ type Options struct {
 type Server struct {
 	opts Options
 	tmpl *template.Template
-	hub  *provider.Hub
-	ttl  time.Duration
-	now  func() time.Time
-	exts map[string]*extRecord
+	reg  *registry.Registry
 
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
@@ -64,18 +61,17 @@ func New(opts Options) *Server {
 	s := &Server{
 		opts:  opts,
 		tmpl:  parseWeb(),
-		hub:   opts.Hub,
-		ttl:   extensionTTL,
-		now:   time.Now,
-		exts:  make(map[string]*extRecord),
 		locks: make(map[string]*sync.Mutex),
 		turns: make(map[string]*turn),
 	}
-	if s.hub == nil {
-		s.hub = provider.NewHub(0)
+	if opts.Registry != nil {
+		s.reg = opts.Registry
+		s.reg.SetToken(opts.Token)
+	} else {
+		s.reg = registry.New(opts.Token)
 	}
 	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
-		s.opts.Agent.Catalog = s
+		s.opts.Agent.Catalog = s.reg
 	}
 	return s
 }
@@ -175,9 +171,7 @@ func (s *Server) startExtension(name string) error {
 }
 
 func (s *Server) stopExtension(name string) error {
-	s.mu.Lock()
-	s.dropLocked(name)
-	s.mu.Unlock()
+	s.reg.Drop(name)
 	if s.opts.StopExtension == nil {
 		return nil
 	}

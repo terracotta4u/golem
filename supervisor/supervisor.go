@@ -19,7 +19,7 @@ const (
 	healthyAfter = time.Minute
 )
 
-type Extension struct {
+type Process struct {
 	Name    string
 	Command string
 	Args    []string
@@ -28,9 +28,12 @@ type Extension struct {
 }
 
 type Options struct {
-	URL        string
-	Token      string
-	Extensions []Extension
+	URL       string
+	Token     string
+	Processes []Process
+	// OnExit is called when a child process returns, before the restart wait.
+	// It also runs when the process is stopped.
+	OnExit func(name string)
 }
 
 type Supervisor struct {
@@ -69,14 +72,14 @@ func (s *Supervisor) Start(ctx context.Context) {
 	s.mu.Lock()
 	s.parent = ctx
 	s.mu.Unlock()
-	for _, ext := range s.opts.Extensions {
+	for _, ext := range s.opts.Processes {
 		if err := s.Add(ext); err != nil {
 			fmt.Fprintf(os.Stderr, "supervisor: start %s: %v\n", ext.Name, err)
 		}
 	}
 }
 
-func (s *Supervisor) Add(ext Extension) error {
+func (s *Supervisor) Add(ext Process) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.parent == nil {
@@ -124,7 +127,7 @@ func (s *Supervisor) Wait() {
 	s.wg.Wait()
 }
 
-func (s *Supervisor) keepAlive(ctx context.Context, ext Extension) {
+func (s *Supervisor) keepAlive(ctx context.Context, ext Process) {
 	backoff := minBackoff
 	for {
 		if ctx.Err() != nil {
@@ -133,6 +136,9 @@ func (s *Supervisor) keepAlive(ctx context.Context, ext Extension) {
 
 		started := time.Now()
 		err := s.runOnce(ctx, ext)
+		if s.opts.OnExit != nil {
+			s.opts.OnExit(ext.Name)
+		}
 		if ctx.Err() != nil {
 			return
 		}
@@ -158,7 +164,7 @@ func (s *Supervisor) keepAlive(ctx context.Context, ext Extension) {
 	}
 }
 
-func (s *Supervisor) runOnce(ctx context.Context, ext Extension) error {
+func (s *Supervisor) runOnce(ctx context.Context, ext Process) error {
 	command := strings.TrimSpace(ext.Command)
 	if command == "" {
 		return fmt.Errorf("extension %s: missing command", ext.Name)
@@ -174,7 +180,7 @@ func (s *Supervisor) runOnce(ctx context.Context, ext Extension) error {
 	return cmd.Run()
 }
 
-func childEnv(url, token string, ext Extension) []string {
+func childEnv(url, token string, ext Process) []string {
 	parent := os.Environ()
 	out := make([]string, 0, len(parent)+4)
 	path := ""

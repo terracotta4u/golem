@@ -193,12 +193,11 @@ def test_run_registers_and_dispatches(golem: _Golem) -> None:
         reg = _wait_registered(golem)
         assert reg["name"] == "golem-openrouter"
         assert reg["callback_url"].startswith("http://127.0.0.1:")
-        caps = reg["capabilities"]
-        assert caps[0]["kind"] == "provider"
-        assert caps[0]["id"] == "openrouter"
-        assert caps[0]["chat"] is True
-        assert caps[0]["structured"] is True
-        assert caps[0]["embed"] is True
+        providers = reg["providers"]
+        assert providers[0]["id"] == "openrouter"
+        assert providers[0]["chat"] is True
+        assert providers[0]["structured"] is True
+        assert providers[0]["embed"] is True
 
         status, body = _callback_post(
             reg["callback_url"],
@@ -344,7 +343,7 @@ def test_channel_is_advertised_and_started(golem: _Golem) -> None:
     thread = _start(ext, stop)
     try:
         reg = _wait_registered(golem)
-        assert reg["capabilities"] == [{"kind": "channel", "id": "cli"}]
+        assert reg["channels"] == [{"id": "cli"}]
         assert ran.wait(timeout=2)
     finally:
         _stop(thread, stop)
@@ -368,12 +367,11 @@ def test_embed_only_omits_chat(golem: _Golem) -> None:
     thread = _start(ext, stop)
     try:
         reg = _wait_registered(golem)
-        cap = reg["capabilities"][0]
-        assert cap["kind"] == "provider"
-        assert cap["id"] == "local-embed"
-        assert cap["embed"] is True
-        assert "chat" not in cap
-        assert "structured" not in cap
+        provider = reg["providers"][0]
+        assert provider["id"] == "local-embed"
+        assert provider["embed"] is True
+        assert "chat" not in provider
+        assert "structured" not in provider
 
         status, body = _callback_post(
             reg["callback_url"],
@@ -404,10 +402,10 @@ def test_chat_only_omits_structured_and_embed(golem: _Golem) -> None:
     )
     thread = _start(ext, stop)
     try:
-        cap = _wait_registered(golem)["capabilities"][0]
-        assert cap["chat"] is True
-        assert "structured" not in cap
-        assert "embed" not in cap
+        provider = _wait_registered(golem)["providers"][0]
+        assert provider["chat"] is True
+        assert "structured" not in provider
+        assert "embed" not in provider
     finally:
         _stop(thread, stop)
 
@@ -457,7 +455,7 @@ def test_client_register_and_heartbeat(golem: _Golem) -> None:
     client.register(
         "golem-openrouter",
         "http://127.0.0.1:9",
-        [{"kind": "provider", "id": "openrouter", "chat": True}],
+        providers=[{"id": "openrouter", "chat": True}],
     )
     client.heartbeat("golem-openrouter")
     assert golem.registers[0]["callback_url"] == "http://127.0.0.1:9"

@@ -178,7 +178,13 @@ class Client:
         raise GolemError("turn ended without done")
 
     def register(
-        self, name: str, callback_url: str, capabilities: list[dict[str, Any]]
+        self,
+        name: str,
+        callback_url: str,
+        *,
+        providers: list[dict[str, Any]] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        channels: list[dict[str, Any]] | None = None,
     ) -> None:
         """Register this process with Golem.
 
@@ -189,15 +195,25 @@ class Client:
             name: Extension name, matching the installed package.
             callback_url: Loopback URL Golem should POST to
                 (``http://127.0.0.1:<port>``).
-            capabilities: Provider and channel descriptors.
+            providers: Model backends. Each has ``id`` and at least one of
+                ``chat``, ``structured``, or ``embed``.
+            tools: Functions. Each has ``name`` and ``parameters``.
+            channels: Loops this process runs itself. Each has ``id``.
 
         Raises:
             GolemError: Register returned a non-ok body.
         """
+        payload: dict[str, Any] = {"name": name, "callback_url": callback_url}
+        if providers:
+            payload["providers"] = providers
+        if tools:
+            payload["tools"] = tools
+        if channels:
+            payload["channels"] = channels
         body = self._request(
             "POST",
             "/v1/extensions/register",
-            {"name": name, "callback_url": callback_url, "capabilities": capabilities},
+            payload,
         )
         if not isinstance(body, dict) or not body.get("ok"):
             raise GolemError("register failed")

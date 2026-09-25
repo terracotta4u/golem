@@ -21,13 +21,8 @@ type Agent struct {
 	MaxToolRounds int
 	// Fast is an optional cheaper provider for lightweight work. Nil means use the default.
 	Fast provider.Provider
-	// Memory is searched before each Send. Nil skips retrieval.
-	Memory        memory.Searcher
-	MinSimilarity float32
-	BudgetTokens  int
-	// MemoryStore, if set, records extracted memories after a turn.
-	MemoryStore *memory.Store
-	Indexer     memory.Indexer
+	// Memories is retrieval and extraction for each Send. The zero value skips both.
+	Memories Memories
 	// Catalog, when set, adds tools that are live for the current round.
 	// A builtin with the same name is kept.
 	Catalog Catalog
@@ -36,6 +31,16 @@ type Agent struct {
 	list      []tool.Tool
 	workspace string
 	wg        sync.WaitGroup
+}
+
+// Memories is how an agent reads and records memories.
+// Search nil skips retrieval. Store nil skips extraction.
+type Memories struct {
+	Search        memory.Searcher
+	Store         *memory.Store
+	Index         memory.Indexer
+	MinSimilarity float32
+	BudgetTokens  int
 }
 
 // Catalog is the set of extension tools available right now.
@@ -100,8 +105,8 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 			}
 			s.agent.goRemember(ctx, rememberJob{
 				provider: s.agent.provider,
-				store:    s.agent.MemoryStore,
-				indexer:  s.agent.Indexer,
+				store:    s.agent.Memories.Store,
+				indexer:  s.agent.Memories.Index,
 				convID:   s.conv.ID,
 				input:    input,
 				reply:    msg.Content,
@@ -132,15 +137,15 @@ func withContext(prompt string, msgs []provider.Message) []provider.Message {
 const memorySearchLimit = 20
 
 func (s *Session) retrieve(ctx context.Context, query string) {
-	if s.agent.Memory == nil {
+	if s.agent.Memories.Search == nil {
 		return
 	}
-	hits, err := s.agent.Memory.Search(ctx, query, memorySearchLimit)
+	hits, err := s.agent.Memories.Search.Search(ctx, query, memorySearchLimit)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: search: %v\n", err)
 		return
 	}
-	s.memories = memory.Retrieve(hits, s.agent.MinSimilarity, s.agent.BudgetTokens, 0, memory.ApproxTokenEstimator{})
+	s.memories = memory.Retrieve(hits, s.agent.Memories.MinSimilarity, s.agent.Memories.BudgetTokens, 0, memory.ApproxTokenEstimator{})
 }
 
 func (a *Agent) goRemember(ctx context.Context, job rememberJob) {

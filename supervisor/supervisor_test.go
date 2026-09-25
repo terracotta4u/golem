@@ -34,7 +34,7 @@ func TestStartInjectsEnv(t *testing.T) {
 	s := New(Options{
 		URL:   "http://127.0.0.1:8743",
 		Token: "secret",
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > " + strconv.Quote(out)},
@@ -80,7 +80,7 @@ func TestStartPrependsVenvBinToPATH(t *testing.T) {
 	s := New(Options{
 		URL:   "http://127.0.0.1:8743",
 		Token: "secret",
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s' \"$PATH\" > " + strconv.Quote(out)},
@@ -108,7 +108,7 @@ func TestStartVenvPythonWinsOnPATH(t *testing.T) {
 
 	out := filepath.Join(t.TempDir(), "python")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "command -v python > " + strconv.Quote(out)},
@@ -132,7 +132,7 @@ func TestStartKeepsPATHWithoutVenv(t *testing.T) {
 	t.Setenv("PATH", "/custom/bin:/usr/bin:/bin")
 	out := filepath.Join(t.TempDir(), "path")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s' \"$PATH\" > " + strconv.Quote(out)},
@@ -156,7 +156,7 @@ func TestStartKeepsParentEnvWhenConfEmpty(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
@@ -180,7 +180,7 @@ func TestStartConfEnvOverridesParent(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
@@ -203,7 +203,7 @@ func TestStartConfEnvOverridesParent(t *testing.T) {
 func TestStartRestartsExitedChild(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "runs")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "echo x >> " + strconv.Quote(out)},
@@ -234,7 +234,7 @@ func TestStartSetsChildCwdToDir(t *testing.T) {
 	dir := t.TempDir()
 
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "bot",
 			Command: "sh",
 			Args:    []string{"-c", "printf ok > marker"},
@@ -260,7 +260,7 @@ func TestAddAfterStartRunsChild(t *testing.T) {
 	defer cancel()
 	s.Start(ctx)
 
-	if err := s.Add(Extension{
+	if err := s.Add(Process{
 		Name:    "echo",
 		Command: "sh",
 		Args:    []string{"-c", "printf ok > " + strconv.Quote(out)},
@@ -277,7 +277,7 @@ func TestAddAfterStartRunsChild(t *testing.T) {
 
 func TestAddBeforeStartErrors(t *testing.T) {
 	s := New(Options{})
-	err := s.Add(Extension{Name: "echo", Command: "true"})
+	err := s.Add(Process{Name: "echo", Command: "true"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -288,10 +288,10 @@ func TestAddDuplicateErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	ext := Extension{
+	ext := Process{
 		Name:    "echo",
 		Command: "sh",
-		Args:    []string{"-c", "sleep 30"},
+		Args:    []string{"-c", "exec sleep 30"},
 	}
 	if err := s.Add(ext); err != nil {
 		t.Fatal(err)
@@ -310,10 +310,10 @@ func TestStopKillsChild(t *testing.T) {
 	defer cancel()
 	s.Start(ctx)
 
-	if err := s.Add(Extension{
+	if err := s.Add(Process{
 		Name:    "echo",
 		Command: "sh",
-		Args:    []string{"-c", "echo x >> " + strconv.Quote(out) + "; sleep 30"},
+		Args:    []string{"-c", "echo x >> " + strconv.Quote(out) + "; exec sleep 30"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -334,6 +334,62 @@ func TestStopKillsChild(t *testing.T) {
 	s.Wait()
 }
 
+func TestOnExitBeforeRestart(t *testing.T) {
+	exited := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	s := New(Options{
+		OnExit: func(name string) {
+			exited <- name
+			cancel()
+		},
+		Processes: []Process{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "exit 0"},
+		}},
+	})
+	started := time.Now()
+	s.Start(ctx)
+	s.Wait()
+	if time.Since(started) >= minBackoff {
+		t.Fatal("OnExit ran after the restart backoff")
+	}
+	select {
+	case name := <-exited:
+		if name != "echo" {
+			t.Fatalf("name = %q, want echo", name)
+		}
+	default:
+		t.Fatal("OnExit was not called")
+	}
+}
+
+func TestOnExitOnShutdown(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "started")
+	exited := make(chan string, 1)
+	s := New(Options{
+		OnExit: func(name string) { exited <- name },
+		Processes: []Process{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "echo x > " + strconv.Quote(out) + "; exec sleep 30"},
+		}},
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	s.Start(ctx)
+	waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+	select {
+	case name := <-exited:
+		if name != "echo" {
+			t.Fatalf("name = %q, want echo", name)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("OnExit was not called")
+	}
+}
+
 func TestStopUnknownIsNoop(t *testing.T) {
 	s := New(Options{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -350,10 +406,10 @@ func TestParentCancelStopsAdded(t *testing.T) {
 	s := New(Options{})
 	ctx, cancel := context.WithCancel(context.Background())
 	s.Start(ctx)
-	if err := s.Add(Extension{
+	if err := s.Add(Process{
 		Name:    "echo",
 		Command: "sh",
-		Args:    []string{"-c", "sleep 30"},
+		Args:    []string{"-c", "exec sleep 30"},
 	}); err != nil {
 		t.Fatal(err)
 	}

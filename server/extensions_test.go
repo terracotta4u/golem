@@ -15,18 +15,23 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
 )
 
 func TestRegisterProviderAndChat(t *testing.T) {
 	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chat" {
-			t.Errorf("path = %s, want /v1/chat", r.URL.Path)
-		}
 		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
 			t.Errorf("Authorization = %q, want Bearer secret", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "hi"})
+		switch r.URL.Path {
+		case "/v1/chat":
+			json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "hi"})
+		case "/v1/embed":
+			json.NewEncoder(w).Encode(map[string]any{"vectors": [][]float32{{0.1}}})
+		default:
+			t.Errorf("path = %s", r.URL.Path)
+		}
 	}))
 	defer cb.Close()
 
@@ -37,25 +42,18 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": cb.URL,
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true, "structured": true, "embed": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true, "structured": true, "embed": true}},
 	})
 
 	list := listExts(t, ts.URL, "secret")
 	if len(list) != 1 || list[0].Name != "golem-openrouter" || list[0].CallbackURL != cb.URL {
 		t.Fatalf("list = %+v", list)
 	}
-	if len(list[0].Capabilities) != 1 || list[0].Capabilities[0].Kind != "provider" || list[0].Capabilities[0].ID != "openrouter" {
-		t.Fatalf("capabilities = %+v", list[0].Capabilities)
+	if len(list[0].Providers) != 1 || list[0].Providers[0].ID != "openrouter" || !list[0].Providers[0].Chat {
+		t.Fatalf("providers = %+v", list[0].Providers)
 	}
 
-	b, err := s.hub.Get("openrouter")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.Chat == nil || b.Embedder == nil {
-		t.Fatalf("backend = %+v, want chat and embedder", b)
-	}
-	msg, err := b.Chat.Chat(context.Background(), provider.ChatRequest{
+	msg, err := chatProvider(s, "openrouter").Chat(context.Background(), provider.ChatRequest{
 		Messages: []provider.Message{{Role: "user", Content: "hello"}},
 	})
 	if err != nil {
@@ -63,6 +61,13 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	}
 	if msg.Content != "hi" {
 		t.Errorf("content = %q, want hi", msg.Content)
+	}
+	vecs, err := embedProvider(s, "openrouter").Embed(context.Background(), []string{"hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vecs) != 1 || vecs[0][0] != 0.1 {
+		t.Fatalf("vecs = %v", vecs)
 	}
 }
 
@@ -83,20 +88,13 @@ func TestRegisterEmbedOnly(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-embed",
 		"callback_url": cb.URL,
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "local-embed", "embed": true}},
+		"providers":    []any{map[string]any{"id": "local-embed", "embed": true}},
 	})
 
-	b, err := s.hub.Get("local-embed")
-	if err != nil {
-		t.Fatal(err)
+	if _, err := chatProvider(s, "local-embed").Chat(context.Background(), provider.ChatRequest{}); err == nil || err.Error() != `provider "local-embed" does not support chat` {
+		t.Fatalf("chat err = %v", err)
 	}
-	if b.Chat != nil {
-		t.Fatal("embed-only provider should not register chat")
-	}
-	if b.Embedder == nil {
-		t.Fatal("embed-only provider missing embedder")
-	}
-	vecs, err := b.Embedder.Embed(context.Background(), []string{"hello"})
+	vecs, err := embedProvider(s, "local-embed").Embed(context.Background(), []string{"hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +111,7 @@ func TestRegisterProviderRequiresRoute(t *testing.T) {
 	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 		"name":         "ext",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "p"}},
+		"providers":    []any{map[string]any{"id": "p"}},
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d (%s), want 400", status, raw)
@@ -121,8 +119,8 @@ func TestRegisterProviderRequiresRoute(t *testing.T) {
 	if !bytes.Contains([]byte(raw), []byte("chat or embed")) {
 		t.Fatalf("body = %s, want chat or embed", raw)
 	}
-	if _, err := s.hub.Get("p"); err == nil {
-		t.Fatal("empty provider should not register")
+	if err := resolveProvider(s, "p"); err == nil || err.Error() != `unknown provider "p"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -134,8 +132,7 @@ func TestRegisterToolListed(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-weather",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{
-			"kind":        "tool",
+		"tools": []any{map[string]any{
 			"name":        "weather",
 			"description": "Current conditions for a city.",
 			"parameters":  map[string]any{"type": "object", "properties": map[string]any{"city": map[string]any{"type": "string"}}},
@@ -143,18 +140,18 @@ func TestRegisterToolListed(t *testing.T) {
 	})
 
 	list := listExts(t, ts.URL, "secret")
-	if len(list) != 1 || len(list[0].Capabilities) != 1 {
+	if len(list) != 1 || len(list[0].Tools) != 1 {
 		t.Fatalf("list = %+v", list)
 	}
-	cap := list[0].Capabilities[0]
-	if cap.Kind != "tool" || cap.Name != "weather" || cap.Description != "Current conditions for a city." {
-		t.Fatalf("capability = %+v", cap)
+	got := list[0].Tools[0]
+	if got.Name != "weather" || got.Description != "Current conditions for a city." {
+		t.Fatalf("tool = %+v", got)
 	}
-	if !bytes.Contains(cap.Parameters, []byte(`"city"`)) {
-		t.Fatalf("parameters = %s", cap.Parameters)
+	if !bytes.Contains(got.Parameters, []byte(`"city"`)) {
+		t.Fatalf("parameters = %s", got.Parameters)
 	}
-	if _, err := s.hub.Get("weather"); err == nil {
-		t.Fatal("tool should not register a provider")
+	if err := resolveProvider(s, "weather"); err == nil || err.Error() != `unknown provider "weather"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -203,7 +200,7 @@ func TestRegisteredToolIsCalled(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-weather",
 		"callback_url": cb.URL,
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	id := postTurn(t, ts.URL, "secret", "conv-1", "weather in Lisbon")
 	events := getTurnEvents(t, ts.URL, "secret", id)
@@ -239,7 +236,7 @@ func TestRegisterToolRejectsBuiltin(t *testing.T) {
 		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "golem-weather",
 			"callback_url": "http://127.0.0.1:9",
-			"capabilities": []any{toolCap(name)},
+			"tools":        []any{toolCap(name)},
 		})
 		if status != http.StatusConflict || !bytes.Contains([]byte(raw), []byte("builtin")) {
 			t.Fatalf("tool %s status = %d (%s), want 409 builtin", name, status, raw)
@@ -258,12 +255,12 @@ func TestRegisterToolRejectsDuplicate(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "one",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 		"name":         "two",
 		"callback_url": "http://127.0.0.1:10",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	if status != http.StatusConflict {
 		t.Fatalf("status = %d (%s), want 409", status, raw)
@@ -282,14 +279,14 @@ func TestRegisterToolReplaceSameExtension(t *testing.T) {
 	body := map[string]any{
 		"name":         "golem-weather",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	}
 	registerExt(t, ts.URL, "secret", body)
 	body["callback_url"] = "http://127.0.0.1:10"
 	registerExt(t, ts.URL, "secret", body)
 
 	list := listExts(t, ts.URL, "secret")
-	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Capabilities[0].Name != "weather" {
+	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Tools[0].Name != "weather" {
 		t.Fatalf("list = %+v", list)
 	}
 }
@@ -297,15 +294,15 @@ func TestRegisterToolReplaceSameExtension(t *testing.T) {
 func TestRegisterToolExpires(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s.now = func() time.Time { return now }
-	s.ttl = time.Minute
+	s.reg.Now = func() time.Time { return now }
+	s.reg.TTL = time.Minute
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "one",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	now = now.Add(time.Minute)
 	if len(listExts(t, ts.URL, "secret")) != 0 {
@@ -314,7 +311,7 @@ func TestRegisterToolExpires(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "two",
 		"callback_url": "http://127.0.0.1:10",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	list := listExts(t, ts.URL, "secret")
 	if len(list) != 1 || list[0].Name != "two" {
@@ -331,15 +328,15 @@ func TestRegisterToolRequiresFields(t *testing.T) {
 		cap  map[string]any
 		want string
 	}{
-		{map[string]any{"kind": "tool", "parameters": map[string]any{"type": "object"}}, "tool name is required"},
-		{map[string]any{"kind": "tool", "name": "weather"}, "tool parameters are required"},
-		{map[string]any{"kind": "tool", "name": "weather", "parameters": []any{}}, "tool parameters must be an object"},
+		{map[string]any{"parameters": map[string]any{"type": "object"}}, "tool name is required"},
+		{map[string]any{"name": "weather"}, "tool parameters are required"},
+		{map[string]any{"name": "weather", "parameters": []any{}}, "tool parameters must be an object"},
 	}
 	for _, tc := range cases {
 		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "golem-weather",
 			"callback_url": "http://127.0.0.1:9",
-			"capabilities": []any{tc.cap},
+			"tools":        []any{tc.cap},
 		})
 		if status != http.StatusBadRequest || !bytes.Contains([]byte(raw), []byte(tc.want)) {
 			t.Fatalf("cap %v status = %d (%s), want 400 %s", tc.cap, status, raw, tc.want)
@@ -349,30 +346,26 @@ func TestRegisterToolRequiresFields(t *testing.T) {
 
 func toolCap(name string) map[string]any {
 	return map[string]any{
-		"kind":        "tool",
 		"name":        name,
 		"description": "A tool.",
 		"parameters":  map[string]any{"type": "object", "properties": map[string]any{}},
 	}
 }
 
-func TestRegisterUnknownKindListed(t *testing.T) {
+func TestRegisterChannelListed(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
-		"name":         "custom",
+		"name":         "golem-cli",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "widget", "id": "w1"}},
+		"channels":     []any{map[string]any{"id": "cli"}},
 	})
 
 	list := listExts(t, ts.URL, "secret")
-	if len(list) != 1 || list[0].Name != "custom" || len(list[0].Capabilities) != 1 || list[0].Capabilities[0].Kind != "widget" {
+	if len(list) != 1 || list[0].Name != "golem-cli" || len(list[0].Providers) != 0 || len(list[0].Tools) != 0 || len(list[0].Channels) != 1 || list[0].Channels[0].ID != "cli" {
 		t.Fatalf("list = %+v", list)
-	}
-	if _, err := s.hub.Get("w1"); err == nil {
-		t.Fatal("unknown kind should not register a provider")
 	}
 }
 
@@ -391,7 +384,7 @@ func TestRegisterRejectsNonLoopback(t *testing.T) {
 		status, body := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "ext",
 			"callback_url": url,
-			"capabilities": []any{map[string]any{"kind": "provider", "id": "p", "chat": true}},
+			"providers":    []any{map[string]any{"id": "p", "chat": true}},
 		})
 		if status != http.StatusBadRequest {
 			t.Errorf("callback_url %q status = %d (%s), want 400", url, status, body)
@@ -407,7 +400,7 @@ func TestRegisterDuplicateProvider(t *testing.T) {
 	body := map[string]any{
 		"name":         "one",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	}
 	registerExt(t, ts.URL, "secret", body)
 	body["name"] = "two"
@@ -425,39 +418,35 @@ func TestRegisterReplacesSameName(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	})
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:10",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true, "embed": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true, "embed": true}},
 	})
 
 	list := listExts(t, ts.URL, "secret")
 	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" {
 		t.Fatalf("list = %+v", list)
 	}
-	b, err := s.hub.Get("openrouter")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.Embedder == nil {
-		t.Fatal("replaced backend missing embedder")
+	if _, err := embedProvider(s, "openrouter").Embed(context.Background(), []string{"hi"}); err == nil || strings.Contains(err.Error(), "does not support embedding") || strings.Contains(err.Error(), "unknown provider") {
+		t.Fatalf("err = %v, want the embed route", err)
 	}
 }
 
 func TestHeartbeatExpires(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s.now = func() time.Time { return now }
-	s.ttl = time.Minute
+	s.reg.Now = func() time.Time { return now }
+	s.reg.TTL = time.Minute
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	})
 
 	now = now.Add(30 * time.Second)
@@ -470,8 +459,8 @@ func TestHeartbeatExpires(t *testing.T) {
 	if len(listExts(t, ts.URL, "secret")) != 0 {
 		t.Fatal("want empty list after ttl")
 	}
-	if _, err := s.hub.Get("openrouter"); err == nil {
-		t.Fatal("want unknown provider after ttl")
+	if err := resolveProvider(s, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -483,13 +472,13 @@ func TestStopExtensionUnregisters(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	})
 	if err := s.stopExtension("golem-openrouter"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.hub.Get("openrouter"); err == nil {
-		t.Fatal("want unknown provider after stop")
+	if err := resolveProvider(s, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -524,22 +513,22 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	}))
 	defer cb.Close()
 
-	hub := provider.NewHub(0)
+	reg := registry.New("")
 	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := New(Options{
-		Agent: agent.New(provider.NewLazyChat(hub, func() (string, string, error) {
+		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
 			c, _, err := conf.Load()
 			if err != nil {
 				return "", "", err
 			}
 			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
 		}), t.TempDir()),
-		Store: st,
-		Hub:   hub,
-		Token: "secret",
+		Store:    st,
+		Registry: reg,
+		Token:    "secret",
 	})
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
@@ -547,7 +536,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "stub",
 		"callback_url": cb.URL,
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "stub", "chat": true}},
+		"providers":    []any{map[string]any{"id": "stub", "chat": true}},
 	})
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -582,7 +571,7 @@ func registerExt(t *testing.T, base, token string, body map[string]any) {
 	}
 }
 
-func listExts(t *testing.T, base, token string) []extJSON {
+func listExts(t *testing.T, base, token string) []registry.Registration {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, base+"/v1/extensions", nil)
 	if err != nil {
@@ -604,7 +593,7 @@ func listExts(t *testing.T, base, token string) []extJSON {
 		t.Fatalf("list status = %d: %s", resp.StatusCode, raw)
 	}
 	var out struct {
-		Extensions []extJSON `json:"extensions"`
+		Extensions []registry.Registration `json:"extensions"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
@@ -636,4 +625,17 @@ func postJSON(t *testing.T, url, token string, body map[string]any) (int, string
 		t.Fatal(err)
 	}
 	return resp.StatusCode, string(b)
+}
+
+func chatProvider(s *Server, id string) provider.Provider {
+	return registry.BindChat(s.reg, func() (string, string, error) { return id, "m", nil })
+}
+
+func embedProvider(s *Server, id string) provider.Embedder {
+	return registry.BindEmbed(s.reg, func() (string, string, error) { return id, "m", nil })
+}
+
+func resolveProvider(s *Server, id string) error {
+	_, err := chatProvider(s, id).Chat(context.Background(), provider.ChatRequest{})
+	return err
 }

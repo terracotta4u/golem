@@ -1,4 +1,4 @@
-package server
+package registry
 
 import (
 	"bytes"
@@ -14,31 +14,30 @@ import (
 	"github.com/terracotta4u/golem/tool"
 )
 
+const maxBody = 1 << 20
+
 // Tools returns extension tools from live registrations.
-func (s *Server) Tools() []tool.Tool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (r *Registry) Tools() []tool.Tool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	var out []tool.Tool
-	for name, e := range s.exts {
-		if !s.fresh(e) {
-			s.dropLocked(name)
+	for name, e := range r.exts {
+		if !r.fresh(e) {
+			r.dropLocked(name)
 			continue
 		}
-		for _, cap := range e.caps {
-			if cap.Kind != "tool" {
-				continue
-			}
-			params, err := objectParams(cap.Parameters)
+		for _, tc := range e.tools {
+			params, err := objectParams(tc.Parameters)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, cap.Name, err)
+				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, tc.Name, err)
 				continue
 			}
 			out = append(out, extensionTool{
-				name:        cap.Name,
-				description: cap.Description,
+				name:        tc.Name,
+				description: tc.Description,
 				parameters:  params,
 				callback:    e.callback,
-				token:       s.opts.Token,
+				token:       r.token,
 			})
 		}
 	}
@@ -46,6 +45,17 @@ func (s *Server) Tools() []tool.Tool {
 		return out[i].Spec().Name < out[j].Spec().Name
 	})
 	return out
+}
+
+func objectParams(raw json.RawMessage) (map[string]any, error) {
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("tool parameters are required")
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
+		return nil, fmt.Errorf("tool parameters must be an object")
+	}
+	return obj, nil
 }
 
 type extensionTool struct {
