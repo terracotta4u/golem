@@ -1,3 +1,6 @@
+// Stand-ins for chat_test.go. They play the part of a model and a tool so the
+// page tests can run a chat without calling a real one. readSSE reads the page
+// event stream back into events.
 package web_test
 
 import (
