@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,23 +41,3 @@ func TestMessageJSONRoundTrip(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, original)
 	}
 }
-
-type stubProvider struct {
-	reply Message
-}
-
-func (s stubProvider) Chat(_ context.Context, _ ChatRequest) (Message, error) {
-	return s.reply, nil
-}
-
-type stubEmbedder struct {
-	vecs [][]float32
-}
-
-func (s stubEmbedder) Embed(_ context.Context, _ []string) ([][]float32, error) {
-	return s.vecs, nil
-}
-
-type errString string
-
-func (e errString) Error() string { return string(e) }

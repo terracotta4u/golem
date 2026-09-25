@@ -72,7 +72,6 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		Store:    app.conversations,
 		Addr:     listen,
 		Token:    token,
-		Hub:      app.hub,
 		Registry: app.reg,
 		Version:  version,
 		Release:  &release.Checker{Current: version},

@@ -19,7 +19,6 @@ import (
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conversation"
-	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/release"
 )
@@ -38,7 +37,6 @@ type Options struct {
 	StartExtension func(name string) error
 	StopExtension  func(name string) error
 
-	Hub      *provider.Hub
 	Registry *registry.Registry
 
 	Version string
@@ -48,7 +46,6 @@ type Options struct {
 type Server struct {
 	opts Options
 	tmpl *template.Template
-	hub  *provider.Hub
 	reg  *registry.Registry
 
 	mu    sync.Mutex
@@ -64,7 +61,6 @@ func New(opts Options) *Server {
 	s := &Server{
 		opts:  opts,
 		tmpl:  parseWeb(),
-		hub:   opts.Hub,
 		locks: make(map[string]*sync.Mutex),
 		turns: make(map[string]*turn),
 	}
@@ -72,10 +68,7 @@ func New(opts Options) *Server {
 		s.reg = opts.Registry
 		s.reg.SetToken(opts.Token)
 	} else {
-		if s.hub == nil {
-			s.hub = provider.NewHub(0)
-		}
-		s.reg = registry.New(s.hub, opts.Token)
+		s.reg = registry.New(opts.Token)
 	}
 	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
 		s.opts.Agent.Catalog = s.reg

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/provider/remote"
 	"github.com/terracotta4u/golem/tool"
 )
@@ -97,18 +96,16 @@ func fail(kind error, format string, args ...any) error {
 type Registry struct {
 	Now   func() time.Time
 	TTL   time.Duration
-	hub   *provider.Hub
 	token string
 
 	mu   sync.Mutex
 	exts map[string]*extRecord
 }
 
-func New(hub *provider.Hub, token string) *Registry {
+func New(token string) *Registry {
 	return &Registry{
 		Now:   time.Now,
 		TTL:   extensionTTL,
-		hub:   hub,
 		token: token,
 		exts:  make(map[string]*extRecord),
 	}
@@ -122,8 +119,8 @@ func (r *Registry) SetToken(token string) {
 	r.token = token
 }
 
-// Register stores req and publishes its providers on the hub.
-// A registration with the same name replaces the previous one.
+// Register stores req. A registration with the same name replaces the previous one.
+// One remote client is shared by the extension's providers; the model is chosen per call.
 func (r *Registry) Register(req Registration) error {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
@@ -144,19 +141,13 @@ func (r *Registry) Register(req Registration) error {
 	if err := r.toolConflictLocked(caps); err != nil {
 		return err
 	}
+	if err := r.providerConflictLocked(caps); err != nil {
+		return err
+	}
 
-	// Mirror each provider onto the hub so existing Chat/Embed lookups keep
-	// working. BindChat and BindEmbed read providers directly. One remote
-	// client is shared; the model name is filled in at call time.
 	client := remote.New(callback, r.token)
-	var registered []string
 	var providers []providerCap
 	var tools []liveTool
-	rollback := func() {
-		for _, id := range registered {
-			r.hub.Unregister(id)
-		}
-	}
 	for _, cap := range caps {
 		switch cap.Kind {
 		case "tool":
@@ -166,30 +157,6 @@ func (r *Registry) Register(req Registration) error {
 				parameters:  append(json.RawMessage(nil), cap.Parameters...),
 			})
 		case "provider":
-			b := provider.Backend{}
-			if cap.Chat || cap.Structured {
-				b.Chat = provider.NewModelChat(func(model string) provider.Provider {
-					return client.ForModel(model)
-				})
-			}
-			if cap.Embed {
-				b.Embedder = provider.NewModelEmbedder(func(model string) provider.Embedder {
-					return client.ForModel(model)
-				})
-			}
-			if b.Chat == nil && b.Embedder == nil {
-				rollback()
-				return fail(ErrInvalid, "provider must advertise chat or embed")
-			}
-			if err := r.hub.Register(cap.ID, b); err != nil {
-				rollback()
-				kind := ErrInvalid
-				if strings.Contains(err.Error(), "already registered") {
-					kind = ErrConflict
-				}
-				return fail(kind, "%s", err.Error())
-			}
-			registered = append(registered, cap.ID)
 			providers = append(providers, providerCap{
 				id:         cap.ID,
 				chat:       cap.Chat,
@@ -307,20 +274,39 @@ func (r *Registry) toolConflictLocked(caps []Capability) error {
 	return nil
 }
 
+func (r *Registry) providerConflictLocked(caps []Capability) error {
+	taken := map[string]struct{}{}
+	for _, cap := range caps {
+		if cap.Kind != "provider" {
+			continue
+		}
+		if _, ok := taken[cap.ID]; ok {
+			return fail(ErrConflict, "provider %q already registered", cap.ID)
+		}
+		taken[cap.ID] = struct{}{}
+	}
+	if len(taken) == 0 {
+		return nil
+	}
+	for name, e := range r.exts {
+		if !r.fresh(e) {
+			r.dropLocked(name)
+			continue
+		}
+		for _, p := range e.providers {
+			if _, ok := taken[p.id]; ok {
+				return fail(ErrConflict, "provider %q already registered", p.id)
+			}
+		}
+	}
+	return nil
+}
+
 func (r *Registry) fresh(e *extRecord) bool {
 	return e.expiry.IsZero() || r.now().Before(e.expiry)
 }
 
 func (r *Registry) dropLocked(name string) {
-	e, ok := r.exts[name]
-	if !ok {
-		return
-	}
-	for _, p := range e.providers {
-		if p.id != "" {
-			r.hub.Unregister(p.id)
-		}
-	}
 	delete(r.exts, name)
 }
 

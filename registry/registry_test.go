@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestRegisterRejectsBuiltin(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	err := r.Register(Registration{
 		Name:         "golem-weather",
 		CallbackURL:  "http://127.0.0.1:9",
@@ -24,7 +25,7 @@ func TestRegisterRejectsBuiltin(t *testing.T) {
 }
 
 func TestRegisterRejectsDuplicate(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	if err := r.Register(Registration{
 		Name:         "one",
 		CallbackURL:  "http://127.0.0.1:9",
@@ -47,7 +48,7 @@ func TestRegisterRejectsDuplicate(t *testing.T) {
 }
 
 func TestRegisterReplacesSameExtension(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	body := Registration{
 		Name:         "golem-weather",
 		CallbackURL:  "http://127.0.0.1:9",
@@ -67,7 +68,7 @@ func TestRegisterReplacesSameExtension(t *testing.T) {
 }
 
 func TestRegisterExpiresThenReuse(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	r.Now = func() time.Time { return now }
 	r.TTL = time.Minute
@@ -96,9 +97,34 @@ func TestRegisterExpiresThenReuse(t *testing.T) {
 	}
 }
 
+func TestRegisterRejectsDuplicateProvider(t *testing.T) {
+	r := New("")
+	body := Registration{
+		Name:        "one",
+		CallbackURL: "http://127.0.0.1:9",
+		Capabilities: []Capability{{
+			Kind: "provider",
+			ID:   "openrouter",
+			Chat: true,
+		}},
+	}
+	if err := r.Register(body); err != nil {
+		t.Fatal(err)
+	}
+	body.Name = "two"
+	body.CallbackURL = "http://127.0.0.1:10"
+	err := r.Register(body)
+	if !errors.Is(err, ErrConflict) || err.Error() != `provider "openrouter" already registered` {
+		t.Fatalf("err = %v", err)
+	}
+	list := r.List()
+	if len(list) != 1 || list[0].Name != "one" {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
 func TestDropUnregistersProvider(t *testing.T) {
-	hub := provider.NewHub(0)
-	r := New(hub, "secret")
+	r := New("secret")
 	if err := r.Register(Registration{
 		Name:        "golem-openrouter",
 		CallbackURL: "http://127.0.0.1:9",
@@ -110,12 +136,12 @@ func TestDropUnregistersProvider(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := hub.Get("openrouter"); err != nil {
-		t.Fatal(err)
+	if err := resolveChat(r, "openrouter"); err == nil || err.Error() == `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want the provider to resolve", err)
 	}
 	r.Drop("golem-openrouter")
-	if _, err := hub.Get("openrouter"); err == nil {
-		t.Fatal("want unknown provider after drop")
+	if err := resolveChat(r, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 	if len(r.List()) != 0 {
 		t.Fatal("dropped extension should not be listed")
@@ -123,8 +149,7 @@ func TestDropUnregistersProvider(t *testing.T) {
 }
 
 func TestExpiryUnregistersProvider(t *testing.T) {
-	hub := provider.NewHub(0)
-	r := New(hub, "")
+	r := New("")
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	r.Now = func() time.Time { return now }
 	r.TTL = time.Minute
@@ -147,13 +172,18 @@ func TestExpiryUnregistersProvider(t *testing.T) {
 	if len(r.List()) != 0 {
 		t.Fatal("want empty list after ttl")
 	}
-	if _, err := hub.Get("openrouter"); err == nil {
-		t.Fatal("want unknown provider after ttl")
+	if err := resolveChat(r, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
+func resolveChat(r *Registry, id string) error {
+	_, err := BindChat(r, func() (string, string, error) { return id, "m", nil }).Chat(context.Background(), provider.ChatRequest{})
+	return err
+}
+
 func TestRegisterRejectsInvalid(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	err := r.Register(Registration{CallbackURL: "http://127.0.0.1:9"})
 	if !errors.Is(err, ErrInvalid) || err.Error() != "name is required" {
 		t.Fatalf("err = %v", err)

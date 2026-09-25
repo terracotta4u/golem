@@ -33,7 +33,7 @@ func TestBindChatSendsModel(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	reg := New(provider.NewHub(0), "secret")
+	reg := New("secret")
 	registerProvider(t, reg, "stub", srv.URL, true, false, false)
 
 	p := BindChat(reg, func() (string, string, error) { return "stub", "m1", nil })
@@ -61,7 +61,7 @@ func TestSetTokenUsedOnRegister(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	reg.SetToken("secret")
 	registerProvider(t, reg, "stub", srv.URL, true, false, false)
 
@@ -85,7 +85,7 @@ func TestBindChatStructured(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	registerProvider(t, reg, "stub", srv.URL, false, true, false)
 
 	p := BindChat(reg, func() (string, string, error) { return "stub", "m", nil })
@@ -124,7 +124,7 @@ func TestBindEmbedSendsModel(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	registerProvider(t, reg, "stub", srv.URL, false, false, true)
 
 	e := BindEmbed(reg, func() (string, string, error) { return "stub", "emb-1", nil })
@@ -141,7 +141,7 @@ func TestBindEmbedSendsModel(t *testing.T) {
 }
 
 func TestBindChatUnknownProvider(t *testing.T) {
-	p := BindChat(New(provider.NewHub(0), ""), func() (string, string, error) {
+	p := BindChat(New(""), func() (string, string, error) {
 		return "ollama", "llama3.2", nil
 	})
 	_, err := p.Chat(context.Background(), provider.ChatRequest{})
@@ -156,7 +156,7 @@ func TestBindChatRereadsConfig(t *testing.T) {
 	b := providerServer(t, "from-b")
 	defer b.Close()
 
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	registerProvider(t, reg, "a", a.URL, true, false, false)
 	registerProvider(t, reg, "b", b.URL, true, false, false)
 
@@ -181,7 +181,7 @@ func TestBindChatRereadsConfig(t *testing.T) {
 
 func TestBindChatConfigError(t *testing.T) {
 	want := errors.New("conf boom")
-	p := BindChat(New(provider.NewHub(0), ""), func() (string, string, error) {
+	p := BindChat(New(""), func() (string, string, error) {
 		return "", "", want
 	})
 	_, err := p.Chat(context.Background(), provider.ChatRequest{})
@@ -191,7 +191,7 @@ func TestBindChatConfigError(t *testing.T) {
 }
 
 func TestBindRejectsMissingRoute(t *testing.T) {
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	registerProvider(t, reg, "embed-only", "http://127.0.0.1:9", false, false, true)
 	registerProvider(t, reg, "chat-only", "http://127.0.0.1:10", true, false, false)
 
@@ -213,7 +213,7 @@ func TestBindRejectsMissingRoute(t *testing.T) {
 func TestBindChatDropUnresolves(t *testing.T) {
 	srv := providerServer(t, "ok")
 	defer srv.Close()
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	registerProvider(t, reg, "stub", srv.URL, true, false, false)
 	p := BindChat(reg, func() (string, string, error) { return "stub", "m", nil })
 	if _, err := p.Chat(context.Background(), provider.ChatRequest{}); err != nil {
@@ -229,7 +229,7 @@ func TestBindChatDropUnresolves(t *testing.T) {
 func TestBindChatExpiryUnresolves(t *testing.T) {
 	srv := providerServer(t, "ok")
 	defer srv.Close()
-	reg := New(provider.NewHub(0), "")
+	reg := New("")
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	reg.Now = func() time.Time { return now }
 	reg.TTL = time.Minute

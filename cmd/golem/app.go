@@ -8,7 +8,6 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
-	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/tool"
@@ -18,7 +17,6 @@ type app struct {
 	cfg           conf.Conf
 	conversations *conversation.DB
 	agent         *agent.Agent
-	hub           *provider.Hub
 	reg           *registry.Registry
 }
 
@@ -66,15 +64,14 @@ func loadApp() (*app, error) {
 		return nil, err
 	}
 
-	hub := provider.NewHub(0)
-	reg := registry.New(hub, "")
+	reg := registry.New("")
 
 	a := agent.New(registry.BindChat(reg, confModel("default")), dir, tools...)
 	a.Fast = registry.BindChat(reg, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, reg)
 	ok = true
-	return &app{cfg: cfg, conversations: conversations, agent: a, hub: hub, reg: reg}, nil
+	return &app{cfg: cfg, conversations: conversations, agent: a, reg: reg}, nil
 }
 
 func confModel(which string) func() (string, string, error) {

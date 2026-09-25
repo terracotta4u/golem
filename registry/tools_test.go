@@ -9,12 +9,10 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/terracotta4u/golem/provider"
 )
 
 func TestToolsSortedByName(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	if err := r.Register(Registration{
 		Name:         "later",
 		CallbackURL:  "http://127.0.0.1:9",
@@ -42,7 +40,7 @@ func TestToolsSortedByName(t *testing.T) {
 }
 
 func TestToolsLogsNonObjectParameters(t *testing.T) {
-	r := New(provider.NewHub(0), "")
+	r := New("")
 	r.exts["golem-weather"] = &extRecord{
 		name: "golem-weather",
 		tools: []liveTool{
@@ -81,7 +79,7 @@ func TestToolCall(t *testing.T) {
 	}))
 	defer cb.Close()
 
-	r := New(provider.NewHub(0), "secret")
+	r := New("secret")
 	if err := r.Register(Registration{
 		Name:         "golem-weather",
 		CallbackURL:  cb.URL,

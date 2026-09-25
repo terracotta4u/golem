@@ -20,14 +20,18 @@ import (
 
 func TestRegisterProviderAndChat(t *testing.T) {
 	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chat" {
-			t.Errorf("path = %s, want /v1/chat", r.URL.Path)
-		}
 		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
 			t.Errorf("Authorization = %q, want Bearer secret", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "hi"})
+		switch r.URL.Path {
+		case "/v1/chat":
+			json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "hi"})
+		case "/v1/embed":
+			json.NewEncoder(w).Encode(map[string]any{"vectors": [][]float32{{0.1}}})
+		default:
+			t.Errorf("path = %s", r.URL.Path)
+		}
 	}))
 	defer cb.Close()
 
@@ -49,14 +53,7 @@ func TestRegisterProviderAndChat(t *testing.T) {
 		t.Fatalf("capabilities = %+v", list[0].Capabilities)
 	}
 
-	b, err := s.hub.Get("openrouter")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.Chat == nil || b.Embedder == nil {
-		t.Fatalf("backend = %+v, want chat and embedder", b)
-	}
-	msg, err := b.Chat.Chat(context.Background(), provider.ChatRequest{
+	msg, err := chatProvider(s, "openrouter").Chat(context.Background(), provider.ChatRequest{
 		Messages: []provider.Message{{Role: "user", Content: "hello"}},
 	})
 	if err != nil {
@@ -64,6 +61,13 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	}
 	if msg.Content != "hi" {
 		t.Errorf("content = %q, want hi", msg.Content)
+	}
+	vecs, err := embedProvider(s, "openrouter").Embed(context.Background(), []string{"hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vecs) != 1 || vecs[0][0] != 0.1 {
+		t.Fatalf("vecs = %v", vecs)
 	}
 }
 
@@ -87,17 +91,10 @@ func TestRegisterEmbedOnly(t *testing.T) {
 		"capabilities": []any{map[string]any{"kind": "provider", "id": "local-embed", "embed": true}},
 	})
 
-	b, err := s.hub.Get("local-embed")
-	if err != nil {
-		t.Fatal(err)
+	if _, err := chatProvider(s, "local-embed").Chat(context.Background(), provider.ChatRequest{}); err == nil || err.Error() != `provider "local-embed" does not support chat` {
+		t.Fatalf("chat err = %v", err)
 	}
-	if b.Chat != nil {
-		t.Fatal("embed-only provider should not register chat")
-	}
-	if b.Embedder == nil {
-		t.Fatal("embed-only provider missing embedder")
-	}
-	vecs, err := b.Embedder.Embed(context.Background(), []string{"hello"})
+	vecs, err := embedProvider(s, "local-embed").Embed(context.Background(), []string{"hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,8 +119,8 @@ func TestRegisterProviderRequiresRoute(t *testing.T) {
 	if !bytes.Contains([]byte(raw), []byte("chat or embed")) {
 		t.Fatalf("body = %s, want chat or embed", raw)
 	}
-	if _, err := s.hub.Get("p"); err == nil {
-		t.Fatal("empty provider should not register")
+	if err := resolveProvider(s, "p"); err == nil || err.Error() != `unknown provider "p"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -154,8 +151,8 @@ func TestRegisterToolListed(t *testing.T) {
 	if !bytes.Contains(cap.Parameters, []byte(`"city"`)) {
 		t.Fatalf("parameters = %s", cap.Parameters)
 	}
-	if _, err := s.hub.Get("weather"); err == nil {
-		t.Fatal("tool should not register a provider")
+	if err := resolveProvider(s, "weather"); err == nil || err.Error() != `unknown provider "weather"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -372,8 +369,8 @@ func TestRegisterUnknownKindListed(t *testing.T) {
 	if len(list) != 1 || list[0].Name != "custom" || len(list[0].Capabilities) != 1 || list[0].Capabilities[0].Kind != "widget" {
 		t.Fatalf("list = %+v", list)
 	}
-	if _, err := s.hub.Get("w1"); err == nil {
-		t.Fatal("unknown kind should not register a provider")
+	if err := resolveProvider(s, "w1"); err == nil || err.Error() != `unknown provider "w1"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -438,12 +435,8 @@ func TestRegisterReplacesSameName(t *testing.T) {
 	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" {
 		t.Fatalf("list = %+v", list)
 	}
-	b, err := s.hub.Get("openrouter")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.Embedder == nil {
-		t.Fatal("replaced backend missing embedder")
+	if _, err := embedProvider(s, "openrouter").Embed(context.Background(), []string{"hi"}); err == nil || strings.Contains(err.Error(), "does not support embedding") || strings.Contains(err.Error(), "unknown provider") {
+		t.Fatalf("err = %v, want the embed route", err)
 	}
 }
 
@@ -471,8 +464,8 @@ func TestHeartbeatExpires(t *testing.T) {
 	if len(listExts(t, ts.URL, "secret")) != 0 {
 		t.Fatal("want empty list after ttl")
 	}
-	if _, err := s.hub.Get("openrouter"); err == nil {
-		t.Fatal("want unknown provider after ttl")
+	if err := resolveProvider(s, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -489,8 +482,8 @@ func TestStopExtensionUnregisters(t *testing.T) {
 	if err := s.stopExtension("golem-openrouter"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.hub.Get("openrouter"); err == nil {
-		t.Fatal("want unknown provider after stop")
+	if err := resolveProvider(s, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -525,8 +518,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	}))
 	defer cb.Close()
 
-	hub := provider.NewHub(0)
-	reg := registry.New(hub, "")
+	reg := registry.New("")
 	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -540,7 +532,6 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
 		}), t.TempDir()),
 		Store:    st,
-		Hub:      hub,
 		Registry: reg,
 		Token:    "secret",
 	})
@@ -639,4 +630,17 @@ func postJSON(t *testing.T, url, token string, body map[string]any) (int, string
 		t.Fatal(err)
 	}
 	return resp.StatusCode, string(b)
+}
+
+func chatProvider(s *Server, id string) provider.Provider {
+	return registry.BindChat(s.reg, func() (string, string, error) { return id, "m", nil })
+}
+
+func embedProvider(s *Server, id string) provider.Embedder {
+	return registry.BindEmbed(s.reg, func() (string, string, error) { return id, "m", nil })
+}
+
+func resolveProvider(s *Server, id string) error {
+	_, err := chatProvider(s, id).Chat(context.Background(), provider.ChatRequest{})
+	return err
 }
