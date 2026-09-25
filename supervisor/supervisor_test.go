@@ -34,7 +34,7 @@ func TestStartInjectsEnv(t *testing.T) {
 	s := New(Options{
 		URL:   "http://127.0.0.1:8743",
 		Token: "secret",
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s %s' \"$GOLEM_URL\" \"$GOLEM_TOKEN\" > " + strconv.Quote(out)},
@@ -80,7 +80,7 @@ func TestStartPrependsVenvBinToPATH(t *testing.T) {
 	s := New(Options{
 		URL:   "http://127.0.0.1:8743",
 		Token: "secret",
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s' \"$PATH\" > " + strconv.Quote(out)},
@@ -108,7 +108,7 @@ func TestStartVenvPythonWinsOnPATH(t *testing.T) {
 
 	out := filepath.Join(t.TempDir(), "python")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "command -v python > " + strconv.Quote(out)},
@@ -132,7 +132,7 @@ func TestStartKeepsPATHWithoutVenv(t *testing.T) {
 	t.Setenv("PATH", "/custom/bin:/usr/bin:/bin")
 	out := filepath.Join(t.TempDir(), "path")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf '%s' \"$PATH\" > " + strconv.Quote(out)},
@@ -156,7 +156,7 @@ func TestStartKeepsParentEnvWhenConfEmpty(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
@@ -180,7 +180,7 @@ func TestStartConfEnvOverridesParent(t *testing.T) {
 	t.Setenv("TELEGRAM_BOT_TOKEN", "from-shell")
 	out := filepath.Join(t.TempDir(), "env")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "printf 'token=%s' \"$TELEGRAM_BOT_TOKEN\" > " + strconv.Quote(out)},
@@ -203,7 +203,7 @@ func TestStartConfEnvOverridesParent(t *testing.T) {
 func TestStartRestartsExitedChild(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "runs")
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "echo x >> " + strconv.Quote(out)},
@@ -234,7 +234,7 @@ func TestStartSetsChildCwdToDir(t *testing.T) {
 	dir := t.TempDir()
 
 	s := New(Options{
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "bot",
 			Command: "sh",
 			Args:    []string{"-c", "printf ok > marker"},
@@ -260,7 +260,7 @@ func TestAddAfterStartRunsChild(t *testing.T) {
 	defer cancel()
 	s.Start(ctx)
 
-	if err := s.Add(Extension{
+	if err := s.Add(Process{
 		Name:    "echo",
 		Command: "sh",
 		Args:    []string{"-c", "printf ok > " + strconv.Quote(out)},
@@ -277,7 +277,7 @@ func TestAddAfterStartRunsChild(t *testing.T) {
 
 func TestAddBeforeStartErrors(t *testing.T) {
 	s := New(Options{})
-	err := s.Add(Extension{Name: "echo", Command: "true"})
+	err := s.Add(Process{Name: "echo", Command: "true"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -288,7 +288,7 @@ func TestAddDuplicateErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	ext := Extension{
+	ext := Process{
 		Name:    "echo",
 		Command: "sh",
 		Args:    []string{"-c", "exec sleep 30"},
@@ -310,7 +310,7 @@ func TestStopKillsChild(t *testing.T) {
 	defer cancel()
 	s.Start(ctx)
 
-	if err := s.Add(Extension{
+	if err := s.Add(Process{
 		Name:    "echo",
 		Command: "sh",
 		Args:    []string{"-c", "echo x >> " + strconv.Quote(out) + "; exec sleep 30"},
@@ -342,7 +342,7 @@ func TestOnExitBeforeRestart(t *testing.T) {
 			exited <- name
 			cancel()
 		},
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "exit 0"},
@@ -369,7 +369,7 @@ func TestOnExitOnShutdown(t *testing.T) {
 	exited := make(chan string, 1)
 	s := New(Options{
 		OnExit: func(name string) { exited <- name },
-		Extensions: []Extension{{
+		Processes: []Process{{
 			Name:    "echo",
 			Command: "sh",
 			Args:    []string{"-c", "echo x > " + strconv.Quote(out) + "; exec sleep 30"},
@@ -406,7 +406,7 @@ func TestParentCancelStopsAdded(t *testing.T) {
 	s := New(Options{})
 	ctx, cancel := context.WithCancel(context.Background())
 	s.Start(ctx)
-	if err := s.Add(Extension{
+	if err := s.Add(Process{
 		Name:    "echo",
 		Command: "sh",
 		Args:    []string{"-c", "exec sleep 30"},

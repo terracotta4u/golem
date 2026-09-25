@@ -61,10 +61,10 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		return err
 	}
 	sup := supervisor.New(supervisor.Options{
-		URL:        supervisor.URLFromListen(listen),
-		Token:      token,
-		Extensions: exts,
-		OnExit:     app.reg.Drop,
+		URL:       supervisor.URLFromListen(listen),
+		Token:     token,
+		Processes: exts,
+		OnExit:    app.reg.Drop,
 	})
 
 	app.reg.SetToken(token)
@@ -91,13 +91,13 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 	return err
 }
 
-func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Extension, error) {
+func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Process, error) {
 	list, err := extension.List(extRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]supervisor.Extension, 0, len(list))
+	out := make([]supervisor.Process, 0, len(list))
 	for _, p := range list {
 		ext, err := prepareExtension(cfg, p)
 		if err != nil {
@@ -126,16 +126,16 @@ func startNamedExtension(cfg conf.Conf, extRoot string, sup *supervisor.Supervis
 	return sup.Add(ext)
 }
 
-func prepareExtension(cfg conf.Conf, p extension.Project) (supervisor.Extension, error) {
+func prepareExtension(cfg conf.Conf, p extension.Project) (supervisor.Process, error) {
 	entry := cfg.Extensions[p.Name]
 	if err := extension.EnsureVenv(p.Dir, p); err != nil {
-		return supervisor.Extension{}, err
+		return supervisor.Process{}, err
 	}
 	command, args, err := extension.ResolveCommand(p.Dir, p)
 	if err != nil {
-		return supervisor.Extension{}, err
+		return supervisor.Process{}, err
 	}
-	return supervisor.Extension{
+	return supervisor.Process{
 		Name:    p.Name,
 		Command: command,
 		Args:    args,
