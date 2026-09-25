@@ -12,9 +12,9 @@ import (
 func TestRegisterRejectsBuiltin(t *testing.T) {
 	r := New("")
 	err := r.Register(Registration{
-		Name:         "golem-weather",
-		CallbackURL:  "http://127.0.0.1:9",
-		Capabilities: []Capability{toolCap("read")},
+		Name:        "golem-weather",
+		CallbackURL: "http://127.0.0.1:9",
+		Tools:       []Tool{toolCap("read")},
 	})
 	if !errors.Is(err, ErrConflict) || err.Error() != `tool "read" conflicts with a builtin` {
 		t.Fatalf("err = %v", err)
@@ -27,16 +27,16 @@ func TestRegisterRejectsBuiltin(t *testing.T) {
 func TestRegisterRejectsDuplicate(t *testing.T) {
 	r := New("")
 	if err := r.Register(Registration{
-		Name:         "one",
-		CallbackURL:  "http://127.0.0.1:9",
-		Capabilities: []Capability{toolCap("weather")},
+		Name:        "one",
+		CallbackURL: "http://127.0.0.1:9",
+		Tools:       []Tool{toolCap("weather")},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	err := r.Register(Registration{
-		Name:         "two",
-		CallbackURL:  "http://127.0.0.1:10",
-		Capabilities: []Capability{toolCap("weather")},
+		Name:        "two",
+		CallbackURL: "http://127.0.0.1:10",
+		Tools:       []Tool{toolCap("weather")},
 	})
 	if !errors.Is(err, ErrConflict) || err.Error() != `tool "weather" is already registered` {
 		t.Fatalf("err = %v", err)
@@ -50,9 +50,9 @@ func TestRegisterRejectsDuplicate(t *testing.T) {
 func TestRegisterReplacesSameExtension(t *testing.T) {
 	r := New("")
 	body := Registration{
-		Name:         "golem-weather",
-		CallbackURL:  "http://127.0.0.1:9",
-		Capabilities: []Capability{toolCap("weather")},
+		Name:        "golem-weather",
+		CallbackURL: "http://127.0.0.1:9",
+		Tools:       []Tool{toolCap("weather")},
 	}
 	if err := r.Register(body); err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestRegisterReplacesSameExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 	list := r.List()
-	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Capabilities[0].Name != "weather" {
+	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Tools[0].Name != "weather" {
 		t.Fatalf("list = %+v", list)
 	}
 }
@@ -74,9 +74,9 @@ func TestRegisterExpiresThenReuse(t *testing.T) {
 	r.TTL = time.Minute
 
 	if err := r.Register(Registration{
-		Name:         "one",
-		CallbackURL:  "http://127.0.0.1:9",
-		Capabilities: []Capability{toolCap("weather")},
+		Name:        "one",
+		CallbackURL: "http://127.0.0.1:9",
+		Tools:       []Tool{toolCap("weather")},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -85,9 +85,9 @@ func TestRegisterExpiresThenReuse(t *testing.T) {
 		t.Fatal("want empty list after ttl")
 	}
 	if err := r.Register(Registration{
-		Name:         "two",
-		CallbackURL:  "http://127.0.0.1:10",
-		Capabilities: []Capability{toolCap("weather")},
+		Name:        "two",
+		CallbackURL: "http://127.0.0.1:10",
+		Tools:       []Tool{toolCap("weather")},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -102,8 +102,7 @@ func TestRegisterRejectsDuplicateProvider(t *testing.T) {
 	body := Registration{
 		Name:        "one",
 		CallbackURL: "http://127.0.0.1:9",
-		Capabilities: []Capability{{
-			Kind: "provider",
+		Providers: []Provider{{
 			ID:   "openrouter",
 			Chat: true,
 		}},
@@ -128,8 +127,7 @@ func TestDropUnregistersProvider(t *testing.T) {
 	if err := r.Register(Registration{
 		Name:        "golem-openrouter",
 		CallbackURL: "http://127.0.0.1:9",
-		Capabilities: []Capability{{
-			Kind: "provider",
+		Providers: []Provider{{
 			ID:   "openrouter",
 			Chat: true,
 		}},
@@ -156,8 +154,7 @@ func TestExpiryUnregistersProvider(t *testing.T) {
 	if err := r.Register(Registration{
 		Name:        "golem-openrouter",
 		CallbackURL: "http://127.0.0.1:9",
-		Capabilities: []Capability{{
-			Kind: "provider",
+		Providers: []Provider{{
 			ID:   "openrouter",
 			Chat: true,
 		}},
@@ -177,6 +174,21 @@ func TestExpiryUnregistersProvider(t *testing.T) {
 	}
 }
 
+func TestRegisterListsChannel(t *testing.T) {
+	r := New("")
+	if err := r.Register(Registration{
+		Name:        "golem-cli",
+		CallbackURL: "http://127.0.0.1:9",
+		Channels:    []Channel{{ID: "cli"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	list := r.List()
+	if len(list) != 1 || len(list[0].Providers) != 0 || len(list[0].Tools) != 0 || len(list[0].Channels) != 1 || list[0].Channels[0].ID != "cli" {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
 func resolveChat(r *Registry, id string) error {
 	_, err := BindChat(r, func() (string, string, error) { return id, "m", nil }).Chat(context.Background(), provider.ChatRequest{})
 	return err
@@ -189,11 +201,19 @@ func TestRegisterRejectsInvalid(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 	err = r.Register(Registration{
-		Name:         "ext",
-		CallbackURL:  "http://example.com",
-		Capabilities: []Capability{{Kind: "provider", ID: "p", Chat: true}},
+		Name:        "ext",
+		CallbackURL: "http://example.com",
+		Providers:   []Provider{{ID: "p", Chat: true}},
 	})
 	if !errors.Is(err, ErrInvalid) || err.Error() != "callback_url must be http://127.0.0.1, localhost, or [::1]" {
+		t.Fatalf("err = %v", err)
+	}
+	err = r.Register(Registration{
+		Name:        "ext",
+		CallbackURL: "http://127.0.0.1:9",
+		Channels:    []Channel{{}},
+	})
+	if !errors.Is(err, ErrInvalid) || err.Error() != "channel id is required" {
 		t.Fatalf("err = %v", err)
 	}
 	err = r.Heartbeat("missing")

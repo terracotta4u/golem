@@ -50,9 +50,8 @@ After binding a loopback HTTP server, register. Re-registering the same `name` r
 {
   "name": "golem-openrouter",
   "callback_url": "http://127.0.0.1:9",
-  "capabilities": [
+  "providers": [
     {
-      "kind": "provider",
       "id": "openrouter",
       "chat": true,
       "structured": true,
@@ -66,21 +65,22 @@ After binding a loopback HTTP server, register. Re-registering the same `name` r
 
 `callback_url` must be `http` with host `127.0.0.1`, `localhost`, or `::1`. No userinfo. Golem posts to the advertised routes (`/v1/chat`, `/v1/chat/structured`, `/v1/embed`).
 
-`kind` is required. `kind: "provider"` also requires `id` (the name used in conf `default_model.provider` or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. `structured` counts as chat. `chat` is optional when `embed` is set (an embeddings-only backend). Unknown kinds are stored and listed; Golem does not call them.
+`providers`, `tools`, and `channels` are separate arrays. Omit an array when the extension does not advertise that kind. Empty arrays are omitted from `GET /v1/extensions`.
 
-Embeddings-only example:
+A provider requires `id` (the name used in conf `default_model.provider` or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. `structured` counts as chat. `chat` is optional when `embed` is set (an embeddings-only backend).
+
+Embeddings-only provider entry:
 
 ```json
-{"kind": "provider", "id": "local-embed", "embed": true}
+{"id": "local-embed", "embed": true}
 ```
 
 Two live extensions cannot share a provider `id` (`409`).
 
-`kind: "tool"` requires `name` and `parameters` (a JSON Schema object). `description` is optional. The names `read`, `write`, `edit`, `shell`, and `skill` are reserved (`409`). Two live extensions cannot share a tool name (`409`).
+A `tools` entry requires `name` and `parameters` (a JSON Schema object). `description` is optional. The names `read`, `write`, `edit`, `shell`, and `skill` are reserved (`409`). Two live extensions cannot share a tool name (`409`).
 
 ```json
 {
-  "kind": "tool",
   "name": "weather",
   "description": "Current conditions for a city.",
   "parameters": {
@@ -91,6 +91,12 @@ Two live extensions cannot share a provider `id` (`409`).
 }
 ```
 
+A `channels` entry requires `id`. The extension runs the loop itself. Golem lists the channel and does not call it.
+
+```json
+{"id": "cli"}
+```
+
 `POST /v1/extensions/heartbeat`
 
 ```json
@@ -99,7 +105,7 @@ Two live extensions cannot share a provider `id` (`409`).
 
 `200` → `{"ok": true}`. Registration expires **30 seconds** after the last successful register or heartbeat. Heartbeat must run on its own timer, not on the thread that handles a callback — a long call must not look like a dead process. Expiry, `golem extension remove`, and stopping the process drop the extension, including its provider and its tools. A supervised process is removed when it exits. Heartbeat expiry is the backstop. After expiry, register again; heartbeat on an unknown name is `404`.
 
-`GET /v1/extensions` — live registrations (`name`, `callback_url`, `capabilities`).
+`GET /v1/extensions` — live registrations (`name`, `callback_url`, `providers`, `tools`, `channels`).
 
 ## Callback API (Golem → extension)
 

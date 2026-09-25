@@ -27,14 +27,14 @@ func (r *Registry) Tools() []tool.Tool {
 			continue
 		}
 		for _, tc := range e.tools {
-			params, err := objectParams(tc.parameters)
+			params, err := objectParams(tc.Parameters)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, tc.name, err)
+				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, tc.Name, err)
 				continue
 			}
 			out = append(out, extensionTool{
-				name:        tc.name,
-				description: tc.description,
+				name:        tc.Name,
+				description: tc.Description,
 				parameters:  params,
 				callback:    e.callback,
 				token:       r.token,

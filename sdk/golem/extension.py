@@ -55,9 +55,9 @@ class Extension:
             provider: ``(id, implementation)``. Override ``chat``,
                 ``chat_structured``, and/or ``embed`` to advertise those
                 routes. At least one is required when this is set.
-            channel: Loop advertised as ``{"kind": "channel", "id": channel.id}``
-                and started after register.
-            tools: Functions advertised as ``kind: tool`` and served at
+            channel: Loop advertised as ``{"id": channel.id}`` under
+                ``channels`` and started after register.
+            tools: Functions advertised under ``tools`` and served at
                 ``POST /v1/tools/{name}``.
 
         Raises:
@@ -79,7 +79,8 @@ class Extension:
         self._provider_id = ""
         self._provider: Provider | None = None
         self._tasks: list[Task] = []
-        self._extra_caps: list[dict[str, Any]] = []
+        self._channels: list[dict[str, Any]] = []
+        self._tool_specs: list[dict[str, Any]] = []
         self._tools: dict[str, Callable[..., Any]] = {}
         if provider is not None:
             self._set_provider(*provider)
@@ -103,7 +104,7 @@ class Extension:
         channel_id = channel.id.strip()
         if not channel_id:
             raise ValueError("channel id is required")
-        self._extra_caps.append({"kind": "channel", "id": channel_id})
+        self._channels.append({"id": channel_id})
         self._tasks.append(channel.run)
 
     def _set_tools(self, tools: list[Callable[..., Any]]) -> None:
@@ -113,7 +114,7 @@ class Extension:
             if name in self._tools:
                 raise ValueError(f"tool {name} already set")
             self._tools[name] = fn
-            self._extra_caps.append({"kind": "tool", **spec})
+            self._tool_specs.append(spec)
 
     def run(self, stop: threading.Event | None = None) -> None:
         """Bind a loopback server, register, heartbeat, and block.
@@ -173,7 +174,14 @@ class Extension:
         stop.wait()
 
     def _register(self, callback: str) -> None:
-        self.client.register(self.name, callback, self._capabilities())
+        providers, tools, channels = self._registration()
+        self.client.register(
+            self.name,
+            callback,
+            providers=providers,
+            tools=tools,
+            channels=channels,
+        )
 
     def _heartbeat_loop(self, callback: str, stop: threading.Event) -> None:
         while not stop.wait(self.heartbeat_interval):
@@ -192,22 +200,22 @@ class Extension:
         except Exception as exc:  # noqa: BLE001
             print(f"{self.name} task: {exc}", file=sys.stderr, flush=True)
 
-    def _capabilities(self) -> list[dict[str, Any]]:
-        caps: list[dict[str, Any]] = []
+    def _registration(
+        self,
+    ) -> tuple[list[dict[str, Any]] | None, list[dict[str, Any]] | None, list[dict[str, Any]] | None]:
+        providers: list[dict[str, Any]] | None = None
         if self._provider is not None:
-            cap: dict[str, Any] = {
-                "kind": "provider",
-                "id": self._provider_id,
-            }
+            provider: dict[str, Any] = {"id": self._provider_id}
             if _overrides(self._provider, "chat"):
-                cap["chat"] = True
+                provider["chat"] = True
             if _overrides(self._provider, "chat_structured"):
-                cap["structured"] = True
+                provider["structured"] = True
             if _overrides(self._provider, "embed"):
-                cap["embed"] = True
-            caps.append(cap)
-        caps.extend(self._extra_caps)
-        return caps
+                provider["embed"] = True
+            providers = [provider]
+        tools = self._tool_specs or None
+        channels = self._channels or None
+        return providers, tools, channels
 
     def _dispatch(self, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if path.startswith("/v1/tools/"):

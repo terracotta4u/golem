@@ -22,23 +22,33 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
-// Registration is one extension process and the capabilities it advertises.
+// Registration is one extension process and what it advertises.
 type Registration struct {
-	Name         string       `json:"name"`
-	CallbackURL  string       `json:"callback_url"`
-	Capabilities []Capability `json:"capabilities"`
+	Name        string     `json:"name"`
+	CallbackURL string     `json:"callback_url"`
+	Providers   []Provider `json:"providers,omitempty"`
+	Tools       []Tool     `json:"tools,omitempty"`
+	Channels    []Channel  `json:"channels,omitempty"`
 }
 
-// Capability is a provider, a tool, or an unknown kind stored for later.
-type Capability struct {
-	Kind        string          `json:"kind"`
-	ID          string          `json:"id,omitempty"`
-	Chat        bool            `json:"chat,omitempty"`
-	Structured  bool            `json:"structured,omitempty"`
-	Embed       bool            `json:"embed,omitempty"`
-	Name        string          `json:"name,omitempty"`
+// Provider is a model backend an extension advertises.
+type Provider struct {
+	ID         string `json:"id"`
+	Chat       bool   `json:"chat,omitempty"`
+	Structured bool   `json:"structured,omitempty"`
+	Embed      bool   `json:"embed,omitempty"`
+}
+
+// Tool is a function an extension advertises.
+type Tool struct {
+	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
-	Parameters  json.RawMessage `json:"parameters,omitempty"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+// Channel is a loop the extension runs itself. Golem lists it and does not call it.
+type Channel struct {
+	ID string `json:"id"`
 }
 
 // providerCap is one provider a live extension advertised.
@@ -55,19 +65,12 @@ func (p providerCap) supportsChat() bool {
 	return p.chat || p.structured
 }
 
-// liveTool is one tool a live extension advertised.
-type liveTool struct {
-	name        string
-	description string
-	parameters  json.RawMessage
-}
-
 type extRecord struct {
 	name      string
 	callback  string
-	caps      []Capability // registration order, returned by List
 	providers []providerCap
-	tools     []liveTool
+	tools     []Tool
+	channels  []Channel
 	expiry    time.Time
 }
 
@@ -123,7 +126,15 @@ func (r *Registry) Register(req Registration) error {
 	if err != nil {
 		return fail(ErrInvalid, "%s", err.Error())
 	}
-	caps, err := normalizeCaps(req.Capabilities)
+	providers, err := normalizeProviders(req.Providers)
+	if err != nil {
+		return err
+	}
+	tools, err := normalizeTools(req.Tools)
+	if err != nil {
+		return err
+	}
+	channels, err := normalizeChannels(req.Channels)
 	if err != nil {
 		return err
 	}
@@ -131,41 +142,31 @@ func (r *Registry) Register(req Registration) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dropLocked(name)
-	if err := r.toolConflictLocked(caps); err != nil {
+	if err := r.toolConflictLocked(tools); err != nil {
 		return err
 	}
-	if err := r.providerConflictLocked(caps); err != nil {
+	if err := r.providerConflictLocked(providers); err != nil {
 		return err
 	}
 
 	client := remote.New(callback, r.token)
-	var providers []providerCap
-	var tools []liveTool
-	for _, cap := range caps {
-		switch cap.Kind {
-		case "tool":
-			tools = append(tools, liveTool{
-				name:        cap.Name,
-				description: cap.Description,
-				parameters:  append(json.RawMessage(nil), cap.Parameters...),
-			})
-		case "provider":
-			providers = append(providers, providerCap{
-				id:         cap.ID,
-				chat:       cap.Chat,
-				structured: cap.Structured,
-				embed:      cap.Embed,
-				client:     client,
-			})
-		}
+	var live []providerCap
+	for _, p := range providers {
+		live = append(live, providerCap{
+			id:         p.ID,
+			chat:       p.Chat,
+			structured: p.Structured,
+			embed:      p.Embed,
+			client:     client,
+		})
 	}
 
 	r.exts[name] = &extRecord{
 		name:      name,
 		callback:  callback,
-		caps:      caps,
-		providers: providers,
-		tools:     tools,
+		providers: live,
+		tools:     copyTools(tools),
+		channels:  copyChannels(channels),
 		expiry:    r.deadline(),
 	}
 	return nil
@@ -221,9 +222,11 @@ func (r *Registry) List() []Registration {
 			continue
 		}
 		list = append(list, Registration{
-			Name:         e.name,
-			CallbackURL:  e.callback,
-			Capabilities: append([]Capability(nil), e.caps...),
+			Name:        e.name,
+			CallbackURL: e.callback,
+			Providers:   advertisedProviders(e.providers),
+			Tools:       copyTools(e.tools),
+			Channels:    copyChannels(e.channels),
 		})
 	}
 	return list
@@ -236,19 +239,16 @@ func (r *Registry) Drop(name string) {
 	r.dropLocked(name)
 }
 
-func (r *Registry) toolConflictLocked(caps []Capability) error {
+func (r *Registry) toolConflictLocked(tools []Tool) error {
 	taken := map[string]struct{}{}
-	for _, cap := range caps {
-		if cap.Kind != "tool" {
-			continue
+	for _, tc := range tools {
+		if tool.Reserved(tc.Name) {
+			return fail(ErrConflict, "tool %q conflicts with a builtin", tc.Name)
 		}
-		if tool.Reserved(cap.Name) {
-			return fail(ErrConflict, "tool %q conflicts with a builtin", cap.Name)
+		if _, ok := taken[tc.Name]; ok {
+			return fail(ErrConflict, "tool %q is already registered", tc.Name)
 		}
-		if _, ok := taken[cap.Name]; ok {
-			return fail(ErrConflict, "tool %q is already registered", cap.Name)
-		}
-		taken[cap.Name] = struct{}{}
+		taken[tc.Name] = struct{}{}
 	}
 	if len(taken) == 0 {
 		return nil
@@ -259,24 +259,21 @@ func (r *Registry) toolConflictLocked(caps []Capability) error {
 			continue
 		}
 		for _, tc := range e.tools {
-			if _, ok := taken[tc.name]; ok {
-				return fail(ErrConflict, "tool %q is already registered", tc.name)
+			if _, ok := taken[tc.Name]; ok {
+				return fail(ErrConflict, "tool %q is already registered", tc.Name)
 			}
 		}
 	}
 	return nil
 }
 
-func (r *Registry) providerConflictLocked(caps []Capability) error {
+func (r *Registry) providerConflictLocked(providers []Provider) error {
 	taken := map[string]struct{}{}
-	for _, cap := range caps {
-		if cap.Kind != "provider" {
-			continue
+	for _, p := range providers {
+		if _, ok := taken[p.ID]; ok {
+			return fail(ErrConflict, "provider %q already registered", p.ID)
 		}
-		if _, ok := taken[cap.ID]; ok {
-			return fail(ErrConflict, "provider %q already registered", cap.ID)
-		}
-		taken[cap.ID] = struct{}{}
+		taken[p.ID] = struct{}{}
 	}
 	if len(taken) == 0 {
 		return nil
@@ -329,33 +326,91 @@ func (r *Registry) now() time.Time {
 	return r.Now()
 }
 
-func normalizeCaps(caps []Capability) ([]Capability, error) {
-	out := make([]Capability, 0, len(caps))
-	for _, cap := range caps {
-		cap.Kind = strings.TrimSpace(cap.Kind)
-		cap.ID = strings.TrimSpace(cap.ID)
-		if cap.Kind == "" {
-			return nil, fail(ErrInvalid, "capability kind is required")
-		}
-		if cap.Kind == "provider" && cap.ID == "" {
+func normalizeProviders(providers []Provider) ([]Provider, error) {
+	if len(providers) == 0 {
+		return nil, nil
+	}
+	out := make([]Provider, 0, len(providers))
+	for _, p := range providers {
+		p.ID = strings.TrimSpace(p.ID)
+		if p.ID == "" {
 			return nil, fail(ErrInvalid, "provider id is required")
 		}
-		if cap.Kind == "provider" && !cap.Chat && !cap.Structured && !cap.Embed {
+		if !p.Chat && !p.Structured && !p.Embed {
 			return nil, fail(ErrInvalid, "provider must advertise chat or embed")
 		}
-		if cap.Kind == "tool" {
-			cap.Name = strings.TrimSpace(cap.Name)
-			cap.Description = strings.TrimSpace(cap.Description)
-			if cap.Name == "" {
-				return nil, fail(ErrInvalid, "tool name is required")
-			}
-			if _, err := objectParams(cap.Parameters); err != nil {
-				return nil, fail(ErrInvalid, "%s", err.Error())
-			}
-		}
-		out = append(out, cap)
+		out = append(out, p)
 	}
 	return out, nil
+}
+
+func normalizeTools(tools []Tool) ([]Tool, error) {
+	if len(tools) == 0 {
+		return nil, nil
+	}
+	out := make([]Tool, 0, len(tools))
+	for _, tc := range tools {
+		tc.Name = strings.TrimSpace(tc.Name)
+		tc.Description = strings.TrimSpace(tc.Description)
+		if tc.Name == "" {
+			return nil, fail(ErrInvalid, "tool name is required")
+		}
+		if _, err := objectParams(tc.Parameters); err != nil {
+			return nil, fail(ErrInvalid, "%s", err.Error())
+		}
+		out = append(out, tc)
+	}
+	return out, nil
+}
+
+func normalizeChannels(channels []Channel) ([]Channel, error) {
+	if len(channels) == 0 {
+		return nil, nil
+	}
+	out := make([]Channel, 0, len(channels))
+	seen := map[string]struct{}{}
+	for _, ch := range channels {
+		ch.ID = strings.TrimSpace(ch.ID)
+		if ch.ID == "" {
+			return nil, fail(ErrInvalid, "channel id is required")
+		}
+		if _, ok := seen[ch.ID]; ok {
+			return nil, fail(ErrConflict, "channel %q already registered", ch.ID)
+		}
+		seen[ch.ID] = struct{}{}
+		out = append(out, ch)
+	}
+	return out, nil
+}
+
+func advertisedProviders(in []providerCap) []Provider {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]Provider, len(in))
+	for i, p := range in {
+		out[i] = Provider{ID: p.id, Chat: p.chat, Structured: p.structured, Embed: p.embed}
+	}
+	return out
+}
+
+func copyTools(in []Tool) []Tool {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]Tool, len(in))
+	for i, tc := range in {
+		tc.Parameters = append(json.RawMessage(nil), tc.Parameters...)
+		out[i] = tc
+	}
+	return out
+}
+
+func copyChannels(in []Channel) []Channel {
+	if len(in) == 0 {
+		return nil
+	}
+	return append([]Channel(nil), in...)
 }
 
 func parseCallback(raw string) (string, error) {

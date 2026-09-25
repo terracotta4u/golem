@@ -14,16 +14,16 @@ import (
 func TestToolsSortedByName(t *testing.T) {
 	r := New("")
 	if err := r.Register(Registration{
-		Name:         "later",
-		CallbackURL:  "http://127.0.0.1:9",
-		Capabilities: []Capability{toolCap("zeta"), toolCap("alpha")},
+		Name:        "later",
+		CallbackURL: "http://127.0.0.1:9",
+		Tools:       []Tool{toolCap("zeta"), toolCap("alpha")},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Register(Registration{
-		Name:         "earlier",
-		CallbackURL:  "http://127.0.0.1:10",
-		Capabilities: []Capability{toolCap("mid")},
+		Name:        "earlier",
+		CallbackURL: "http://127.0.0.1:10",
+		Tools:       []Tool{toolCap("mid")},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -43,9 +43,9 @@ func TestToolsLogsNonObjectParameters(t *testing.T) {
 	r := New("")
 	r.exts["golem-weather"] = &extRecord{
 		name: "golem-weather",
-		tools: []liveTool{
-			{name: "weather", description: "A tool.", parameters: json.RawMessage(`{"type":"object","properties":{}}`)},
-			{name: "broken", parameters: json.RawMessage(`[]`)},
+		tools: []Tool{
+			{Name: "weather", Description: "A tool.", Parameters: json.RawMessage(`{"type":"object","properties":{}}`)},
+			{Name: "broken", Parameters: json.RawMessage(`[]`)},
 		},
 	}
 
@@ -81,9 +81,9 @@ func TestToolCall(t *testing.T) {
 
 	r := New("secret")
 	if err := r.Register(Registration{
-		Name:         "golem-weather",
-		CallbackURL:  cb.URL,
-		Capabilities: []Capability{toolCap("weather")},
+		Name:        "golem-weather",
+		CallbackURL: cb.URL,
+		Tools:       []Tool{toolCap("weather")},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -109,9 +109,8 @@ func TestToolCall(t *testing.T) {
 	}
 }
 
-func toolCap(name string) Capability {
-	return Capability{
-		Kind:        "tool",
+func toolCap(name string) Tool {
+	return Tool{
 		Name:        name,
 		Description: "A tool.",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{}}`),

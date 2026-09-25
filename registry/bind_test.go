@@ -255,8 +255,7 @@ func registerProvider(t *testing.T, reg *Registry, id, callback string, chat, st
 	err := reg.Register(Registration{
 		Name:        "golem-" + id,
 		CallbackURL: callback,
-		Capabilities: []Capability{{
-			Kind:       "provider",
+		Providers: []Provider{{
 			ID:         id,
 			Chat:       chat,
 			Structured: structured,

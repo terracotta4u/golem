@@ -42,15 +42,15 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": cb.URL,
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true, "structured": true, "embed": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true, "structured": true, "embed": true}},
 	})
 
 	list := listExts(t, ts.URL, "secret")
 	if len(list) != 1 || list[0].Name != "golem-openrouter" || list[0].CallbackURL != cb.URL {
 		t.Fatalf("list = %+v", list)
 	}
-	if len(list[0].Capabilities) != 1 || list[0].Capabilities[0].Kind != "provider" || list[0].Capabilities[0].ID != "openrouter" {
-		t.Fatalf("capabilities = %+v", list[0].Capabilities)
+	if len(list[0].Providers) != 1 || list[0].Providers[0].ID != "openrouter" || !list[0].Providers[0].Chat {
+		t.Fatalf("providers = %+v", list[0].Providers)
 	}
 
 	msg, err := chatProvider(s, "openrouter").Chat(context.Background(), provider.ChatRequest{
@@ -88,7 +88,7 @@ func TestRegisterEmbedOnly(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-embed",
 		"callback_url": cb.URL,
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "local-embed", "embed": true}},
+		"providers":    []any{map[string]any{"id": "local-embed", "embed": true}},
 	})
 
 	if _, err := chatProvider(s, "local-embed").Chat(context.Background(), provider.ChatRequest{}); err == nil || err.Error() != `provider "local-embed" does not support chat` {
@@ -111,7 +111,7 @@ func TestRegisterProviderRequiresRoute(t *testing.T) {
 	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 		"name":         "ext",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "p"}},
+		"providers":    []any{map[string]any{"id": "p"}},
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("status = %d (%s), want 400", status, raw)
@@ -132,8 +132,7 @@ func TestRegisterToolListed(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-weather",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{
-			"kind":        "tool",
+		"tools": []any{map[string]any{
 			"name":        "weather",
 			"description": "Current conditions for a city.",
 			"parameters":  map[string]any{"type": "object", "properties": map[string]any{"city": map[string]any{"type": "string"}}},
@@ -141,15 +140,15 @@ func TestRegisterToolListed(t *testing.T) {
 	})
 
 	list := listExts(t, ts.URL, "secret")
-	if len(list) != 1 || len(list[0].Capabilities) != 1 {
+	if len(list) != 1 || len(list[0].Tools) != 1 {
 		t.Fatalf("list = %+v", list)
 	}
-	cap := list[0].Capabilities[0]
-	if cap.Kind != "tool" || cap.Name != "weather" || cap.Description != "Current conditions for a city." {
-		t.Fatalf("capability = %+v", cap)
+	got := list[0].Tools[0]
+	if got.Name != "weather" || got.Description != "Current conditions for a city." {
+		t.Fatalf("tool = %+v", got)
 	}
-	if !bytes.Contains(cap.Parameters, []byte(`"city"`)) {
-		t.Fatalf("parameters = %s", cap.Parameters)
+	if !bytes.Contains(got.Parameters, []byte(`"city"`)) {
+		t.Fatalf("parameters = %s", got.Parameters)
 	}
 	if err := resolveProvider(s, "weather"); err == nil || err.Error() != `unknown provider "weather"` {
 		t.Fatalf("err = %v, want unknown provider", err)
@@ -201,7 +200,7 @@ func TestRegisteredToolIsCalled(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-weather",
 		"callback_url": cb.URL,
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	id := postTurn(t, ts.URL, "secret", "conv-1", "weather in Lisbon")
 	events := getTurnEvents(t, ts.URL, "secret", id)
@@ -237,7 +236,7 @@ func TestRegisterToolRejectsBuiltin(t *testing.T) {
 		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "golem-weather",
 			"callback_url": "http://127.0.0.1:9",
-			"capabilities": []any{toolCap(name)},
+			"tools":        []any{toolCap(name)},
 		})
 		if status != http.StatusConflict || !bytes.Contains([]byte(raw), []byte("builtin")) {
 			t.Fatalf("tool %s status = %d (%s), want 409 builtin", name, status, raw)
@@ -256,12 +255,12 @@ func TestRegisterToolRejectsDuplicate(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "one",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 		"name":         "two",
 		"callback_url": "http://127.0.0.1:10",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	if status != http.StatusConflict {
 		t.Fatalf("status = %d (%s), want 409", status, raw)
@@ -280,14 +279,14 @@ func TestRegisterToolReplaceSameExtension(t *testing.T) {
 	body := map[string]any{
 		"name":         "golem-weather",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	}
 	registerExt(t, ts.URL, "secret", body)
 	body["callback_url"] = "http://127.0.0.1:10"
 	registerExt(t, ts.URL, "secret", body)
 
 	list := listExts(t, ts.URL, "secret")
-	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Capabilities[0].Name != "weather" {
+	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" || list[0].Tools[0].Name != "weather" {
 		t.Fatalf("list = %+v", list)
 	}
 }
@@ -303,7 +302,7 @@ func TestRegisterToolExpires(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "one",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	now = now.Add(time.Minute)
 	if len(listExts(t, ts.URL, "secret")) != 0 {
@@ -312,7 +311,7 @@ func TestRegisterToolExpires(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "two",
 		"callback_url": "http://127.0.0.1:10",
-		"capabilities": []any{toolCap("weather")},
+		"tools":        []any{toolCap("weather")},
 	})
 	list := listExts(t, ts.URL, "secret")
 	if len(list) != 1 || list[0].Name != "two" {
@@ -329,15 +328,15 @@ func TestRegisterToolRequiresFields(t *testing.T) {
 		cap  map[string]any
 		want string
 	}{
-		{map[string]any{"kind": "tool", "parameters": map[string]any{"type": "object"}}, "tool name is required"},
-		{map[string]any{"kind": "tool", "name": "weather"}, "tool parameters are required"},
-		{map[string]any{"kind": "tool", "name": "weather", "parameters": []any{}}, "tool parameters must be an object"},
+		{map[string]any{"parameters": map[string]any{"type": "object"}}, "tool name is required"},
+		{map[string]any{"name": "weather"}, "tool parameters are required"},
+		{map[string]any{"name": "weather", "parameters": []any{}}, "tool parameters must be an object"},
 	}
 	for _, tc := range cases {
 		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "golem-weather",
 			"callback_url": "http://127.0.0.1:9",
-			"capabilities": []any{tc.cap},
+			"tools":        []any{tc.cap},
 		})
 		if status != http.StatusBadRequest || !bytes.Contains([]byte(raw), []byte(tc.want)) {
 			t.Fatalf("cap %v status = %d (%s), want 400 %s", tc.cap, status, raw, tc.want)
@@ -347,30 +346,26 @@ func TestRegisterToolRequiresFields(t *testing.T) {
 
 func toolCap(name string) map[string]any {
 	return map[string]any{
-		"kind":        "tool",
 		"name":        name,
 		"description": "A tool.",
 		"parameters":  map[string]any{"type": "object", "properties": map[string]any{}},
 	}
 }
 
-func TestRegisterUnknownKindListed(t *testing.T) {
+func TestRegisterChannelListed(t *testing.T) {
 	s := New(Options{Token: "secret"})
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
-		"name":         "custom",
+		"name":         "golem-cli",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "widget", "id": "w1"}},
+		"channels":     []any{map[string]any{"id": "cli"}},
 	})
 
 	list := listExts(t, ts.URL, "secret")
-	if len(list) != 1 || list[0].Name != "custom" || len(list[0].Capabilities) != 1 || list[0].Capabilities[0].Kind != "widget" {
+	if len(list) != 1 || list[0].Name != "golem-cli" || len(list[0].Providers) != 0 || len(list[0].Tools) != 0 || len(list[0].Channels) != 1 || list[0].Channels[0].ID != "cli" {
 		t.Fatalf("list = %+v", list)
-	}
-	if err := resolveProvider(s, "w1"); err == nil || err.Error() != `unknown provider "w1"` {
-		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
@@ -389,7 +384,7 @@ func TestRegisterRejectsNonLoopback(t *testing.T) {
 		status, body := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "ext",
 			"callback_url": url,
-			"capabilities": []any{map[string]any{"kind": "provider", "id": "p", "chat": true}},
+			"providers":    []any{map[string]any{"id": "p", "chat": true}},
 		})
 		if status != http.StatusBadRequest {
 			t.Errorf("callback_url %q status = %d (%s), want 400", url, status, body)
@@ -405,7 +400,7 @@ func TestRegisterDuplicateProvider(t *testing.T) {
 	body := map[string]any{
 		"name":         "one",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	}
 	registerExt(t, ts.URL, "secret", body)
 	body["name"] = "two"
@@ -423,12 +418,12 @@ func TestRegisterReplacesSameName(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	})
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:10",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true, "embed": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true, "embed": true}},
 	})
 
 	list := listExts(t, ts.URL, "secret")
@@ -451,7 +446,7 @@ func TestHeartbeatExpires(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	})
 
 	now = now.Add(30 * time.Second)
@@ -477,7 +472,7 @@ func TestStopExtensionUnregisters(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "golem-openrouter",
 		"callback_url": "http://127.0.0.1:9",
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "openrouter", "chat": true}},
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
 	})
 	if err := s.stopExtension("golem-openrouter"); err != nil {
 		t.Fatal(err)
@@ -541,7 +536,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	registerExt(t, ts.URL, "secret", map[string]any{
 		"name":         "stub",
 		"callback_url": cb.URL,
-		"capabilities": []any{map[string]any{"kind": "provider", "id": "stub", "chat": true}},
+		"providers":    []any{map[string]any{"id": "stub", "chat": true}},
 	})
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")

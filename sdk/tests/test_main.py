@@ -121,8 +121,8 @@ def test_provider_registers_and_chats(
         assert golem.registered.wait(timeout=3)
         reg = golem.registers[0]
         assert reg["name"] == "golem-echo"
-        assert reg["capabilities"] == [
-            {"kind": "provider", "id": "echo", "chat": True}
+        assert reg["providers"] == [
+            {"id": "echo", "chat": True}
         ]
         status, body = _callback_post(
             reg["callback_url"],
@@ -155,7 +155,7 @@ def test_channel_registers_and_runs(
     thread.start()
     try:
         assert golem.registered.wait(timeout=3)
-        assert golem.registers[0]["capabilities"] == [{"kind": "channel", "id": "cli"}]
+        assert golem.registers[0]["channels"] == [{"id": "cli"}]
         import golem_cli
 
         assert golem_cli.started.wait(timeout=2)
@@ -184,10 +184,9 @@ def test_tools_register_and_answer(
     thread.start()
     try:
         assert golem.registered.wait(timeout=3)
-        caps = golem.registers[0]["capabilities"]
-        assert [cap["name"] for cap in caps] == ["weather", "broken"]
-        assert caps[0]["kind"] == "tool"
-        assert caps[0]["description"] == "Current conditions for a city."
+        tools = golem.registers[0]["tools"]
+        assert [tool["name"] for tool in tools] == ["weather", "broken"]
+        assert tools[0]["description"] == "Current conditions for a city."
         status, body = _callback_post(
             golem.registers[0]["callback_url"],
             "/v1/tools/weather",
