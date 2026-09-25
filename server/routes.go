@@ -11,12 +11,12 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux.Handle("GET /static/", s.static())
 
 	// API routes
-	mux.HandleFunc("GET /v1/health", s.handleHealth)
-	mux.HandleFunc("POST /v1/conversations/{id}/turns", s.handlePostTurn(runCtx))
-	mux.HandleFunc("GET /v1/turns/{id}", s.handleGetTurn)
-	mux.HandleFunc("POST /v1/extensions/register", s.handleRegisterExtension)
-	mux.HandleFunc("POST /v1/extensions/heartbeat", s.handleHeartbeatExtension)
-	mux.HandleFunc("GET /v1/extensions", s.handleListExtensions)
+	mux.Handle("GET /v1/health", s.bearer(http.HandlerFunc(s.handleHealth)))
+	mux.Handle("POST /v1/conversations/{id}/turns", s.bearer(s.handlePostTurn(runCtx)))
+	mux.Handle("GET /v1/turns/{id}", s.bearer(http.HandlerFunc(s.handleGetTurn)))
+	mux.Handle("POST /v1/extensions/register", s.bearer(http.HandlerFunc(s.handleRegisterExtension)))
+	mux.Handle("POST /v1/extensions/heartbeat", s.bearer(http.HandlerFunc(s.handleHeartbeatExtension)))
+	mux.Handle("GET /v1/extensions", s.bearer(http.HandlerFunc(s.handleListExtensions)))
 
 	// Web routes
 	mux.HandleFunc("GET /{$}", s.handleHome)

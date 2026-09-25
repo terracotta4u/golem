@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -165,27 +164,7 @@ func (s *Server) stopExtension(name string) error {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (s *Server) authorized(r *http.Request) bool {
-	if s.opts.Token == "" {
-		return true
-	}
-	const prefix = "Bearer "
-	auth := r.Header.Get("Authorization")
-	if !strings.HasPrefix(auth, prefix) {
-		return false
-	}
-	got := strings.TrimSpace(strings.TrimPrefix(auth, prefix))
-	if got == "" {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(got), []byte(s.opts.Token)) == 1
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

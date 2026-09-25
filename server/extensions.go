@@ -10,11 +10,6 @@ import (
 )
 
 func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-
 	var req registry.Registration
 	if err := json.NewDecoder(io.LimitReader(r.Body, maxBody)).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
@@ -28,11 +23,6 @@ func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleHeartbeatExtension(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -48,10 +38,6 @@ func (s *Server) handleHeartbeatExtension(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleListExtensions(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]any{"extensions": s.reg.List()})
 }
 

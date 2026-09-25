@@ -105,11 +105,6 @@ type postTurnRequest struct {
 
 func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !s.authorized(r) {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-			return
-		}
-
 		var req postTurnRequest
 		if err := json.NewDecoder(io.LimitReader(r.Body, maxBody)).Decode(&req); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
@@ -136,10 +131,6 @@ func (s *Server) startTurn(runCtx context.Context, convID string, req postTurnRe
 }
 
 func (s *Server) handleGetTurn(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
 	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "turn not found"})
 	}, func(ev turnEvent) bool {
