@@ -1,5 +1,6 @@
 import json
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -44,6 +45,41 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/v1/health":
             self._write_json(200, {"ok": True})
+            return
+        if self.path == "/v1/conversations" or self.path.startswith(
+            "/v1/conversations?"
+        ):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            channel = (query.get("channel") or [""])[0]
+            items = [
+                {
+                    "id": "web-1",
+                    "channel": "web",
+                    "title": "Dinner plans",
+                    "updated_at": "2026-01-02T03:04:05Z",
+                },
+                {
+                    "id": "cli-1",
+                    "channel": "cli",
+                    "title": "Secret",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                },
+            ]
+            if channel:
+                items = [item for item in items if item["channel"] == channel]
+            self._write_json(200, {"conversations": items})
+            return
+        if self.path == "/v1/conversations/web-1":
+            self._write_json(
+                200,
+                {
+                    "id": "web-1",
+                    "channel": "web",
+                    "title": "Dinner plans",
+                    "updated_at": "2026-01-02T03:04:05Z",
+                    "messages": [{"role": "user", "content": "hello"}],
+                },
+            )
             return
         if self.path.startswith("/v1/turns/"):
             turn_id = self.path.rsplit("/", 1)[-1]
@@ -129,6 +165,26 @@ def test_send_unauthorized(golem_url: str) -> None:
 
 def test_wait_ready(golem_url: str) -> None:
     Client(golem_url, "secret").wait_ready(timeout=2)
+
+
+def test_list_conversations(golem_url: str) -> None:
+    client = Client(golem_url, "secret")
+    all_chats = client.list_conversations()
+    assert [item["id"] for item in all_chats] == ["web-1", "cli-1"]
+    web = client.list_conversations(channel="web")
+    assert web == [all_chats[0]]
+
+
+def test_conversation(golem_url: str) -> None:
+    got = Client(golem_url, "secret").conversation("web-1")
+    assert got["id"] == "web-1"
+    assert got["messages"] == [{"role": "user", "content": "hello"}]
+
+
+def test_conversation_not_found(golem_url: str) -> None:
+    with pytest.raises(GolemError, match="404") as exc:
+        Client(golem_url, "secret").conversation("missing")
+    assert exc.value.status == 404
 
 
 def test_from_env(monkeypatch: pytest.MonkeyPatch) -> None:

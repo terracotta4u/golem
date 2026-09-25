@@ -14,6 +14,8 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 
 	// API routes
 	mux.Handle("GET /v1/health", s.bearer(http.HandlerFunc(api.Health)))
+	mux.Handle("GET /v1/conversations", s.bearer(http.HandlerFunc(s.convAPI.List)))
+	mux.Handle("GET /v1/conversations/{id}", s.bearer(http.HandlerFunc(s.convAPI.Get)))
 	mux.Handle("POST /v1/conversations/{id}/turns", s.bearer(s.chat.Post(runCtx)))
 	mux.Handle("GET /v1/turns/{id}", s.bearer(http.HandlerFunc(s.chat.Get)))
 	mux.Handle("POST /v1/extensions/register", s.bearer(http.HandlerFunc(s.regAPI.Register)))

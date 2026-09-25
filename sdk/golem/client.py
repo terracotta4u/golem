@@ -4,6 +4,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -90,6 +91,48 @@ class Client:
         if last is None:
             last = GolemError("golem not ready")
         raise GolemError(f"golem not ready: {last}") from last
+
+    def list_conversations(self, channel: str = "") -> list[dict[str, Any]]:
+        """List chats in the store, newest first.
+
+        Args:
+            channel: Keep one channel, for example ``web``. Empty returns
+                every conversation.
+
+        Returns:
+            Conversation summaries. Each has ``id``, ``channel``, ``title``,
+            and ``updated_at``. Messages are not included.
+
+        Raises:
+            GolemError: Golem rejected the request or omitted the list.
+        """
+        path = "/v1/conversations"
+        if channel:
+            path += "?" + urllib.parse.urlencode({"channel": channel})
+        body = self._request("GET", path)
+        items = body.get("conversations") if isinstance(body, dict) else None
+        if not isinstance(items, list):
+            raise GolemError("missing conversations")
+        return items
+
+    def conversation(self, conversation_id: str) -> dict[str, Any]:
+        """Load one conversation, including its messages.
+
+        Args:
+            conversation_id: Conversation id.
+
+        Returns:
+            Conversation body: ``id``, ``channel``, ``title``, ``updated_at``,
+            and ``messages``.
+
+        Raises:
+            GolemError: The id is missing or the body is not a conversation.
+                HTTP 404 means Golem has no conversation with that id.
+        """
+        body = self._request("GET", f"/v1/conversations/{conversation_id}")
+        if not isinstance(body, dict) or not body.get("id"):
+            raise GolemError("missing conversation")
+        return body
 
     def post_turn(self, conversation_id: str, channel: str, text: str) -> str:
         """Start a turn. Does not wait for the assistant reply.

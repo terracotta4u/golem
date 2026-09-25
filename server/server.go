@@ -41,6 +41,7 @@ type Server struct {
 	settings   *web.Settings
 	extensions *web.Extensions
 	regAPI     *api.Extensions
+	convAPI    *api.Conversations
 	chat       *api.Chat
 	webChat    *web.Chat
 	reg        *registry.Registry
@@ -67,6 +68,7 @@ func New(opts Options) *Server {
 	s.settings = web.NewSettings(s.pages, opts.Version, s.updateStatus)
 	s.extensions = web.NewExtensions(s.pages, s.startExtension, s.stopExtension)
 	s.regAPI = api.NewExtensions(s.reg)
+	s.convAPI = api.NewConversations(opts.Store)
 	s.chat = api.NewChat(opts.Agent, opts.Store)
 	s.webChat = web.NewChat(s.pages, opts.Store, s.chat)
 	return s
