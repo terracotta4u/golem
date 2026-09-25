@@ -69,7 +69,7 @@ id = "cli"
 entrypoint = "golem_cli:CLI"
 ```
 
-`post_turn` and `stream_turn` expose the same flow as SSE events (`log`, `done`, `error`).
+`post_turn` and `stream_turn` expose the same flow as SSE events (`log`, `done`, `error`). `list_conversations` and `conversation` read chats the store already has. `list_conversations(channel="web")` keeps one channel.
 
 ## Tools
 
