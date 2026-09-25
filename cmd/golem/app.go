@@ -105,7 +105,7 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 		fmt.Fprintf(os.Stderr, "memory: open: %v\n", err)
 		return
 	}
-	a.MemoryStore = st
+	a.Memories.Store = st
 
 	cfg, _, err := conf.Load()
 	if err != nil {
@@ -116,8 +116,8 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 	if mem == nil {
 		return
 	}
-	a.MinSimilarity = mem.MinSimilarity
-	a.BudgetTokens = mem.BudgetTokens
+	a.Memories.MinSimilarity = mem.MinSimilarity
+	a.Memories.BudgetTokens = mem.BudgetTokens
 
 	emb := registry.BindEmbed(reg, confModel("embed"))
 	idx, err := memory.NewIndex(st, emb, mem.Embedding.Provider, mem.Embedding.Model)
@@ -125,8 +125,8 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 		fmt.Fprintf(os.Stderr, "memory: index: %v\n", err)
 		return
 	}
-	a.Memory = idx
-	a.Indexer = idx
+	a.Memories.Search = idx
+	a.Memories.Index = idx
 }
 
 func loadSkills() ([]skill.Skill, error) {

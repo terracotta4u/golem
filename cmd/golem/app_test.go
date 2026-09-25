@@ -80,20 +80,20 @@ func TestLoadAppWiresMemory(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("memories.db: %v", err)
 	}
-	if app.agent.MemoryStore == nil {
-		t.Fatal("MemoryStore is nil")
+	if app.agent.Memories.Store == nil {
+		t.Fatal("Store is nil")
 	}
-	if app.agent.Memory == nil {
-		t.Fatal("Memory is nil")
+	if app.agent.Memories.Search == nil {
+		t.Fatal("Search is nil")
 	}
-	if app.agent.Indexer == nil {
-		t.Fatal("Indexer is nil")
+	if app.agent.Memories.Index == nil {
+		t.Fatal("Index is nil")
 	}
-	if app.agent.MinSimilarity != 0.5 {
-		t.Errorf("MinSimilarity = %v, want 0.5", app.agent.MinSimilarity)
+	if app.agent.Memories.MinSimilarity != 0.5 {
+		t.Errorf("MinSimilarity = %v, want 0.5", app.agent.Memories.MinSimilarity)
 	}
-	if app.agent.BudgetTokens != 800 {
-		t.Errorf("BudgetTokens = %d, want 800", app.agent.BudgetTokens)
+	if app.agent.Memories.BudgetTokens != 800 {
+		t.Errorf("BudgetTokens = %d, want 800", app.agent.Memories.BudgetTokens)
 	}
 }
 
@@ -112,16 +112,16 @@ func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if app.agent.MemoryStore == nil {
-		t.Fatal("MemoryStore is nil")
+	if app.agent.Memories.Store == nil {
+		t.Fatal("Store is nil")
 	}
-	if app.agent.Memory == nil {
-		t.Fatal("Memory is nil")
+	if app.agent.Memories.Search == nil {
+		t.Fatal("Search is nil")
 	}
-	if app.agent.Indexer == nil {
-		t.Fatal("Indexer is nil")
+	if app.agent.Memories.Index == nil {
+		t.Fatal("Index is nil")
 	}
-	_, err = app.agent.Memory.Search(context.Background(), "hello", 1)
+	_, err = app.agent.Memories.Search.Search(context.Background(), "hello", 1)
 	if err == nil || !strings.Contains(err.Error(), "ollama") {
 		t.Fatalf("search err = %v, want unknown ollama", err)
 	}

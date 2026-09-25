@@ -341,9 +341,7 @@ func TestSendRetrievesMemoryIntoChat(t *testing.T) {
 		{Memory: memory.Memory{Content: "User likes vintage computers."}, Score: 0.19},
 	}}
 	a := New(p, dir)
-	a.Memory = idx
-	a.MinSimilarity = 0.5
-	a.BudgetTokens = 800
+	a.Memories = Memories{Search: idx, MinSimilarity: 0.5, BudgetTokens: 800}
 	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "Should I add a router dependency?"); err != nil {
 		t.Fatal(err)
 	}
@@ -389,9 +387,7 @@ func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
 		{Memory: memory.Memory{Content: "User prefers the Go standard library."}, Score: 0.9},
 	}}
 	a := New(p, workspace(t), echo)
-	a.Memory = idx
-	a.MinSimilarity = 0.5
-	a.BudgetTokens = 800
+	a.Memories = Memories{Search: idx, MinSimilarity: 0.5, BudgetTokens: 800}
 	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +416,7 @@ func TestSendSearchErrorStillReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := New(p, workspace(t))
-	a.Memory = &stubSearcher{err: errString("index down")}
+	a.Memories.Search = &stubSearcher{err: errString("index down")}
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
@@ -490,8 +486,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	}
 	idx := &stubIndexer{}
 	a := New(p, workspace(t), echo)
-	a.MemoryStore = mem
-	a.Indexer = idx
+	a.Memories = Memories{Store: mem, Index: idx}
 	conv := conversation.New("cli")
 	reply, err := a.Session(st, conv).Send(context.Background(), "I prefer using the Go standard library when possible.")
 	if err != nil {
@@ -553,7 +548,7 @@ func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := New(p, workspace(t))
-	a.MemoryStore = mem
+	a.Memories.Store = mem
 
 	var once sync.Once
 	release := func() { once.Do(func() { close(unblock) }) }
@@ -664,7 +659,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := New(p, workspace(t))
-	a.MemoryStore = mem
+	a.Memories.Store = mem
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
@@ -700,8 +695,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 	}
 	idx := &stubIndexer{err: errString("embed down")}
 	a := New(p, workspace(t))
-	a.MemoryStore = mem
-	a.Indexer = idx
+	a.Memories = Memories{Store: mem, Index: idx}
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
 	if err != nil {
 		t.Fatal(err)
