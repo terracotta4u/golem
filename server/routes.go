@@ -27,12 +27,12 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux.HandleFunc("GET /settings/general", s.settings.General)
 	mux.HandleFunc("POST /settings/general", s.settings.Save)
 	mux.HandleFunc("GET /settings/about", s.settings.About)
-	mux.HandleFunc("GET /settings/extensions", s.handleExtensions)
-	mux.HandleFunc("GET /settings/extensions/add", s.handleExtensionAdd)
-	mux.HandleFunc("POST /settings/extensions/add/url", s.handleExtensionAddURL)
-	mux.HandleFunc("POST /settings/extensions/add/archive", s.handleExtensionAddArchive)
-	mux.HandleFunc("GET /settings/extensions/{name}", s.handleExtension)
-	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.handleExtensionRemove)
+	mux.HandleFunc("GET /settings/extensions", s.extensions.List)
+	mux.HandleFunc("GET /settings/extensions/add", s.extensions.Add)
+	mux.HandleFunc("POST /settings/extensions/add/url", s.extensions.AddURL)
+	mux.HandleFunc("POST /settings/extensions/add/archive", s.extensions.AddArchive)
+	mux.HandleFunc("GET /settings/extensions/{name}", s.extensions.Detail)
+	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.extensions.Remove)
 
 	return mux
 }

@@ -1,4 +1,4 @@
-package server
+package web_test
 
 import (
 	"archive/zip"
@@ -18,11 +18,12 @@ import (
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
+	"github.com/terracotta4u/golem/server"
 )
 
 func TestExtensionsPage(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions")
@@ -68,7 +69,7 @@ func TestExtensionsPageListsInstalled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions")
@@ -110,7 +111,7 @@ func TestExtensionDetail(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/echo")
@@ -145,7 +146,7 @@ func TestExtensionDetail(t *testing.T) {
 
 func TestExtensionDetailUnknown(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/settings/extensions/missing")
@@ -179,7 +180,7 @@ func TestExtensionRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	resp, err := http.PostForm(ts.URL+"/settings/extensions/echo/remove", url.Values{})
@@ -228,7 +229,7 @@ func TestExtensionRemoveStopsThenDeletes(t *testing.T) {
 	writeInstalledExt(t, root, "echo", "0.1.0")
 
 	var stopped []string
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token: "secret",
 		StopExtension: func(name string) error {
 			if _, err := os.Stat(filepath.Join(root, name, "pyproject.toml")); err != nil {
@@ -237,7 +238,7 @@ func TestExtensionRemoveStopsThenDeletes(t *testing.T) {
 			stopped = append(stopped, name)
 			return nil
 		},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	status, body := postForm(t, ts.URL+"/settings/extensions/echo/remove", url.Values{})
@@ -263,12 +264,12 @@ func TestExtensionRemoveStopErrorKeepsFiles(t *testing.T) {
 	}
 	writeInstalledExt(t, root, "echo", "0.1.0")
 
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token: "secret",
 		StopExtension: func(name string) error {
 			return fmt.Errorf("boom")
 		},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	status, _ := postForm(t, ts.URL+"/settings/extensions/echo/remove", url.Values{})
@@ -282,7 +283,7 @@ func TestExtensionRemoveStopErrorKeepsFiles(t *testing.T) {
 
 func TestExtensionAddURLForm(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/add")
@@ -314,7 +315,7 @@ func TestExtensionAddURLForm(t *testing.T) {
 
 func TestExtensionAddArchiveForm(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/add?from=archive")
@@ -340,7 +341,7 @@ func TestExtensionAddArchiveForm(t *testing.T) {
 
 func TestExtensionAddUnknownFromDefaultsToURL(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/extensions/add?from=disk")
@@ -354,7 +355,7 @@ func TestExtensionAddUnknownFromDefaultsToURL(t *testing.T) {
 
 func TestExtensionAddURLRequiresGitHub(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postForm(t, ts.URL+"/settings/extensions/add/url", url.Values{
@@ -375,7 +376,7 @@ func TestExtensionAddArchiveInstalls(t *testing.T) {
 	zipPath := filepath.Join(t.TempDir(), "echo.zip")
 	writeExtZip(t, zipPath, "echo", "0.1.0")
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, body := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
@@ -416,7 +417,7 @@ func TestExtensionAddStartsAfterInstall(t *testing.T) {
 	writeExtZip(t, zipPath, "echo", "0.1.0")
 
 	var started []string
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token: "secret",
 		StartExtension: func(name string) error {
 			root, err := conf.ExtensionsDir()
@@ -436,7 +437,7 @@ func TestExtensionAddStartsAfterInstall(t *testing.T) {
 			started = append(started, name)
 			return nil
 		},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	status, body := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
@@ -458,12 +459,12 @@ func TestExtensionAddStartErrorLeavesFiles(t *testing.T) {
 	zipPath := filepath.Join(t.TempDir(), "echo.zip")
 	writeExtZip(t, zipPath, "echo", "0.1.0")
 
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token: "secret",
 		StartExtension: func(name string) error {
 			return fmt.Errorf("boom")
 		},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	status, _ := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
