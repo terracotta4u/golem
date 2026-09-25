@@ -26,18 +26,15 @@ func (r *Registry) Tools() []tool.Tool {
 			r.dropLocked(name)
 			continue
 		}
-		for _, cap := range e.caps {
-			if cap.Kind != "tool" {
-				continue
-			}
-			params, err := objectParams(cap.Parameters)
+		for _, tc := range e.tools {
+			params, err := objectParams(tc.parameters)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, cap.Name, err)
+				fmt.Fprintf(os.Stderr, "extension %s: tool %s: %v\n", name, tc.name, err)
 				continue
 			}
 			out = append(out, extensionTool{
-				name:        cap.Name,
-				description: cap.Description,
+				name:        tc.name,
+				description: tc.description,
 				parameters:  params,
 				callback:    e.callback,
 				token:       r.token,

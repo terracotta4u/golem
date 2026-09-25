@@ -49,11 +49,34 @@ type Extension struct {
 	Capabilities []Capability `json:"capabilities"`
 }
 
+// providerCap is one provider a live extension advertised.
+// client is shared by every provider on that extension; the model is chosen per call.
+type providerCap struct {
+	id         string
+	chat       bool
+	structured bool
+	embed      bool
+	client     *remote.Client
+}
+
+func (p providerCap) supportsChat() bool {
+	return p.chat || p.structured
+}
+
+// liveTool is one tool a live extension advertised.
+type liveTool struct {
+	name        string
+	description string
+	parameters  json.RawMessage
+}
+
 type extRecord struct {
-	name     string
-	callback string
-	caps     []Capability
-	expiry   time.Time
+	name      string
+	callback  string
+	caps      []Capability // registration order, returned by List
+	providers []providerCap
+	tools     []liveTool
+	expiry    time.Time
 }
 
 type failure struct {
@@ -114,53 +137,89 @@ func (r *Registry) Register(req Registration) error {
 		return err
 	}
 
-	// Put each provider capability into the hub so later Chat/Embed lookups
-	// can POST to this extension. One remote client is shared; the model name
-	// is filled in at call time via ForModel.
+	// Mirror each provider onto the hub so existing Chat/Embed lookups keep
+	// working. BindChat and BindEmbed read providers directly. One remote
+	// client is shared; the model name is filled in at call time.
 	client := remote.New(callback, r.token)
 	var registered []string
+	var providers []providerCap
+	var tools []liveTool
 	rollback := func() {
 		for _, id := range registered {
 			r.hub.Unregister(id)
 		}
 	}
 	for _, cap := range caps {
-		if cap.Kind != "provider" {
-			continue
-		}
-		b := provider.Backend{}
-		if cap.Chat || cap.Structured {
-			b.Chat = provider.NewModelChat(func(model string) provider.Provider {
-				return client.ForModel(model)
+		switch cap.Kind {
+		case "tool":
+			tools = append(tools, liveTool{
+				name:        cap.Name,
+				description: cap.Description,
+				parameters:  append(json.RawMessage(nil), cap.Parameters...),
 			})
-		}
-		if cap.Embed {
-			b.Embedder = provider.NewModelEmbedder(func(model string) provider.Embedder {
-				return client.ForModel(model)
-			})
-		}
-		if b.Chat == nil && b.Embedder == nil {
-			rollback()
-			return fail(ErrInvalid, "provider must advertise chat or embed")
-		}
-		if err := r.hub.Register(cap.ID, b); err != nil {
-			rollback()
-			kind := ErrInvalid
-			if strings.Contains(err.Error(), "already registered") {
-				kind = ErrConflict
+		case "provider":
+			b := provider.Backend{}
+			if cap.Chat || cap.Structured {
+				b.Chat = provider.NewModelChat(func(model string) provider.Provider {
+					return client.ForModel(model)
+				})
 			}
-			return fail(kind, "%s", err.Error())
+			if cap.Embed {
+				b.Embedder = provider.NewModelEmbedder(func(model string) provider.Embedder {
+					return client.ForModel(model)
+				})
+			}
+			if b.Chat == nil && b.Embedder == nil {
+				rollback()
+				return fail(ErrInvalid, "provider must advertise chat or embed")
+			}
+			if err := r.hub.Register(cap.ID, b); err != nil {
+				rollback()
+				kind := ErrInvalid
+				if strings.Contains(err.Error(), "already registered") {
+					kind = ErrConflict
+				}
+				return fail(kind, "%s", err.Error())
+			}
+			registered = append(registered, cap.ID)
+			providers = append(providers, providerCap{
+				id:         cap.ID,
+				chat:       cap.Chat,
+				structured: cap.Structured,
+				embed:      cap.Embed,
+				client:     client,
+			})
 		}
-		registered = append(registered, cap.ID)
 	}
 
 	r.exts[name] = &extRecord{
-		name:     name,
-		callback: callback,
-		caps:     caps,
-		expiry:   r.deadline(),
+		name:      name,
+		callback:  callback,
+		caps:      caps,
+		providers: providers,
+		tools:     tools,
+		expiry:    r.deadline(),
 	}
 	return nil
+}
+
+// provider returns a live provider capability with id.
+func (r *Registry) provider(id string) (providerCap, error) {
+	id = strings.TrimSpace(id)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for name, e := range r.exts {
+		if !r.fresh(e) {
+			r.dropLocked(name)
+			continue
+		}
+		for _, p := range e.providers {
+			if p.id == id {
+				return p, nil
+			}
+		}
+	}
+	return providerCap{}, fmt.Errorf("unknown provider %q", id)
 }
 
 // Heartbeat refreshes the expiry of a live extension.
@@ -231,11 +290,9 @@ func (r *Registry) toolConflictLocked(caps []Capability) error {
 			r.dropLocked(name)
 			continue
 		}
-		for _, cap := range e.caps {
-			if cap.Kind == "tool" {
-				if _, ok := taken[cap.Name]; ok {
-					return fail(ErrConflict, "tool %q is already registered", cap.Name)
-				}
+		for _, tc := range e.tools {
+			if _, ok := taken[tc.name]; ok {
+				return fail(ErrConflict, "tool %q is already registered", tc.name)
 			}
 		}
 	}
@@ -251,9 +308,9 @@ func (r *Registry) dropLocked(name string) {
 	if !ok {
 		return
 	}
-	for _, cap := range e.caps {
-		if cap.Kind == "provider" && cap.ID != "" {
-			r.hub.Unregister(cap.ID)
+	for _, p := range e.providers {
+		if p.id != "" {
+			r.hub.Unregister(p.id)
 		}
 	}
 	delete(r.exts, name)

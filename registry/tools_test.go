@@ -45,9 +45,9 @@ func TestToolsLogsNonObjectParameters(t *testing.T) {
 	r := New(provider.NewHub(0), "")
 	r.exts["golem-weather"] = &extRecord{
 		name: "golem-weather",
-		caps: []Capability{
-			toolCap("weather"),
-			{Kind: "tool", Name: "broken", Parameters: []byte(`[]`)},
+		tools: []liveTool{
+			{name: "weather", description: "A tool.", parameters: json.RawMessage(`{"type":"object","properties":{}}`)},
+			{name: "broken", parameters: json.RawMessage(`[]`)},
 		},
 	}
 
