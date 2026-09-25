@@ -37,9 +37,10 @@ type Options struct {
 }
 
 type Server struct {
-	opts  Options
-	pages *web.Pages
-	reg   *registry.Registry
+	opts     Options
+	pages    *web.Pages
+	settings *web.Settings
+	reg      *registry.Registry
 
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
@@ -66,6 +67,7 @@ func New(opts Options) *Server {
 	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
 		s.opts.Agent.Catalog = s.reg
 	}
+	s.settings = web.NewSettings(s.pages, opts.Version, s.updateStatus)
 	return s
 }
 

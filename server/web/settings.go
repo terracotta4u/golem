@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"context"
@@ -11,20 +11,34 @@ import (
 	"github.com/terracotta4u/golem/release"
 )
 
-func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
-	s.render(w, "settings", map[string]any{
+const maxBody = 1 << 20
+
+// Settings serves the settings pages.
+// Update reports whether a newer release was found. Nil skips the check.
+type Settings struct {
+	pages   *Pages
+	version string
+	update  func(context.Context) (release.Status, bool)
+}
+
+func NewSettings(pages *Pages, version string, update func(context.Context) (release.Status, bool)) *Settings {
+	return &Settings{pages: pages, version: version, update: update}
+}
+
+func (h *Settings) Page(w http.ResponseWriter, r *http.Request) {
+	h.pages.Render(w, "settings", map[string]any{
 		"Title":   "Settings",
 		"PageCSS": "settings.css",
 	})
 }
 
-func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
+func (h *Settings) General(w http.ResponseWriter, r *http.Request) {
 	cfg, _, err := conf.Load()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.render(w, "settings-general", map[string]any{
+	h.pages.Render(w, "settings-general", map[string]any{
 		"Title":           "General",
 		"DefaultProvider": cfg.DefaultModel.Provider,
 		"DefaultModel":    cfg.DefaultModel.Model,
@@ -35,7 +49,7 @@ func (s *Server) handleSettingsGeneral(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
+func (h *Settings) Save(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -79,12 +93,16 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings/general", http.StatusSeeOther)
 }
 
-func (s *Server) handleSettingsAbout(w http.ResponseWriter, r *http.Request) {
+func (h *Settings) About(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	st, checked := s.updateStatus(ctx)
-	ver := release.Display(s.opts.Version)
-	s.render(w, "settings-about", map[string]any{
+	var st release.Status
+	var checked bool
+	if h.update != nil {
+		st, checked = h.update(ctx)
+	}
+	ver := release.Display(h.version)
+	h.pages.Render(w, "settings-about", map[string]any{
 		"Title":     "About",
 		"Version":   ver,
 		"Latest":    release.Display(st.Latest),
