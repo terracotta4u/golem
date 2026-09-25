@@ -23,6 +23,26 @@ A process can be a channel, a provider, and a source of tools.
 {"conversations":[{"id":"web-1","channel":"web","title":"Dinner plans","updated_at":"2026-01-02T03:04:05Z"}]}
 ```
 
+`GET /v1/conversations/{id}` — one conversation, including `messages`. Each message has `role`, `content`, `tool_calls`, and `tool_call_id`. `404` when the id is missing.
+
+```json
+{
+  "id": "web-1",
+  "channel": "web",
+  "title": "Dinner plans",
+  "updated_at": "2026-01-02T03:04:05Z",
+  "messages": [
+    {"role": "user", "content": "What is for dinner?"},
+    {
+      "role": "assistant",
+      "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "echo", "arguments": "{\"text\":\"hi\"}"}}]
+    },
+    {"role": "tool", "tool_call_id": "call_1", "content": "pong"},
+    {"role": "assistant", "content": "Pasta."}
+  ]
+}
+```
+
 `POST /v1/conversations/{id}/turns`
 
 ```json
