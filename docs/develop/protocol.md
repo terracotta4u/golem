@@ -17,6 +17,12 @@ A process can be a channel, a provider, and a source of tools.
 
 `GET /v1/health` — `{"ok": true}` when the token is valid. Use this to wait until Golem is listening.
 
+`GET /v1/conversations` — chats in the store, newest first. Each item is `id`, `channel`, `title`, and `updated_at`. Messages are not included. `?channel=web` keeps one channel. No query returns every conversation.
+
+```json
+{"conversations":[{"id":"web-1","channel":"web","title":"Dinner plans","updated_at":"2026-01-02T03:04:05Z"}]}
+```
+
 `POST /v1/conversations/{id}/turns`
 
 ```json
