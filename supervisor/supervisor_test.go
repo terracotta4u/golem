@@ -291,7 +291,7 @@ func TestAddDuplicateErrors(t *testing.T) {
 	ext := Extension{
 		Name:    "echo",
 		Command: "sh",
-		Args:    []string{"-c", "sleep 30"},
+		Args:    []string{"-c", "exec sleep 30"},
 	}
 	if err := s.Add(ext); err != nil {
 		t.Fatal(err)
@@ -313,7 +313,7 @@ func TestStopKillsChild(t *testing.T) {
 	if err := s.Add(Extension{
 		Name:    "echo",
 		Command: "sh",
-		Args:    []string{"-c", "echo x >> " + strconv.Quote(out) + "; sleep 30"},
+		Args:    []string{"-c", "echo x >> " + strconv.Quote(out) + "; exec sleep 30"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -332,6 +332,62 @@ func TestStopKillsChild(t *testing.T) {
 	}
 	cancel()
 	s.Wait()
+}
+
+func TestOnExitBeforeRestart(t *testing.T) {
+	exited := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	s := New(Options{
+		OnExit: func(name string) {
+			exited <- name
+			cancel()
+		},
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "exit 0"},
+		}},
+	})
+	started := time.Now()
+	s.Start(ctx)
+	s.Wait()
+	if time.Since(started) >= minBackoff {
+		t.Fatal("OnExit ran after the restart backoff")
+	}
+	select {
+	case name := <-exited:
+		if name != "echo" {
+			t.Fatalf("name = %q, want echo", name)
+		}
+	default:
+		t.Fatal("OnExit was not called")
+	}
+}
+
+func TestOnExitOnShutdown(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "started")
+	exited := make(chan string, 1)
+	s := New(Options{
+		OnExit: func(name string) { exited <- name },
+		Extensions: []Extension{{
+			Name:    "echo",
+			Command: "sh",
+			Args:    []string{"-c", "echo x > " + strconv.Quote(out) + "; exec sleep 30"},
+		}},
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	s.Start(ctx)
+	waitFile(t, out, time.Second)
+	cancel()
+	s.Wait()
+	select {
+	case name := <-exited:
+		if name != "echo" {
+			t.Fatalf("name = %q, want echo", name)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("OnExit was not called")
+	}
 }
 
 func TestStopUnknownIsNoop(t *testing.T) {
@@ -353,7 +409,7 @@ func TestParentCancelStopsAdded(t *testing.T) {
 	if err := s.Add(Extension{
 		Name:    "echo",
 		Command: "sh",
-		Args:    []string{"-c", "sleep 30"},
+		Args:    []string{"-c", "exec sleep 30"},
 	}); err != nil {
 		t.Fatal(err)
 	}

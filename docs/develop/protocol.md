@@ -97,7 +97,7 @@ Two live extensions cannot share a provider `id` (`409`).
 {"name": "golem-openrouter"}
 ```
 
-`200` → `{"ok": true}`. Registration expires **30 seconds** after the last successful register or heartbeat. Heartbeat must run on its own timer, not on the thread that handles a callback — a long call must not look like a dead process. Expiry, `golem extension remove`, and stopping the process drop the extension, including its provider and its tools. After expiry, register again; heartbeat on an unknown name is `404`.
+`200` → `{"ok": true}`. Registration expires **30 seconds** after the last successful register or heartbeat. Heartbeat must run on its own timer, not on the thread that handles a callback — a long call must not look like a dead process. Expiry, `golem extension remove`, and stopping the process drop the extension, including its provider and its tools. A supervised process is removed when it exits. Heartbeat expiry is the backstop. After expiry, register again; heartbeat on an unknown name is `404`.
 
 `GET /v1/extensions` — live registrations (`name`, `callback_url`, `capabilities`).
 

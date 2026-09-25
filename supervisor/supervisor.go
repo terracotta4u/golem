@@ -31,6 +31,9 @@ type Options struct {
 	URL        string
 	Token      string
 	Extensions []Extension
+	// OnExit is called when a child process returns, before the restart wait.
+	// It also runs when the process is stopped.
+	OnExit func(name string)
 }
 
 type Supervisor struct {
@@ -133,6 +136,9 @@ func (s *Supervisor) keepAlive(ctx context.Context, ext Extension) {
 
 		started := time.Now()
 		err := s.runOnce(ctx, ext)
+		if s.opts.OnExit != nil {
+			s.opts.OnExit(ext.Name)
+		}
 		if ctx.Err() != nil {
 			return
 		}

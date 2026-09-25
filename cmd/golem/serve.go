@@ -64,6 +64,7 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		URL:        supervisor.URLFromListen(listen),
 		Token:      token,
 		Extensions: exts,
+		OnExit:     app.reg.Drop,
 	})
 
 	app.reg.SetToken(token)
