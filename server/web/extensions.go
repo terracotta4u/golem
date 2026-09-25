@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"io"
@@ -11,16 +11,19 @@ import (
 	"github.com/terracotta4u/golem/extension"
 )
 
-func (s *Server) mountWebExtensions(mux *http.ServeMux) {
-	mux.HandleFunc("GET /settings/extensions", s.handleExtensions)
-	mux.HandleFunc("GET /settings/extensions/add", s.handleExtensionAdd)
-	mux.HandleFunc("POST /settings/extensions/add/url", s.handleExtensionAddURL)
-	mux.HandleFunc("POST /settings/extensions/add/archive", s.handleExtensionAddArchive)
-	mux.HandleFunc("GET /settings/extensions/{name}", s.handleExtension)
-	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.handleExtensionRemove)
+// Extensions serves the extension pages.
+// Start and stop run after install and before remove. Nil skips that step.
+type Extensions struct {
+	pages *Pages
+	start func(name string) error
+	stop  func(name string) error
 }
 
-func (s *Server) handleExtensions(w http.ResponseWriter, r *http.Request) {
+func NewExtensions(pages *Pages, start, stop func(name string) error) *Extensions {
+	return &Extensions{pages: pages, start: start, stop: stop}
+}
+
+func (h *Extensions) List(w http.ResponseWriter, r *http.Request) {
 	root, err := conf.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -50,14 +53,14 @@ func (s *Server) handleExtensions(w http.ResponseWriter, r *http.Request) {
 			Source:  cfg.Extensions[p.Name].Source,
 		})
 	}
-	s.render(w, "extensions", map[string]any{
+	h.pages.Render(w, "extensions", map[string]any{
 		"Title":      "Extensions",
 		"Extensions": list,
 		"PageCSS":    "settings.css",
 	})
 }
 
-func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
+func (h *Extensions) Detail(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name == "" || name != filepath.Base(name) {
 		http.NotFound(w, r)
@@ -83,7 +86,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	origin := cfg.Extensions[name]
-	s.render(w, "extension", map[string]any{
+	h.pages.Render(w, "extension", map[string]any{
 		"Title":       p.Name,
 		"Name":        p.Name,
 		"Version":     p.Version,
@@ -95,11 +98,13 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleExtensionRemove(w http.ResponseWriter, r *http.Request) {
+func (h *Extensions) Remove(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if err := s.stopExtension(name); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if h.stop != nil {
+		if err := h.stop(name); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	root, err := conf.ExtensionsDir()
 	if err != nil {
@@ -127,19 +132,19 @@ func (s *Server) handleExtensionRemove(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings/extensions", http.StatusSeeOther)
 }
 
-func (s *Server) handleExtensionAdd(w http.ResponseWriter, r *http.Request) {
+func (h *Extensions) Add(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	if from != "archive" {
 		from = "url"
 	}
-	s.render(w, "extension-add", map[string]any{
+	h.pages.Render(w, "extension-add", map[string]any{
 		"Title":   "Add extension",
 		"From":    from,
 		"PageCSS": "settings.css",
 	})
 }
 
-func (s *Server) handleExtensionAddURL(w http.ResponseWriter, r *http.Request) {
+func (h *Extensions) AddURL(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -150,10 +155,10 @@ func (s *Server) handleExtensionAddURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "url is required", http.StatusBadRequest)
 		return
 	}
-	s.installExtension(w, r, src, strings.TrimSpace(r.FormValue("ref")), "")
+	h.install(w, r, src, strings.TrimSpace(r.FormValue("ref")), "")
 }
 
-func (s *Server) handleExtensionAddArchive(w http.ResponseWriter, r *http.Request) {
+func (h *Extensions) AddArchive(w http.ResponseWriter, r *http.Request) {
 	const maxArchive = 32 << 20
 	r.Body = http.MaxBytesReader(w, r.Body, maxArchive)
 	if err := r.ParseMultipartForm(maxArchive); err != nil {
@@ -187,10 +192,10 @@ func (s *Server) handleExtensionAddArchive(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.installExtension(w, r, tmpName, "", hdr.Filename)
+	h.install(w, r, tmpName, "", hdr.Filename)
 }
 
-func (s *Server) installExtension(w http.ResponseWriter, r *http.Request, src, ref, originSource string) {
+func (h *Extensions) install(w http.ResponseWriter, r *http.Request, src, ref, originSource string) {
 	root, err := conf.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -214,9 +219,11 @@ func (s *Server) installExtension(w http.ResponseWriter, r *http.Request, src, r
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.startExtension(p.Name); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if h.start != nil {
+		if err := h.start(p.Name); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	http.Redirect(w, r, "/settings/extensions", http.StatusSeeOther)
 }

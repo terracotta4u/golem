@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"encoding/json"
@@ -9,36 +9,29 @@ import (
 	"github.com/terracotta4u/golem/registry"
 )
 
-func (s *Server) mountExtensions(mux *http.ServeMux) {
-	mux.HandleFunc("POST /v1/extensions/register", s.handleRegisterExtension)
-	mux.HandleFunc("POST /v1/extensions/heartbeat", s.handleHeartbeatExtension)
-	mux.HandleFunc("GET /v1/extensions", s.handleListExtensions)
+// Extensions serves the JSON registration routes.
+type Extensions struct {
+	reg *registry.Registry
 }
 
-func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
+func NewExtensions(reg *registry.Registry) *Extensions {
+	return &Extensions{reg: reg}
+}
 
+func (h *Extensions) Register(w http.ResponseWriter, r *http.Request) {
 	var req registry.Registration
 	if err := json.NewDecoder(io.LimitReader(r.Body, maxBody)).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
-	if err := s.reg.Register(req); err != nil {
+	if err := h.reg.Register(req); err != nil {
 		writeJSON(w, registryStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-func (s *Server) handleHeartbeatExtension(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-
+func (h *Extensions) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -46,19 +39,15 @@ func (s *Server) handleHeartbeatExtension(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
-	if err := s.reg.Heartbeat(req.Name); err != nil {
+	if err := h.reg.Heartbeat(req.Name); err != nil {
 		writeJSON(w, registryStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-func (s *Server) handleListExtensions(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"extensions": s.reg.List()})
+func (h *Extensions) List(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"extensions": h.reg.List()})
 }
 
 func registryStatus(err error) int {

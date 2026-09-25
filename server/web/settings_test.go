@@ -1,6 +1,7 @@
-package server
+package web_test
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,11 +11,12 @@ import (
 
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/release"
+	"github.com/terracotta4u/golem/server"
 )
 
 func TestSettingsPage(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings")
@@ -40,7 +42,7 @@ func TestSettingsPage(t *testing.T) {
 
 func TestAboutPageShowsVersion(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret", Version: "0.1.0"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret", Version: "0.1.0"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/about")
@@ -66,7 +68,7 @@ func TestAboutPageShowsVersion(t *testing.T) {
 
 func TestAboutPageDevHint(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/about")
@@ -81,11 +83,11 @@ func TestAboutPageDevHint(t *testing.T) {
 func TestAboutPageShowsUpdate(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	gh := githubLatestRelease(t, "v0.2.0")
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token:   "secret",
 		Version: "0.1.0",
 		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/about")
@@ -103,11 +105,11 @@ func TestAboutPageShowsUpdate(t *testing.T) {
 func TestAboutPageCurrentRelease(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	gh := githubLatestRelease(t, "v0.1.0")
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token:   "secret",
 		Version: "0.1.0",
 		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/about")
@@ -125,11 +127,11 @@ func TestAboutPageHidesInstallerOnError(t *testing.T) {
 		http.Error(w, "nope", http.StatusBadGateway)
 	}))
 	t.Cleanup(gh.Close)
-	ts := httptest.NewServer(New(Options{
+	ts := httptest.NewServer(server.New(server.Options{
 		Token:   "secret",
 		Version: "0.1.0",
 		Release: &release.Checker{Current: "0.1.0", Client: gh.Client(), APIURL: gh.URL},
-	}).handler())
+	}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/about")
@@ -146,7 +148,7 @@ func TestAboutPageHidesInstallerOnError(t *testing.T) {
 
 func TestGeneralSettingsPage(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/general")
@@ -193,7 +195,7 @@ func TestSettingsShowsConf(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/settings/general")
@@ -216,7 +218,7 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
@@ -256,7 +258,7 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
@@ -288,7 +290,7 @@ func TestSettingsSaveRequiresProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
@@ -320,7 +322,7 @@ func TestSettingsSaveRequiresFastProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
@@ -350,7 +352,7 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
@@ -380,7 +382,7 @@ func TestSettingsSaveAcceptsOtherProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
@@ -410,7 +412,7 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
@@ -442,7 +444,7 @@ func TestSettingsSaveRequiresFastModel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postSettings(t, ts.URL, url.Values{
@@ -473,7 +475,7 @@ func TestSettingsSaveAcceptsOtherFastProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
@@ -506,7 +508,7 @@ func TestSettingsSaveUpdatesFast(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, body := postSettings(t, ts.URL, url.Values{
@@ -543,4 +545,17 @@ func postSettings(t *testing.T, base string, vals url.Values) (int, string) {
 		t.Fatal(err)
 	}
 	return resp.StatusCode, string(body)
+}
+
+func githubLatestRelease(t *testing.T, tag string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/terracotta4u/golem/releases/latest" {
+			http.NotFound(w, r)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"tag_name": tag})
+	}))
+	t.Cleanup(srv.Close)
+	return srv
 }

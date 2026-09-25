@@ -1,4 +1,4 @@
-package server
+package api_test
 
 import (
 	"bufio"
@@ -14,8 +14,12 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
+	"github.com/terracotta4u/golem/server"
+	"github.com/terracotta4u/golem/server/api"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -24,12 +28,12 @@ func TestPostTurnDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "hello back"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -43,8 +47,8 @@ func TestPostTurnDone(t *testing.T) {
 }
 
 func TestGetTurnEventsUnauthorized(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/v1/turns/missing")
@@ -60,8 +64,8 @@ func TestGetTurnEventsUnauthorized(t *testing.T) {
 }
 
 func TestGetTurnEventsNotFound(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/turns/missing", nil)
@@ -100,12 +104,12 @@ func TestGetTurnEventsDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "hello back"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -134,12 +138,12 @@ func TestGetTurnEventsLateSubscriber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "hello back"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -183,12 +187,12 @@ func TestGetTurnEventsLogThenDone(t *testing.T) {
 			{Role: "assistant", Content: "all set"},
 		},
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -228,7 +232,7 @@ func TestToolLogPreview(t *testing.T) {
 		{`{"command":"` + strings.Repeat("a", 80) + `"}`, strings.Repeat("a", 55) + "…"},
 	}
 	for _, tt := range tests {
-		got := toolLog{Args: tt.args}.Preview()
+		got := api.ToolLog{Args: tt.args}.Preview()
 		if got != tt.want {
 			t.Errorf("Preview(%q) = %q, want %q", tt.args, got, tt.want)
 		}
@@ -236,12 +240,12 @@ func TestToolLogPreview(t *testing.T) {
 }
 
 func TestToolLogPrettyArgs(t *testing.T) {
-	got := toolLog{Args: `{"path":"/tmp/a.txt","content":"hello\nworld"}`}.PrettyArgs()
+	got := api.ToolLog{Args: `{"path":"/tmp/a.txt","content":"hello\nworld"}`}.PrettyArgs()
 	want := "{\n  \"path\": \"/tmp/a.txt\",\n  \"content\": \"hello\\nworld\"\n}"
 	if got != want {
 		t.Errorf("PrettyArgs = %q, want %q", got, want)
 	}
-	if got := (toolLog{Args: "not json"}).PrettyArgs(); got != "not json" {
+	if got := (api.ToolLog{Args: "not json"}).PrettyArgs(); got != "not json" {
 		t.Errorf("PrettyArgs(invalid) = %q, want unchanged", got)
 	}
 }
@@ -251,12 +255,12 @@ func TestGetTurnEventsError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&errProvider{err: errors.New("boom")}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -356,8 +360,8 @@ func (e sseEvent) errText() string {
 
 func TestWriteSSEMultiline(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if !writeSSE(rec, "", "<p>one</p>\n<pre>a\n b</pre>") {
-		t.Fatal("writeSSE failed")
+	if !api.WriteSSE(rec, "", "<p>one</p>\n<pre>a\n b</pre>") {
+		t.Fatal("api.WriteSSE failed")
 	}
 	got := rec.Body.String()
 	want := "data: <p>one</p>\ndata: <pre>a\ndata:  b</pre>\n\n"
@@ -490,4 +494,143 @@ type errProvider struct {
 
 func (p *errProvider) Chat(_ context.Context, _ provider.ChatRequest) (provider.Message, error) {
 	return provider.Message{}, p.err
+}
+
+func TestRegisteredToolIsCalled(t *testing.T) {
+	var gotPath, gotAuth string
+	var gotBody []byte
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		var err error
+		gotBody, err = io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"result": "sunny in Lisbon"})
+	}))
+	defer cb.Close()
+
+	p := &gatedScript{gateAt: -1, replies: []provider.Message{
+		{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "weather",
+					Arguments: `{"city":"Lisbon"}`,
+				},
+			}},
+		},
+		{Role: "assistant", Content: "It is sunny."},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := server.New(server.Options{
+		Agent: agent.New(p, t.TempDir()),
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "golem-weather",
+		"callback_url": cb.URL,
+		"tools":        []any{toolCap("weather")},
+	})
+	id := postTurn(t, ts.URL, "secret", "conv-1", "weather in Lisbon")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 2 || events[0].Event != "log" || events[1].Event != "done" {
+		t.Fatalf("events = %+v, want log then done", events)
+	}
+	if got := events[1].text(); got != "It is sunny." {
+		t.Fatalf("text = %q, want It is sunny.", got)
+	}
+	if line := events[0].line(); !strings.Contains(line, "[weather]") {
+		t.Fatalf("log line = %q", line)
+	}
+	if !strings.Contains(events[0].Data, "sunny in Lisbon") {
+		t.Fatalf("log data = %s", events[0].Data)
+	}
+	if gotPath != "/v1/tools/weather" {
+		t.Fatalf("path = %s", gotPath)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Fatalf("Authorization = %q", gotAuth)
+	}
+	if string(gotBody) != `{"city":"Lisbon"}` {
+		t.Fatalf("body = %s", gotBody)
+	}
+}
+
+func TestRegisteredProviderServesTurn(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.DefaultModel.Provider = "stub"
+	cfg.DefaultModel.Model = "stub-model"
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Model != "stub-model" {
+			t.Errorf("model = %q, want stub-model", body.Model)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "from stub"})
+	}))
+	defer cb.Close()
+
+	reg := registry.New("")
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := server.New(server.Options{
+		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
+			c, _, err := conf.Load()
+			if err != nil {
+				return "", "", err
+			}
+			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
+		}), t.TempDir()),
+		Store:    st,
+		Registry: reg,
+		Token:    "secret",
+	})
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "stub",
+		"callback_url": cb.URL,
+		"providers":    []any{map[string]any{"id": "stub", "chat": true}},
+	})
+
+	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want one done", events)
+	}
+	if got := events[0].text(); got != "from stub" {
+		t.Fatalf("text = %q, want from stub", got)
+	}
 }

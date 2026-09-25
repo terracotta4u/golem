@@ -1,4 +1,4 @@
-package server
+package api_test
 
 import (
 	"bytes"
@@ -11,11 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/terracotta4u/golem/agent"
-	"github.com/terracotta4u/golem/conf"
-	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/registry"
+	"github.com/terracotta4u/golem/server"
 )
 
 func TestRegisterProviderAndChat(t *testing.T) {
@@ -35,8 +33,9 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	}))
 	defer cb.Close()
 
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	reg := registry.New("secret")
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -53,7 +52,7 @@ func TestRegisterProviderAndChat(t *testing.T) {
 		t.Fatalf("providers = %+v", list[0].Providers)
 	}
 
-	msg, err := chatProvider(s, "openrouter").Chat(context.Background(), provider.ChatRequest{
+	msg, err := chatProvider(reg, "openrouter").Chat(context.Background(), provider.ChatRequest{
 		Messages: []provider.Message{{Role: "user", Content: "hello"}},
 	})
 	if err != nil {
@@ -62,7 +61,7 @@ func TestRegisterProviderAndChat(t *testing.T) {
 	if msg.Content != "hi" {
 		t.Errorf("content = %q, want hi", msg.Content)
 	}
-	vecs, err := embedProvider(s, "openrouter").Embed(context.Background(), []string{"hello"})
+	vecs, err := embedProvider(reg, "openrouter").Embed(context.Background(), []string{"hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,8 +80,9 @@ func TestRegisterEmbedOnly(t *testing.T) {
 	}))
 	defer cb.Close()
 
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	reg := registry.New("secret")
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -91,10 +91,10 @@ func TestRegisterEmbedOnly(t *testing.T) {
 		"providers":    []any{map[string]any{"id": "local-embed", "embed": true}},
 	})
 
-	if _, err := chatProvider(s, "local-embed").Chat(context.Background(), provider.ChatRequest{}); err == nil || err.Error() != `provider "local-embed" does not support chat` {
+	if _, err := chatProvider(reg, "local-embed").Chat(context.Background(), provider.ChatRequest{}); err == nil || err.Error() != `provider "local-embed" does not support chat` {
 		t.Fatalf("chat err = %v", err)
 	}
-	vecs, err := embedProvider(s, "local-embed").Embed(context.Background(), []string{"hello"})
+	vecs, err := embedProvider(reg, "local-embed").Embed(context.Background(), []string{"hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,8 +104,9 @@ func TestRegisterEmbedOnly(t *testing.T) {
 }
 
 func TestRegisterProviderRequiresRoute(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	reg := registry.New("secret")
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
@@ -119,14 +120,15 @@ func TestRegisterProviderRequiresRoute(t *testing.T) {
 	if !bytes.Contains([]byte(raw), []byte("chat or embed")) {
 		t.Fatalf("body = %s, want chat or embed", raw)
 	}
-	if err := resolveProvider(s, "p"); err == nil || err.Error() != `unknown provider "p"` {
+	if err := resolveProvider(reg, "p"); err == nil || err.Error() != `unknown provider "p"` {
 		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
 func TestRegisterToolListed(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	reg := registry.New("secret")
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -150,86 +152,14 @@ func TestRegisterToolListed(t *testing.T) {
 	if !bytes.Contains(got.Parameters, []byte(`"city"`)) {
 		t.Fatalf("parameters = %s", got.Parameters)
 	}
-	if err := resolveProvider(s, "weather"); err == nil || err.Error() != `unknown provider "weather"` {
+	if err := resolveProvider(reg, "weather"); err == nil || err.Error() != `unknown provider "weather"` {
 		t.Fatalf("err = %v, want unknown provider", err)
 	}
 }
 
-func TestRegisteredToolIsCalled(t *testing.T) {
-	var gotPath, gotAuth string
-	var gotBody []byte
-	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
-		gotAuth = r.Header.Get("Authorization")
-		var err error
-		gotBody, err = io.ReadAll(r.Body)
-		if err != nil {
-			t.Error(err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"result": "sunny in Lisbon"})
-	}))
-	defer cb.Close()
-
-	p := &gatedScript{gateAt: -1, replies: []provider.Message{
-		{
-			Role: "assistant",
-			ToolCalls: []provider.ToolCall{{
-				ID:   "call_1",
-				Type: "function",
-				Function: provider.FunctionCall{
-					Name:      "weather",
-					Arguments: `{"city":"Lisbon"}`,
-				},
-			}},
-		},
-		{Role: "assistant", Content: "It is sunny."},
-	}}
-	st, err := conversation.Open(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := New(Options{
-		Agent: agent.New(p, t.TempDir()),
-		Store: st,
-		Token: "secret",
-	})
-	ts := httptest.NewServer(s.handler())
-	defer ts.Close()
-
-	registerExt(t, ts.URL, "secret", map[string]any{
-		"name":         "golem-weather",
-		"callback_url": cb.URL,
-		"tools":        []any{toolCap("weather")},
-	})
-	id := postTurn(t, ts.URL, "secret", "conv-1", "weather in Lisbon")
-	events := getTurnEvents(t, ts.URL, "secret", id)
-	if len(events) != 2 || events[0].Event != "log" || events[1].Event != "done" {
-		t.Fatalf("events = %+v, want log then done", events)
-	}
-	if got := events[1].text(); got != "It is sunny." {
-		t.Fatalf("text = %q, want It is sunny.", got)
-	}
-	if line := events[0].line(); !strings.Contains(line, "[weather]") {
-		t.Fatalf("log line = %q", line)
-	}
-	if !strings.Contains(events[0].Data, "sunny in Lisbon") {
-		t.Fatalf("log data = %s", events[0].Data)
-	}
-	if gotPath != "/v1/tools/weather" {
-		t.Fatalf("path = %s", gotPath)
-	}
-	if gotAuth != "Bearer secret" {
-		t.Fatalf("Authorization = %q", gotAuth)
-	}
-	if string(gotBody) != `{"city":"Lisbon"}` {
-		t.Fatalf("body = %s", gotBody)
-	}
-}
-
 func TestRegisterToolRejectsBuiltin(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	for _, name := range []string{"read", "write", "edit", "shell", "skill"} {
@@ -248,8 +178,8 @@ func TestRegisterToolRejectsBuiltin(t *testing.T) {
 }
 
 func TestRegisterToolRejectsDuplicate(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -272,8 +202,8 @@ func TestRegisterToolRejectsDuplicate(t *testing.T) {
 }
 
 func TestRegisterToolReplaceSameExtension(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	body := map[string]any{
@@ -292,11 +222,12 @@ func TestRegisterToolReplaceSameExtension(t *testing.T) {
 }
 
 func TestRegisterToolExpires(t *testing.T) {
-	s := New(Options{Token: "secret"})
+	reg := registry.New("secret")
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s.reg.Now = func() time.Time { return now }
-	s.reg.TTL = time.Minute
-	ts := httptest.NewServer(s.handler())
+	reg.Now = func() time.Time { return now }
+	reg.TTL = time.Minute
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -320,8 +251,8 @@ func TestRegisterToolExpires(t *testing.T) {
 }
 
 func TestRegisterToolRequiresFields(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	cases := []struct {
@@ -353,8 +284,8 @@ func toolCap(name string) map[string]any {
 }
 
 func TestRegisterChannelListed(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -370,8 +301,8 @@ func TestRegisterChannelListed(t *testing.T) {
 }
 
 func TestRegisterRejectsNonLoopback(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	for _, url := range []string{
@@ -393,8 +324,8 @@ func TestRegisterRejectsNonLoopback(t *testing.T) {
 }
 
 func TestRegisterDuplicateProvider(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	body := map[string]any{
@@ -411,8 +342,9 @@ func TestRegisterDuplicateProvider(t *testing.T) {
 }
 
 func TestRegisterReplacesSameName(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	reg := registry.New("secret")
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -430,17 +362,18 @@ func TestRegisterReplacesSameName(t *testing.T) {
 	if len(list) != 1 || list[0].CallbackURL != "http://127.0.0.1:10" {
 		t.Fatalf("list = %+v", list)
 	}
-	if _, err := embedProvider(s, "openrouter").Embed(context.Background(), []string{"hi"}); err == nil || strings.Contains(err.Error(), "does not support embedding") || strings.Contains(err.Error(), "unknown provider") {
+	if _, err := embedProvider(reg, "openrouter").Embed(context.Background(), []string{"hi"}); err == nil || strings.Contains(err.Error(), "does not support embedding") || strings.Contains(err.Error(), "unknown provider") {
 		t.Fatalf("err = %v, want the embed route", err)
 	}
 }
 
 func TestHeartbeatExpires(t *testing.T) {
-	s := New(Options{Token: "secret"})
+	reg := registry.New("secret")
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s.reg.Now = func() time.Time { return now }
-	s.reg.TTL = time.Minute
-	ts := httptest.NewServer(s.handler())
+	reg.Now = func() time.Time { return now }
+	reg.TTL = time.Minute
+	s := server.New(server.Options{Token: "secret", Registry: reg})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -459,99 +392,14 @@ func TestHeartbeatExpires(t *testing.T) {
 	if len(listExts(t, ts.URL, "secret")) != 0 {
 		t.Fatal("want empty list after ttl")
 	}
-	if err := resolveProvider(s, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
+	if err := resolveProvider(reg, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
 		t.Fatalf("err = %v, want unknown provider", err)
-	}
-}
-
-func TestStopExtensionUnregisters(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
-	defer ts.Close()
-
-	registerExt(t, ts.URL, "secret", map[string]any{
-		"name":         "golem-openrouter",
-		"callback_url": "http://127.0.0.1:9",
-		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
-	})
-	if err := s.stopExtension("golem-openrouter"); err != nil {
-		t.Fatal(err)
-	}
-	if err := resolveProvider(s, "openrouter"); err == nil || err.Error() != `unknown provider "openrouter"` {
-		t.Fatalf("err = %v, want unknown provider", err)
-	}
-}
-
-func TestRegisteredProviderServesTurn(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	cfg, _, err := conf.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.DefaultModel.Provider = "stub"
-	cfg.DefaultModel.Model = "stub-model"
-	if err := conf.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var body struct {
-			Model string `json:"model"`
-		}
-		if err := json.Unmarshal(raw, &body); err != nil {
-			t.Fatal(err)
-		}
-		if body.Model != "stub-model" {
-			t.Errorf("model = %q, want stub-model", body.Model)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "from stub"})
-	}))
-	defer cb.Close()
-
-	reg := registry.New("")
-	st, err := conversation.Open(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := New(Options{
-		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
-			c, _, err := conf.Load()
-			if err != nil {
-				return "", "", err
-			}
-			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
-		}), t.TempDir()),
-		Store:    st,
-		Registry: reg,
-		Token:    "secret",
-	})
-	ts := httptest.NewServer(s.handler())
-	defer ts.Close()
-
-	registerExt(t, ts.URL, "secret", map[string]any{
-		"name":         "stub",
-		"callback_url": cb.URL,
-		"providers":    []any{map[string]any{"id": "stub", "chat": true}},
-	})
-
-	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
-	events := getTurnEvents(t, ts.URL, "secret", id)
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want one done", events)
-	}
-	if got := events[0].text(); got != "from stub" {
-		t.Fatalf("text = %q, want from stub", got)
 	}
 }
 
 func TestRegisterUnauthorized(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	status, _ := postJSON(t, ts.URL+"/v1/extensions/register", "", map[string]any{
@@ -627,15 +475,15 @@ func postJSON(t *testing.T, url, token string, body map[string]any) (int, string
 	return resp.StatusCode, string(b)
 }
 
-func chatProvider(s *Server, id string) provider.Provider {
-	return registry.BindChat(s.reg, func() (string, string, error) { return id, "m", nil })
+func chatProvider(reg *registry.Registry, id string) provider.Provider {
+	return registry.BindChat(reg, func() (string, string, error) { return id, "m", nil })
 }
 
-func embedProvider(s *Server, id string) provider.Embedder {
-	return registry.BindEmbed(s.reg, func() (string, string, error) { return id, "m", nil })
+func embedProvider(reg *registry.Registry, id string) provider.Embedder {
+	return registry.BindEmbed(reg, func() (string, string, error) { return id, "m", nil })
 }
 
-func resolveProvider(s *Server, id string) error {
-	_, err := chatProvider(s, id).Chat(context.Background(), provider.ChatRequest{})
+func resolveProvider(reg *registry.Registry, id string) error {
+	_, err := chatProvider(reg, id).Chat(context.Background(), provider.ChatRequest{})
 	return err
 }

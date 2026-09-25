@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"bytes"
@@ -12,30 +12,51 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
+	"github.com/terracotta4u/golem/agent"
+	"github.com/terracotta4u/golem/conversation"
 )
 
 const subBuf = 32
 
-// turnEvent is one SSE update. name is the event type ("log", "done", "error");
-// log, text, and err are the payload for those types respectively.
-type turnEvent struct {
-	name string
-	log  toolLog
-	text string
-	err  string
+// Chat runs a conversation turn and streams its events.
+type Chat struct {
+	agent *agent.Agent
+	store conversation.Store
+
+	mu    sync.Mutex
+	locks map[string]*sync.Mutex
+	turns map[string]*turn
 }
 
-type toolLog struct {
+func NewChat(agent *agent.Agent, store conversation.Store) *Chat {
+	return &Chat{
+		agent: agent,
+		store: store,
+		locks: make(map[string]*sync.Mutex),
+		turns: make(map[string]*turn),
+	}
+}
+
+// Event is one turn update. Name is "log", "done", or "error".
+type Event struct {
+	Name string
+	Log  ToolLog
+	Text string
+	Err  string
+}
+
+type ToolLog struct {
 	Name   string
 	Args   string
 	Result string
 }
 
-func (t toolLog) Line() string {
+func (t ToolLog) Line() string {
 	return fmt.Sprintf("[%s] %s", t.Name, t.Args)
 }
 
-func (t toolLog) Preview() string {
+func (t ToolLog) Preview() string {
 	const max = 56
 	s := strings.TrimSpace(t.Args)
 	if s == "" {
@@ -52,7 +73,7 @@ func (t toolLog) Preview() string {
 	return string(r[:max-1]) + "…"
 }
 
-func (t toolLog) PrettyArgs() string {
+func (t ToolLog) PrettyArgs() string {
 	var buf bytes.Buffer
 	if err := json.Indent(&buf, []byte(strings.TrimSpace(t.Args)), "", "  "); err != nil {
 		return t.Args
@@ -92,10 +113,10 @@ type turn struct {
 	Status string    `json:"status"`
 	Text   string    `json:"text,omitempty"`
 	Error  string    `json:"error,omitempty"`
-	Log    []toolLog `json:"log,omitempty"`
+	Log    []ToolLog `json:"log,omitempty"`
 
 	convID string
-	subs   []chan turnEvent
+	subs   []chan Event
 }
 
 type postTurnRequest struct {
@@ -103,18 +124,8 @@ type postTurnRequest struct {
 	Text    string `json:"text"`
 }
 
-func (s *Server) mountChat(mux *http.ServeMux, runCtx context.Context) {
-	mux.HandleFunc("POST /v1/conversations/{id}/turns", s.handlePostTurn(runCtx))
-	mux.HandleFunc("GET /v1/turns/{id}", s.handleGetTurn)
-}
-
-func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
+func (c *Chat) Post(runCtx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !s.authorized(r) {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-			return
-		}
-
 		var req postTurnRequest
 		if err := json.NewDecoder(io.LimitReader(r.Body, maxBody)).Decode(&req); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
@@ -126,41 +137,38 @@ func (s *Server) handlePostTurn(runCtx context.Context) http.HandlerFunc {
 			return
 		}
 
-		t := s.startTurn(runCtx, convID, req)
-		writeJSON(w, http.StatusAccepted, map[string]string{"id": t.ID})
+		id := c.Start(runCtx, convID, req.Channel, req.Text)
+		writeJSON(w, http.StatusAccepted, map[string]string{"id": id})
 	}
 }
 
-func (s *Server) startTurn(runCtx context.Context, convID string, req postTurnRequest) *turn {
+// Start begins a turn and returns its id.
+func (c *Chat) Start(ctx context.Context, convID, channel, text string) string {
 	t := &turn{ID: uuid.NewString(), convID: convID, Status: "pending"}
-	s.mu.Lock()
-	s.turns[t.ID] = t
-	s.mu.Unlock()
-	go s.run(runCtx, t.ID, convID, req)
-	return t
+	c.mu.Lock()
+	c.turns[t.ID] = t
+	c.mu.Unlock()
+	go c.run(ctx, t.ID, convID, postTurnRequest{Channel: channel, Text: text})
+	return t.ID
 }
 
-func (s *Server) handleGetTurn(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
+func (c *Chat) Get(w http.ResponseWriter, r *http.Request) {
+	c.Serve(w, r, r.PathValue("id"), func() {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "turn not found"})
-	}, func(ev turnEvent) bool {
+	}, func(ev Event) bool {
 		var data any
-		switch ev.name {
+		switch ev.Name {
 		case "log":
 			data = map[string]string{
-				"line":   ev.log.Line(),
-				"name":   ev.log.Name,
-				"args":   ev.log.Args,
-				"result": ev.log.Result,
+				"line":   ev.Log.Line(),
+				"name":   ev.Log.Name,
+				"args":   ev.Log.Args,
+				"result": ev.Log.Result,
 			}
 		case "done":
-			data = map[string]string{"text": ev.text}
+			data = map[string]string{"text": ev.Text}
 		case "error":
-			data = map[string]string{"error": ev.err}
+			data = map[string]string{"error": ev.Err}
 		default:
 			return false
 		}
@@ -168,18 +176,18 @@ func (s *Server) handleGetTurn(w http.ResponseWriter, r *http.Request) {
 		if jerr != nil {
 			return false
 		}
-		return writeSSE(w, ev.name, string(b))
+		return WriteSSE(w, ev.Name, string(b))
 	})
 }
 
-func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id string, notFound func(), write func(turnEvent) bool) {
-	snap, ch, ok := s.snapshotAndSubscribe(id)
+func (c *Chat) Serve(w http.ResponseWriter, r *http.Request, id string, notFound func(), write func(Event) bool) {
+	snap, ch, ok := c.snapshotAndSubscribe(id)
 	if !ok {
 		notFound()
 		return
 	}
 	if ch != nil {
-		defer s.unsubscribe(id, ch)
+		defer c.unsubscribe(id, ch)
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -188,16 +196,16 @@ func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id stri
 	w.WriteHeader(http.StatusOK)
 
 	for _, entry := range snap.Log {
-		if !write(turnEvent{name: "log", log: entry}) {
+		if !write(Event{Name: "log", Log: entry}) {
 			return
 		}
 	}
 	switch snap.Status {
 	case "done":
-		write(turnEvent{name: "done", text: snap.Text})
+		write(Event{Name: "done", Text: snap.Text})
 		return
 	case "error":
-		write(turnEvent{name: "error", err: snap.Error})
+		write(Event{Name: "error", Err: snap.Error})
 		return
 	}
 
@@ -212,14 +220,14 @@ func (s *Server) serveTurnEvents(w http.ResponseWriter, r *http.Request, id stri
 			if !write(ev) {
 				return
 			}
-			if ev.name == "done" || ev.name == "error" {
+			if ev.Name == "done" || ev.Name == "error" {
 				return
 			}
 		}
 	}
 }
 
-func writeSSE(w http.ResponseWriter, name, data string) bool {
+func WriteSSE(w http.ResponseWriter, name, data string) bool {
 	var b strings.Builder
 	if name != "" {
 		fmt.Fprintf(&b, "event: %s\n", name)
@@ -244,86 +252,86 @@ func writeSSE(w http.ResponseWriter, name, data string) bool {
 	return true
 }
 
-func (s *Server) run(ctx context.Context, turnID, convID string, req postTurnRequest) {
-	l := s.lockFor(convID)
+func (c *Chat) run(ctx context.Context, turnID, convID string, req postTurnRequest) {
+	l := c.lockFor(convID)
 	l.Lock()
 	defer l.Unlock()
 
-	conv, err := s.opts.Store.LoadOrCreate(convID, req.Channel)
+	conv, err := c.store.LoadOrCreate(convID, req.Channel)
 	if err != nil {
-		s.finish(turnID, "", err)
+		c.finish(turnID, "", err)
 		return
 	}
 
-	sess := s.opts.Agent.Session(s.opts.Store, conv)
+	sess := c.agent.Session(c.store, conv)
 	sess.OnTool = func(name, args, result string) {
-		entry := toolLog{Name: name, Args: args, Result: result}
+		entry := ToolLog{Name: name, Args: args, Result: result}
 		fmt.Fprintln(os.Stderr, entry.Line())
-		s.appendLog(turnID, entry)
+		c.appendLog(turnID, entry)
 	}
 	text, err := sess.Send(ctx, req.Text)
-	s.finish(turnID, text, err)
+	c.finish(turnID, text, err)
 }
 
-func (s *Server) appendLog(id string, entry toolLog) {
-	s.mu.Lock()
-	t, ok := s.turns[id]
+func (c *Chat) appendLog(id string, entry ToolLog) {
+	c.mu.Lock()
+	t, ok := c.turns[id]
 	if !ok {
-		s.mu.Unlock()
+		c.mu.Unlock()
 		return
 	}
 	t.Log = append(t.Log, entry)
 	subs := copySubs(t.subs)
-	s.mu.Unlock()
-	sendEvent(subs, turnEvent{name: "log", log: entry})
+	c.mu.Unlock()
+	sendEvent(subs, Event{Name: "log", Log: entry})
 }
 
-func (s *Server) finish(id, text string, err error) {
-	s.mu.Lock()
-	t, ok := s.turns[id]
+func (c *Chat) finish(id, text string, err error) {
+	c.mu.Lock()
+	t, ok := c.turns[id]
 	if !ok {
-		s.mu.Unlock()
+		c.mu.Unlock()
 		return
 	}
-	ev := turnEvent{name: "done", text: text}
+	ev := Event{Name: "done", Text: text}
 	if err != nil {
 		t.Status = "error"
 		t.Error = err.Error()
-		ev = turnEvent{name: "error", err: t.Error}
+		ev = Event{Name: "error", Err: t.Error}
 	} else {
 		t.Status = "done"
 		t.Text = text
 	}
 	subs := t.subs
 	t.subs = nil
-	s.mu.Unlock()
+	c.mu.Unlock()
 	sendEvent(subs, ev)
 }
 
-func (s *Server) snapshotAndSubscribe(id string) (turn, chan turnEvent, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.turns[id]
+func (c *Chat) snapshotAndSubscribe(id string) (turn, chan Event, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	t, ok := c.turns[id]
 	if !ok {
 		return turn{}, nil, false
 	}
 	out := *t
 	if t.Log != nil {
-		out.Log = append([]toolLog(nil), t.Log...)
+		out.Log = append([]ToolLog(nil), t.Log...)
 	}
 	out.subs = nil
 	if t.Status == "done" || t.Status == "error" {
 		return out, nil, true
 	}
-	ch := make(chan turnEvent, subBuf)
+	ch := make(chan Event, subBuf)
 	t.subs = append(t.subs, ch)
 	return out, ch, true
 }
 
-func (s *Server) unsubscribe(id string, ch chan turnEvent) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.turns[id]
+func (c *Chat) unsubscribe(id string, ch chan Event) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	t, ok := c.turns[id]
 	if !ok {
 		return
 	}
@@ -335,16 +343,16 @@ func (s *Server) unsubscribe(id string, ch chan turnEvent) {
 	}
 }
 
-func copySubs(subs []chan turnEvent) []chan turnEvent {
+func copySubs(subs []chan Event) []chan Event {
 	if len(subs) == 0 {
 		return nil
 	}
-	out := make([]chan turnEvent, len(subs))
+	out := make([]chan Event, len(subs))
 	copy(out, subs)
 	return out
 }
 
-func sendEvent(subs []chan turnEvent, ev turnEvent) {
+func sendEvent(subs []chan Event, ev Event) {
 	for _, ch := range subs {
 		select {
 		case ch <- ev:
@@ -353,13 +361,13 @@ func sendEvent(subs []chan turnEvent, ev turnEvent) {
 	}
 }
 
-func (s *Server) lockFor(id string) *sync.Mutex {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	l, ok := s.locks[id]
+func (c *Chat) lockFor(id string) *sync.Mutex {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	l, ok := c.locks[id]
 	if !ok {
 		l = &sync.Mutex{}
-		s.locks[id] = l
+		c.locks[id] = l
 	}
 	return l
 }

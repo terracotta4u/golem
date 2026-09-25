@@ -3,17 +3,12 @@ package server
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"html/template"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,12 +16,9 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/release"
+	"github.com/terracotta4u/golem/server/api"
+	"github.com/terracotta4u/golem/server/web"
 )
-
-//go:embed web/templates/*.html web/static
-var webFS embed.FS
-
-const maxBody = 1 << 20
 
 type Options struct {
 	Agent *agent.Agent
@@ -44,13 +36,14 @@ type Options struct {
 }
 
 type Server struct {
-	opts Options
-	tmpl *template.Template
-	reg  *registry.Registry
-
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
-	turns map[string]*turn
+	opts       Options
+	pages      *web.Pages
+	settings   *web.Settings
+	extensions *web.Extensions
+	regAPI     *api.Extensions
+	chat       *api.Chat
+	webChat    *web.Chat
+	reg        *registry.Registry
 
 	updateOnce sync.Once
 	update     release.Status
@@ -60,9 +53,7 @@ type Server struct {
 func New(opts Options) *Server {
 	s := &Server{
 		opts:  opts,
-		tmpl:  parseWeb(),
-		locks: make(map[string]*sync.Mutex),
-		turns: make(map[string]*turn),
+		pages: web.New(),
 	}
 	if opts.Registry != nil {
 		s.reg = opts.Registry
@@ -73,6 +64,11 @@ func New(opts Options) *Server {
 	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
 		s.opts.Agent.Catalog = s.reg
 	}
+	s.settings = web.NewSettings(s.pages, opts.Version, s.updateStatus)
+	s.extensions = web.NewExtensions(s.pages, s.startExtension, s.stopExtension)
+	s.regAPI = api.NewExtensions(s.reg)
+	s.chat = api.NewChat(opts.Agent, opts.Store)
+	s.webChat = web.NewChat(s.pages, opts.Store, s.chat)
 	return s
 }
 
@@ -85,52 +81,7 @@ func NewToken() string {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.handlerWith(context.Background())
-}
-
-func (s *Server) handler() http.Handler {
-	return s.Handler()
-}
-
-func (s *Server) handlerWith(runCtx context.Context) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/health", s.handleHealth)
-	s.mountStatic(mux)
-	// API endpoints
-	s.mountChat(mux, runCtx)
-	s.mountExtensions(mux)
-	// Web endpoints
-	s.mountWebChat(mux, runCtx)
-	s.mountWebSettings(mux)
-	s.mountWebExtensions(mux)
-	return mux
-}
-
-func parseWeb() *template.Template {
-	return template.Must(template.New("").Funcs(template.FuncMap{
-		"markdown": markdownHTML,
-	}).ParseFS(webFS, "web/templates/*.html"))
-}
-
-func (s *Server) mountStatic(mux *http.ServeMux) {
-	static, err := fs.Sub(webFS, "web/static")
-	if err != nil {
-		panic(err)
-	}
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
-}
-
-func (s *Server) render(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func (s *Server) execute(name string, data any) (string, error) {
-	var b strings.Builder
-	err := s.tmpl.ExecuteTemplate(&b, name, data)
-	return b.String(), err
+	return s.routes(context.Background())
 }
 
 func (s *Server) Listen(ctx context.Context, ready func()) error {
@@ -140,7 +91,7 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 	}
 
 	httpSrv := &http.Server{
-		Handler:           s.handlerWith(ctx),
+		Handler:           s.routes(ctx),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -176,30 +127,6 @@ func (s *Server) stopExtension(name string) error {
 		return nil
 	}
 	return s.opts.StopExtension(name)
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	if !s.authorized(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (s *Server) authorized(r *http.Request) bool {
-	if s.opts.Token == "" {
-		return true
-	}
-	const prefix = "Bearer "
-	auth := r.Header.Get("Authorization")
-	if !strings.HasPrefix(auth, prefix) {
-		return false
-	}
-	got := strings.TrimSpace(strings.TrimPrefix(auth, prefix))
-	if got == "" {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(got), []byte(s.opts.Token)) == 1
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

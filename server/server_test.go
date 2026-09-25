@@ -1,6 +1,9 @@
 package server
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -9,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/terracotta4u/golem/conversation"
+	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
 )
 
 func TestStartStopExtensionNilNoop(t *testing.T) {
@@ -60,7 +65,7 @@ func TestStartExtensionError(t *testing.T) {
 
 func TestHealthUnauthorized(t *testing.T) {
 	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/v1/health")
@@ -77,7 +82,7 @@ func TestHealthUnauthorized(t *testing.T) {
 
 func TestHealthOK(t *testing.T) {
 	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/health", nil)
@@ -102,7 +107,7 @@ func TestStaticCSS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	home := getHTML(t, ts.URL+"/")
@@ -164,4 +169,57 @@ func getOK(t *testing.T, url string) (string, string) {
 		t.Fatalf("GET %s status = %d: %s", url, resp.StatusCode, body)
 	}
 	return string(body), resp.Header.Get("Content-Type")
+}
+
+func TestStopExtensionUnregisters(t *testing.T) {
+	s := New(Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	registerExt(t, ts.URL, "secret", map[string]any{
+		"name":         "golem-openrouter",
+		"callback_url": "http://127.0.0.1:9",
+		"providers":    []any{map[string]any{"id": "openrouter", "chat": true}},
+	})
+	if err := s.stopExtension("golem-openrouter"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := registry.BindChat(s.reg, func() (string, string, error) { return "openrouter", "m", nil }).Chat(context.Background(), provider.ChatRequest{})
+	if err == nil || err.Error() != `unknown provider "openrouter"` {
+		t.Fatalf("err = %v, want unknown provider", err)
+	}
+}
+
+func registerExt(t *testing.T, base, token string, body map[string]any) {
+	t.Helper()
+	status, raw := postJSON(t, base+"/v1/extensions/register", token, body)
+	if status != http.StatusOK {
+		t.Fatalf("register status = %d: %s", status, raw)
+	}
+}
+
+func postJSON(t *testing.T, url, token string, body map[string]any) (int, string) {
+	t.Helper()
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp.StatusCode, string(b)
 }

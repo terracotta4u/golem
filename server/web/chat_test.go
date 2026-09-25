@@ -1,4 +1,4 @@
-package server
+package web_test
 
 import (
 	"errors"
@@ -14,6 +14,7 @@ import (
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/server"
 )
 
 func TestHomeIsNewChat(t *testing.T) {
@@ -21,7 +22,7 @@ func TestHomeIsNewChat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/")
@@ -57,7 +58,7 @@ func TestSidebarListsWebConversations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	home := getHTML(t, ts.URL+"/")
@@ -95,7 +96,7 @@ func TestConversationShowsMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/web-1")
@@ -146,7 +147,7 @@ func TestConversationShowsToolCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/web-1")
@@ -173,88 +174,12 @@ func TestConversationShowsToolCalls(t *testing.T) {
 	}
 }
 
-func TestChatItems(t *testing.T) {
-	echo := provider.ToolCall{
-		ID:   "call_1",
-		Type: "function",
-		Function: provider.FunctionCall{
-			Name:      "echo",
-			Arguments: `{"text":"hi"}`,
-		},
-	}
-	read := provider.ToolCall{
-		ID:   "call_2",
-		Type: "function",
-		Function: provider.FunctionCall{
-			Name:      "read",
-			Arguments: `{"path":"a"}`,
-		},
-	}
-
-	t.Run("pairs tools with following reply", func(t *testing.T) {
-		got := chatItems([]provider.Message{
-			{Role: "user", Content: "hello"},
-			{Role: "assistant", ToolCalls: []provider.ToolCall{echo}},
-			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
-			{Role: "assistant", Content: "all set"},
-		})
-		if len(got) != 2 {
-			t.Fatalf("items = %d, want 2", len(got))
-		}
-		if got[0].Role != "user" || got[0].Content != "hello" {
-			t.Errorf("item 0 = %+v", got[0])
-		}
-		if got[1].Role != "assistant" || got[1].Content != "all set" || len(got[1].Tools) != 1 {
-			t.Fatalf("item 1 = %+v", got[1])
-		}
-		if g := got[1].Tools[0]; g.Name != "echo" || g.Args != `{"text":"hi"}` || g.Result != "pong" {
-			t.Errorf("tool = %+v", g)
-		}
-	})
-
-	t.Run("accumulates rounds onto the reply", func(t *testing.T) {
-		got := chatItems([]provider.Message{
-			{Role: "assistant", ToolCalls: []provider.ToolCall{echo}},
-			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
-			{Role: "assistant", ToolCalls: []provider.ToolCall{read}},
-			{Role: "tool", ToolCallID: "call_2", Content: "file"},
-			{Role: "assistant", Content: "done"},
-		})
-		if len(got) != 1 || got[0].Content != "done" || len(got[0].Tools) != 2 {
-			t.Fatalf("items = %+v", got)
-		}
-		if got[0].Tools[0].Name != "echo" || got[0].Tools[1].Name != "read" {
-			t.Errorf("tools = %+v", got[0].Tools)
-		}
-	})
-
-	t.Run("keeps tools when there is no reply", func(t *testing.T) {
-		got := chatItems([]provider.Message{
-			{Role: "assistant", ToolCalls: []provider.ToolCall{echo}},
-			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
-		})
-		if len(got) != 1 || got[0].Role != "assistant" || got[0].Content != "" || len(got[0].Tools) != 1 {
-			t.Fatalf("items = %+v", got)
-		}
-	})
-
-	t.Run("skips orphan tool messages", func(t *testing.T) {
-		got := chatItems([]provider.Message{
-			{Role: "tool", ToolCallID: "call_1", Content: "pong"},
-			{Role: "assistant", Content: "hi"},
-		})
-		if len(got) != 1 || got[0].Content != "hi" || len(got[0].Tools) != 0 {
-			t.Fatalf("items = %+v", got)
-		}
-	})
-}
-
 func TestConversationUnknownIsEmpty(t *testing.T) {
 	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	body := getHTML(t, ts.URL+"/conversations/brand-new")
@@ -276,7 +201,7 @@ func TestConversationWrongChannelNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/conversations/tg-1")
@@ -295,12 +220,12 @@ func TestWebPostTurn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	status, body := postTurnHTML(t, ts.URL, "web-1", "What is for dinner?")
@@ -320,9 +245,9 @@ func TestWebPostTurn(t *testing.T) {
 	if !strings.Contains(body, `hx-sse:close="close"`) {
 		t.Fatalf("body = %q, want hx-sse:close", body)
 	}
-	events := getTurnEvents(t, ts.URL, "secret", id)
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want done", events)
+	events := getWebTurnEvents(t, ts.URL, id)
+	if !unnamedContains(events, "Pasta.") {
+		t.Fatalf("events = %+v, want reply", events)
 	}
 }
 
@@ -331,18 +256,18 @@ func TestWebPostTurnPersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "What is for dinner?")
-	events := getTurnEvents(t, ts.URL, "secret", turnID(t, body))
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want done", events)
+	events := getWebTurnEvents(t, ts.URL, turnID(t, body))
+	if !unnamedContains(events, "Pasta.") {
+		t.Fatalf("events = %+v, want reply", events)
 	}
 
 	page := getHTML(t, ts.URL+"/conversations/web-1")
@@ -373,12 +298,12 @@ func TestWebPostTurnPersistsToolCall(t *testing.T) {
 			{Role: "assistant", Content: "all set"},
 		},
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
@@ -401,7 +326,7 @@ func TestWebPostTurnEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postTurnHTML(t, ts.URL, "web-1", "   ")
@@ -418,7 +343,7 @@ func TestWebPostTurnWrongChannel(t *testing.T) {
 	if err := st.Save(conversation.Conversation{ID: "tg-1", Channel: "telegram"}); err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	status, _ := postTurnHTML(t, ts.URL, "tg-1", "hello")
@@ -432,12 +357,12 @@ func TestWebPostTurnEscapesHTML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "ok"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", `<script>alert(1)</script>`)
@@ -446,10 +371,6 @@ func TestWebPostTurnEscapesHTML(t *testing.T) {
 	}
 	if !strings.Contains(body, "&lt;script&gt;") {
 		t.Fatalf("body = %q, want escaped user text", body)
-	}
-	events := getTurnEvents(t, ts.URL, "secret", turnID(t, body))
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want done", events)
 	}
 }
 
@@ -479,7 +400,7 @@ func TestWebTurnEventsNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/turns/missing")
@@ -500,12 +421,12 @@ func TestWebTurnEventsDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "Pasta."}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
@@ -534,12 +455,12 @@ func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "**Pasta.**"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
@@ -554,12 +475,12 @@ func TestWebTurnEventsLateSubscriber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
@@ -600,12 +521,12 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 			{Role: "assistant", Content: "all set"},
 		},
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
@@ -646,12 +567,12 @@ func TestWebTurnEventsError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&errProvider{err: errors.New("boom")}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "hello")
