@@ -20,8 +20,6 @@ import (
 	"github.com/terracotta4u/golem/server/web"
 )
 
-const maxBody = 1 << 20
-
 type Options struct {
 	Agent *agent.Agent
 	Store conversation.Store
@@ -44,6 +42,7 @@ type Server struct {
 	extensions *web.Extensions
 	regAPI     *api.Extensions
 	chat       *api.Chat
+	webChat    *web.Chat
 	reg        *registry.Registry
 
 	updateOnce sync.Once
@@ -69,6 +68,7 @@ func New(opts Options) *Server {
 	s.extensions = web.NewExtensions(s.pages, s.startExtension, s.stopExtension)
 	s.regAPI = api.NewExtensions(s.reg)
 	s.chat = api.NewChat(opts.Agent, opts.Store)
+	s.webChat = web.NewChat(s.pages, opts.Store, s.chat)
 	return s
 }
 
@@ -86,14 +86,6 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) handler() http.Handler {
 	return s.Handler()
-}
-
-func (s *Server) render(w http.ResponseWriter, name string, data any) {
-	s.pages.Render(w, name, data)
-}
-
-func (s *Server) execute(name string, data any) (string, error) {
-	return s.pages.Execute(name, data)
 }
 
 func (s *Server) Listen(ctx context.Context, ready func()) error {

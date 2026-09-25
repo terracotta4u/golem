@@ -1,4 +1,4 @@
-package server
+package web_test
 
 import (
 	"bufio"

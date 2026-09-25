@@ -21,10 +21,10 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux.Handle("GET /v1/extensions", s.bearer(http.HandlerFunc(s.regAPI.List)))
 
 	// Web routes
-	mux.HandleFunc("GET /{$}", s.handleHome)
-	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
-	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
-	mux.HandleFunc("GET /turns/{id}", s.handleWebTurn)
+	mux.HandleFunc("GET /{$}", s.webChat.Home)
+	mux.HandleFunc("GET /conversations/{id}", s.webChat.Conversation)
+	mux.HandleFunc("POST /conversations/{id}/turns", s.webChat.Post(runCtx))
+	mux.HandleFunc("GET /turns/{id}", s.webChat.Events)
 	mux.HandleFunc("GET /settings", s.settings.Page)
 	mux.HandleFunc("GET /settings/general", s.settings.General)
 	mux.HandleFunc("POST /settings/general", s.settings.Save)

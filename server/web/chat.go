@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"context"
@@ -12,16 +12,26 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/server/api"
-	"github.com/terracotta4u/golem/server/web"
 )
 
 const webChannel = "web"
 
-func (s *Server) webConversations() ([]conversation.Conversation, error) {
-	if s.opts.Store == nil {
+// Chat serves the conversation pages.
+type Chat struct {
+	pages *Pages
+	store conversation.Store
+	turns *api.Chat
+}
+
+func NewChat(pages *Pages, store conversation.Store, turns *api.Chat) *Chat {
+	return &Chat{pages: pages, store: store, turns: turns}
+}
+
+func (h *Chat) conversations() ([]conversation.Conversation, error) {
+	if h.store == nil {
 		return nil, nil
 	}
-	all, err := s.opts.Store.List()
+	all, err := h.store.List()
 	if err != nil {
 		return nil, err
 	}
@@ -34,11 +44,11 @@ func (s *Server) webConversations() ([]conversation.Conversation, error) {
 	return list, nil
 }
 
-func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
-	s.showConversation(w, r, uuid.NewString())
+func (h *Chat) Home(w http.ResponseWriter, r *http.Request) {
+	h.show(w, r, uuid.NewString())
 }
 
-func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
+func (h *Chat) Post(runCtx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 		if err := r.ParseForm(); err != nil {
@@ -51,8 +61,8 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 			http.Error(w, "message is required", http.StatusBadRequest)
 			return
 		}
-		if s.opts.Store != nil {
-			c, err := s.opts.Store.Load(convID)
+		if h.store != nil {
+			c, err := h.store.Load(convID)
 			switch {
 			case errors.Is(err, conversation.ErrNotFound):
 			case err != nil:
@@ -63,24 +73,24 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 				return
 			}
 		}
-		id := s.chat.Start(runCtx, convID, webChannel, text)
-		s.render(w, "turn", map[string]any{"User": text, "ID": id})
+		id := h.turns.Start(runCtx, convID, webChannel, text)
+		h.pages.Render(w, "turn", map[string]any{"User": text, "ID": id})
 	}
 }
 
-func (s *Server) handleWebTurn(w http.ResponseWriter, r *http.Request) {
-	s.chat.Serve(w, r, r.PathValue("id"), func() {
+func (h *Chat) Events(w http.ResponseWriter, r *http.Request) {
+	h.turns.Serve(w, r, r.PathValue("id"), func() {
 		http.NotFound(w, r)
 	}, func(ev api.Event) bool {
 		switch ev.Name {
 		case "log":
-			card, err := s.execute("tool-call", ev.Log)
+			card, err := h.pages.Execute("tool-call", ev.Log)
 			if err != nil {
 				return false
 			}
 			return api.WriteSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend">`+card+`</hx-partial>`)
 		case "done":
-			if !api.WriteSSE(w, "", `<hx-partial hx-target="find .reply">`+string(web.Markdown(ev.Text))+`</hx-partial>`) {
+			if !api.WriteSSE(w, "", `<hx-partial hx-target="find .reply">`+string(Markdown(ev.Text))+`</hx-partial>`) {
 				return false
 			}
 			return api.WriteSSE(w, "close", "")
@@ -101,14 +111,14 @@ func sseEscape(s string) string {
 	return strings.ReplaceAll(s, "\n", " ")
 }
 
-func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
-	s.showConversation(w, r, r.PathValue("id"))
+func (h *Chat) Conversation(w http.ResponseWriter, r *http.Request) {
+	h.show(w, r, r.PathValue("id"))
 }
 
-func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id string) {
+func (h *Chat) show(w http.ResponseWriter, r *http.Request, id string) {
 	conv := conversation.Conversation{ID: id, Channel: webChannel}
-	if s.opts.Store != nil {
-		c, err := s.opts.Store.Load(id)
+	if h.store != nil {
+		c, err := h.store.Load(id)
 		switch {
 		case errors.Is(err, conversation.ErrNotFound):
 		case err != nil:
@@ -121,12 +131,12 @@ func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id str
 			conv = c
 		}
 	}
-	list, err := s.webConversations()
+	list, err := h.conversations()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.render(w, "conversation", map[string]any{
+	h.pages.Render(w, "conversation", map[string]any{
 		"Title":         conv.Title,
 		"ID":            conv.ID,
 		"Items":         chatItems(conv.Messages),
