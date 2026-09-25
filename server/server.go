@@ -85,25 +85,11 @@ func NewToken() string {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.handlerWith(context.Background())
+	return s.routes(context.Background())
 }
 
 func (s *Server) handler() http.Handler {
 	return s.Handler()
-}
-
-func (s *Server) handlerWith(runCtx context.Context) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/health", s.handleHealth)
-	s.mountStatic(mux)
-	// API endpoints
-	s.mountChat(mux, runCtx)
-	s.mountExtensions(mux)
-	// Web endpoints
-	s.mountWebChat(mux, runCtx)
-	s.mountWebSettings(mux)
-	s.mountWebExtensions(mux)
-	return mux
 }
 
 func parseWeb() *template.Template {
@@ -112,12 +98,12 @@ func parseWeb() *template.Template {
 	}).ParseFS(webFS, "web/templates/*.html"))
 }
 
-func (s *Server) mountStatic(mux *http.ServeMux) {
+func (s *Server) static() http.Handler {
 	static, err := fs.Sub(webFS, "web/static")
 	if err != nil {
 		panic(err)
 	}
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
+	return http.StripPrefix("/static/", http.FileServer(http.FS(static)))
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data any) {
@@ -140,7 +126,7 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 	}
 
 	httpSrv := &http.Server{
-		Handler:           s.handlerWith(ctx),
+		Handler:           s.routes(ctx),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

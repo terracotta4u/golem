@@ -9,12 +9,6 @@ import (
 	"github.com/terracotta4u/golem/registry"
 )
 
-func (s *Server) mountExtensions(mux *http.ServeMux) {
-	mux.HandleFunc("POST /v1/extensions/register", s.handleRegisterExtension)
-	mux.HandleFunc("POST /v1/extensions/heartbeat", s.handleHeartbeatExtension)
-	mux.HandleFunc("GET /v1/extensions", s.handleListExtensions)
-}
-
 func (s *Server) handleRegisterExtension(w http.ResponseWriter, r *http.Request) {
 	if !s.authorized(r) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})

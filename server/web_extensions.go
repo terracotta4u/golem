@@ -11,15 +11,6 @@ import (
 	"github.com/terracotta4u/golem/extension"
 )
 
-func (s *Server) mountWebExtensions(mux *http.ServeMux) {
-	mux.HandleFunc("GET /settings/extensions", s.handleExtensions)
-	mux.HandleFunc("GET /settings/extensions/add", s.handleExtensionAdd)
-	mux.HandleFunc("POST /settings/extensions/add/url", s.handleExtensionAddURL)
-	mux.HandleFunc("POST /settings/extensions/add/archive", s.handleExtensionAddArchive)
-	mux.HandleFunc("GET /settings/extensions/{name}", s.handleExtension)
-	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.handleExtensionRemove)
-}
-
 func (s *Server) handleExtensions(w http.ResponseWriter, r *http.Request) {
 	root, err := conf.ExtensionsDir()
 	if err != nil {

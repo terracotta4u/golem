@@ -11,13 +11,6 @@ import (
 	"github.com/terracotta4u/golem/release"
 )
 
-func (s *Server) mountWebSettings(mux *http.ServeMux) {
-	mux.HandleFunc("GET /settings", s.handleSettings)
-	mux.HandleFunc("GET /settings/general", s.handleSettingsGeneral)
-	mux.HandleFunc("POST /settings/general", s.handleSettingsSave)
-	mux.HandleFunc("GET /settings/about", s.handleSettingsAbout)
-}
-
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "settings", map[string]any{
 		"Title":   "Settings",

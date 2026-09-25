@@ -15,13 +15,6 @@ import (
 
 const webChannel = "web"
 
-func (s *Server) mountWebChat(mux *http.ServeMux, runCtx context.Context) {
-	mux.HandleFunc("GET /{$}", s.handleHome)
-	mux.HandleFunc("GET /conversations/{id}", s.handleConversation)
-	mux.HandleFunc("POST /conversations/{id}/turns", s.handleWebPostTurn(runCtx))
-	mux.HandleFunc("GET /turns/{id}", s.handleWebTurn)
-}
-
 func (s *Server) webConversations() ([]conversation.Conversation, error) {
 	if s.opts.Store == nil {
 		return nil, nil
