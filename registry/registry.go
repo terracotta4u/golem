@@ -41,13 +41,6 @@ type Capability struct {
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
-// Extension is a live registration.
-type Extension struct {
-	Name         string       `json:"name"`
-	CallbackURL  string       `json:"callback_url"`
-	Capabilities []Capability `json:"capabilities"`
-}
-
 // providerCap is one provider a live extension advertised.
 // client is shared by every provider on that extension; the model is chosen per call.
 type providerCap struct {
@@ -213,21 +206,21 @@ func (r *Registry) Heartbeat(name string) error {
 	return nil
 }
 
-// List returns extensions that are still inside their TTL.
-func (r *Registry) List() []Extension {
+// List returns registrations that are still inside their TTL.
+func (r *Registry) List() []Registration {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	names := make([]string, 0, len(r.exts))
 	for name := range r.exts {
 		names = append(names, name)
 	}
-	list := make([]Extension, 0, len(names))
+	list := make([]Registration, 0, len(names))
 	for _, name := range names {
 		e, ok := r.liveLocked(name)
 		if !ok {
 			continue
 		}
-		list = append(list, Extension{
+		list = append(list, Registration{
 			Name:         e.name,
 			CallbackURL:  e.callback,
 			Capabilities: append([]Capability(nil), e.caps...),

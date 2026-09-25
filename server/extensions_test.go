@@ -576,7 +576,7 @@ func registerExt(t *testing.T, base, token string, body map[string]any) {
 	}
 }
 
-func listExts(t *testing.T, base, token string) []registry.Extension {
+func listExts(t *testing.T, base, token string) []registry.Registration {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, base+"/v1/extensions", nil)
 	if err != nil {
@@ -598,7 +598,7 @@ func listExts(t *testing.T, base, token string) []registry.Extension {
 		t.Fatalf("list status = %d: %s", resp.StatusCode, raw)
 	}
 	var out struct {
-		Extensions []registry.Extension `json:"extensions"`
+		Extensions []registry.Registration `json:"extensions"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
