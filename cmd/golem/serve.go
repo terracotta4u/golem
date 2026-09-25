@@ -66,14 +66,16 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		Extensions: exts,
 	})
 
+	app.reg.SetToken(token)
 	err = server.New(server.Options{
-		Agent:   app.agent,
-		Store:   app.conversations,
-		Addr:    listen,
-		Token:   token,
-		Hub:     app.hub,
-		Version: version,
-		Release: &release.Checker{Current: version},
+		Agent:    app.agent,
+		Store:    app.conversations,
+		Addr:     listen,
+		Token:    token,
+		Hub:      app.hub,
+		Registry: app.reg,
+		Version:  version,
+		Release:  &release.Checker{Current: version},
 		StartExtension: func(name string) error {
 			cfg, _, err := conf.Load()
 			if err != nil {

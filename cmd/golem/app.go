@@ -9,6 +9,7 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/tool"
 )
@@ -18,6 +19,7 @@ type app struct {
 	conversations *conversation.DB
 	agent         *agent.Agent
 	hub           *provider.Hub
+	reg           *registry.Registry
 }
 
 // setup loads ~/.golem, opens the conversation database, and reports first-run creation.
@@ -65,13 +67,14 @@ func loadApp() (*app, error) {
 	}
 
 	hub := provider.NewHub(0)
+	reg := registry.New(hub, "")
 
-	a := agent.New(provider.NewLazyChat(hub, confModel("default")), dir, tools...)
-	a.Fast = provider.NewLazyChat(hub, confModel("fast"))
+	a := agent.New(registry.BindChat(reg, confModel("default")), dir, tools...)
+	a.Fast = registry.BindChat(reg, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
-	attachMemory(a, hub)
+	attachMemory(a, reg)
 	ok = true
-	return &app{cfg: cfg, conversations: conversations, agent: a, hub: hub}, nil
+	return &app{cfg: cfg, conversations: conversations, agent: a, hub: hub, reg: reg}, nil
 }
 
 func confModel(which string) func() (string, string, error) {
@@ -94,7 +97,7 @@ func confModel(which string) func() (string, string, error) {
 	}
 }
 
-func attachMemory(a *agent.Agent, hub *provider.Hub) {
+func attachMemory(a *agent.Agent, reg *registry.Registry) {
 	path, err := conf.MemoriesDB()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
@@ -119,7 +122,7 @@ func attachMemory(a *agent.Agent, hub *provider.Hub) {
 	a.MinSimilarity = mem.MinSimilarity
 	a.BudgetTokens = mem.BudgetTokens
 
-	emb := provider.NewLazyEmbedder(hub, confModel("embed"))
+	emb := registry.BindEmbed(reg, confModel("embed"))
 	idx, err := memory.NewIndex(st, emb, mem.Embedding.Provider, mem.Embedding.Model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: index: %v\n", err)

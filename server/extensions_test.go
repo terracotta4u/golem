@@ -526,21 +526,23 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	defer cb.Close()
 
 	hub := provider.NewHub(0)
+	reg := registry.New(hub, "")
 	st, err := conversation.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := New(Options{
-		Agent: agent.New(provider.NewLazyChat(hub, func() (string, string, error) {
+		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
 			c, _, err := conf.Load()
 			if err != nil {
 				return "", "", err
 			}
 			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
 		}), t.TempDir()),
-		Store: st,
-		Hub:   hub,
-		Token: "secret",
+		Store:    st,
+		Hub:      hub,
+		Registry: reg,
+		Token:    "secret",
 	})
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()

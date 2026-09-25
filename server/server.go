@@ -38,7 +38,8 @@ type Options struct {
 	StartExtension func(name string) error
 	StopExtension  func(name string) error
 
-	Hub *provider.Hub
+	Hub      *provider.Hub
+	Registry *registry.Registry
 
 	Version string
 	Release *release.Checker
@@ -67,10 +68,15 @@ func New(opts Options) *Server {
 		locks: make(map[string]*sync.Mutex),
 		turns: make(map[string]*turn),
 	}
-	if s.hub == nil {
-		s.hub = provider.NewHub(0)
+	if opts.Registry != nil {
+		s.reg = opts.Registry
+		s.reg.SetToken(opts.Token)
+	} else {
+		if s.hub == nil {
+			s.hub = provider.NewHub(0)
+		}
+		s.reg = registry.New(s.hub, opts.Token)
 	}
-	s.reg = registry.New(s.hub, opts.Token)
 	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
 		s.opts.Agent.Catalog = s.reg
 	}

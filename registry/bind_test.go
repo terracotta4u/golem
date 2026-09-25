@@ -52,6 +52,28 @@ func TestBindChatSendsModel(t *testing.T) {
 	}
 }
 
+func TestSetTokenUsedOnRegister(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(provider.Message{Role: "assistant", Content: "ok"})
+	}))
+	defer srv.Close()
+
+	reg := New(provider.NewHub(0), "")
+	reg.SetToken("secret")
+	registerProvider(t, reg, "stub", srv.URL, true, false, false)
+
+	_, err := BindChat(reg, func() (string, string, error) { return "stub", "m", nil }).Chat(context.Background(), provider.ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Fatalf("Authorization = %q, want Bearer secret", gotAuth)
+	}
+}
+
 func TestBindChatStructured(t *testing.T) {
 	want := json.RawMessage(`{"memories":[]}`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

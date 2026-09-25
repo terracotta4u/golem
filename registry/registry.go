@@ -114,6 +114,14 @@ func New(hub *provider.Hub, token string) *Registry {
 	}
 }
 
+// SetToken sets the bearer token sent when calling an extension.
+// Call it before any registration. A client is built from the token at register time.
+func (r *Registry) SetToken(token string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.token = token
+}
+
 // Register stores req and publishes its providers on the hub.
 // A registration with the same name replaces the previous one.
 func (r *Registry) Register(req Registration) error {
