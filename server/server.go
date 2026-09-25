@@ -43,11 +43,8 @@ type Server struct {
 	settings   *web.Settings
 	extensions *web.Extensions
 	regAPI     *api.Extensions
+	chat       *api.Chat
 	reg        *registry.Registry
-
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
-	turns map[string]*turn
 
 	updateOnce sync.Once
 	update     release.Status
@@ -58,8 +55,6 @@ func New(opts Options) *Server {
 	s := &Server{
 		opts:  opts,
 		pages: web.New(),
-		locks: make(map[string]*sync.Mutex),
-		turns: make(map[string]*turn),
 	}
 	if opts.Registry != nil {
 		s.reg = opts.Registry
@@ -73,6 +68,7 @@ func New(opts Options) *Server {
 	s.settings = web.NewSettings(s.pages, opts.Version, s.updateStatus)
 	s.extensions = web.NewExtensions(s.pages, s.startExtension, s.stopExtension)
 	s.regAPI = api.NewExtensions(s.reg)
+	s.chat = api.NewChat(opts.Agent, opts.Store)
 	return s
 }
 

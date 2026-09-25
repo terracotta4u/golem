@@ -11,6 +11,7 @@ import (
 
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
+	"github.com/terracotta4u/golem/server/api"
 	"github.com/terracotta4u/golem/server/web"
 )
 
@@ -62,32 +63,32 @@ func (s *Server) handleWebPostTurn(runCtx context.Context) http.HandlerFunc {
 				return
 			}
 		}
-		t := s.startTurn(runCtx, convID, postTurnRequest{Channel: webChannel, Text: text})
-		s.render(w, "turn", map[string]any{"User": text, "ID": t.ID})
+		id := s.chat.Start(runCtx, convID, webChannel, text)
+		s.render(w, "turn", map[string]any{"User": text, "ID": id})
 	}
 }
 
 func (s *Server) handleWebTurn(w http.ResponseWriter, r *http.Request) {
-	s.serveTurnEvents(w, r, r.PathValue("id"), func() {
+	s.chat.Serve(w, r, r.PathValue("id"), func() {
 		http.NotFound(w, r)
-	}, func(ev turnEvent) bool {
-		switch ev.name {
+	}, func(ev api.Event) bool {
+		switch ev.Name {
 		case "log":
-			card, err := s.execute("tool-call", ev.log)
+			card, err := s.execute("tool-call", ev.Log)
 			if err != nil {
 				return false
 			}
-			return writeSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend">`+card+`</hx-partial>`)
+			return api.WriteSSE(w, "", `<hx-partial hx-target="find .tool-log" hx-swap="beforeend">`+card+`</hx-partial>`)
 		case "done":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply">`+string(web.Markdown(ev.text))+`</hx-partial>`) {
+			if !api.WriteSSE(w, "", `<hx-partial hx-target="find .reply">`+string(web.Markdown(ev.Text))+`</hx-partial>`) {
 				return false
 			}
-			return writeSSE(w, "close", "")
+			return api.WriteSSE(w, "close", "")
 		case "error":
-			if !writeSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(ev.err)+`</p></hx-partial>`) {
+			if !api.WriteSSE(w, "", `<hx-partial hx-target="find .reply"><p class="error">`+sseEscape(ev.Err)+`</p></hx-partial>`) {
 				return false
 			}
-			return writeSSE(w, "close", "")
+			return api.WriteSSE(w, "close", "")
 		default:
 			return false
 		}
@@ -138,12 +139,12 @@ func (s *Server) showConversation(w http.ResponseWriter, r *http.Request, id str
 type chatItem struct {
 	Role    string
 	Content string
-	Tools   []toolLog
+	Tools   []api.ToolLog
 }
 
 func chatItems(msgs []provider.Message) []chatItem {
 	var items []chatItem
-	var pending []toolLog
+	var pending []api.ToolLog
 	for i := 0; i < len(msgs); {
 		m := msgs[i]
 		switch m.Role {
@@ -155,7 +156,7 @@ func chatItems(msgs []provider.Message) []chatItem {
 		case "assistant":
 			i++
 			if len(m.ToolCalls) > 0 {
-				var tools []toolLog
+				var tools []api.ToolLog
 				tools, i = collectTools(m.ToolCalls, msgs, i)
 				pending = append(pending, tools...)
 			}
@@ -174,15 +175,15 @@ func chatItems(msgs []provider.Message) []chatItem {
 	return items
 }
 
-func collectTools(calls []provider.ToolCall, msgs []provider.Message, i int) ([]toolLog, int) {
+func collectTools(calls []provider.ToolCall, msgs []provider.Message, i int) ([]api.ToolLog, int) {
 	results := make(map[string]string, len(calls))
 	for i < len(msgs) && msgs[i].Role == "tool" {
 		results[msgs[i].ToolCallID] = msgs[i].Content
 		i++
 	}
-	tools := make([]toolLog, 0, len(calls))
+	tools := make([]api.ToolLog, 0, len(calls))
 	for _, call := range calls {
-		tools = append(tools, toolLog{
+		tools = append(tools, api.ToolLog{
 			Name:   call.Function.Name,
 			Args:   call.Function.Arguments,
 			Result: results[call.ID],

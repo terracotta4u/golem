@@ -1,4 +1,4 @@
-package server
+package api_test
 
 import (
 	"bufio"
@@ -18,6 +18,8 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/registry"
+	"github.com/terracotta4u/golem/server"
+	"github.com/terracotta4u/golem/server/api"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -26,12 +28,12 @@ func TestPostTurnDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "hello back"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -45,8 +47,8 @@ func TestPostTurnDone(t *testing.T) {
 }
 
 func TestGetTurnEventsUnauthorized(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/v1/turns/missing")
@@ -62,8 +64,8 @@ func TestGetTurnEventsUnauthorized(t *testing.T) {
 }
 
 func TestGetTurnEventsNotFound(t *testing.T) {
-	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	s := server.New(server.Options{Token: "secret"})
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/turns/missing", nil)
@@ -102,12 +104,12 @@ func TestGetTurnEventsDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "hello back"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -136,12 +138,12 @@ func TestGetTurnEventsLateSubscriber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&replyProvider{text: "hello back"}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -185,12 +187,12 @@ func TestGetTurnEventsLogThenDone(t *testing.T) {
 			{Role: "assistant", Content: "all set"},
 		},
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -230,7 +232,7 @@ func TestToolLogPreview(t *testing.T) {
 		{`{"command":"` + strings.Repeat("a", 80) + `"}`, strings.Repeat("a", 55) + "…"},
 	}
 	for _, tt := range tests {
-		got := toolLog{Args: tt.args}.Preview()
+		got := api.ToolLog{Args: tt.args}.Preview()
 		if got != tt.want {
 			t.Errorf("Preview(%q) = %q, want %q", tt.args, got, tt.want)
 		}
@@ -238,12 +240,12 @@ func TestToolLogPreview(t *testing.T) {
 }
 
 func TestToolLogPrettyArgs(t *testing.T) {
-	got := toolLog{Args: `{"path":"/tmp/a.txt","content":"hello\nworld"}`}.PrettyArgs()
+	got := api.ToolLog{Args: `{"path":"/tmp/a.txt","content":"hello\nworld"}`}.PrettyArgs()
 	want := "{\n  \"path\": \"/tmp/a.txt\",\n  \"content\": \"hello\\nworld\"\n}"
 	if got != want {
 		t.Errorf("PrettyArgs = %q, want %q", got, want)
 	}
-	if got := (toolLog{Args: "not json"}).PrettyArgs(); got != "not json" {
+	if got := (api.ToolLog{Args: "not json"}).PrettyArgs(); got != "not json" {
 		t.Errorf("PrettyArgs(invalid) = %q, want unchanged", got)
 	}
 }
@@ -253,12 +255,12 @@ func TestGetTurnEventsError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(&errProvider{err: errors.New("boom")}, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	id := postTurn(t, ts.URL, "secret", "conv-1", "hello")
@@ -358,8 +360,8 @@ func (e sseEvent) errText() string {
 
 func TestWriteSSEMultiline(t *testing.T) {
 	rec := httptest.NewRecorder()
-	if !writeSSE(rec, "", "<p>one</p>\n<pre>a\n b</pre>") {
-		t.Fatal("writeSSE failed")
+	if !api.WriteSSE(rec, "", "<p>one</p>\n<pre>a\n b</pre>") {
+		t.Fatal("api.WriteSSE failed")
 	}
 	got := rec.Body.String()
 	want := "data: <p>one</p>\ndata: <pre>a\ndata:  b</pre>\n\n"
@@ -528,12 +530,12 @@ func TestRegisteredToolIsCalled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(p, t.TempDir()),
 		Store: st,
 		Token: "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -602,7 +604,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(Options{
+	s := server.New(server.Options{
 		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
 			c, _, err := conf.Load()
 			if err != nil {
@@ -614,7 +616,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 		Registry: reg,
 		Token:    "secret",
 	})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{
@@ -630,13 +632,5 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	}
 	if got := events[0].text(); got != "from stub" {
 		t.Fatalf("text = %q, want from stub", got)
-	}
-}
-
-func toolCap(name string) map[string]any {
-	return map[string]any{
-		"name":        name,
-		"description": "A tool.",
-		"parameters":  map[string]any{"type": "object", "properties": map[string]any{}},
 	}
 }
