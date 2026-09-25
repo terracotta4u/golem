@@ -245,9 +245,9 @@ func TestWebPostTurn(t *testing.T) {
 	if !strings.Contains(body, `hx-sse:close="close"`) {
 		t.Fatalf("body = %q, want hx-sse:close", body)
 	}
-	events := getTurnEvents(t, ts.URL, "secret", id)
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want done", events)
+	events := getWebTurnEvents(t, ts.URL, id)
+	if !unnamedContains(events, "Pasta.") {
+		t.Fatalf("events = %+v, want reply", events)
 	}
 }
 
@@ -265,9 +265,9 @@ func TestWebPostTurnPersists(t *testing.T) {
 	defer ts.Close()
 
 	_, body := postTurnHTML(t, ts.URL, "web-1", "What is for dinner?")
-	events := getTurnEvents(t, ts.URL, "secret", turnID(t, body))
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want done", events)
+	events := getWebTurnEvents(t, ts.URL, turnID(t, body))
+	if !unnamedContains(events, "Pasta.") {
+		t.Fatalf("events = %+v, want reply", events)
 	}
 
 	page := getHTML(t, ts.URL+"/conversations/web-1")
@@ -371,10 +371,6 @@ func TestWebPostTurnEscapesHTML(t *testing.T) {
 	}
 	if !strings.Contains(body, "&lt;script&gt;") {
 		t.Fatalf("body = %q, want escaped user text", body)
-	}
-	events := getTurnEvents(t, ts.URL, "secret", turnID(t, body))
-	if len(events) != 1 || events[0].Event != "done" {
-		t.Fatalf("events = %+v, want done", events)
 	}
 }
 

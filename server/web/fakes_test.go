@@ -6,35 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/tool"
 )
-
-func getTurnEvents(t *testing.T, base, token, id string) []sseEvent {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, base+"/v1/turns/"+id, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("get events status = %d: %s", resp.StatusCode, b)
-	}
-	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/event-stream") {
-		t.Fatalf("Content-Type = %q, want text/event-stream", ct)
-	}
-	return readSSE(t, resp.Body)
-}
 
 type sseEvent struct {
 	Event string

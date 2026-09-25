@@ -65,7 +65,7 @@ func TestStartExtensionError(t *testing.T) {
 
 func TestHealthUnauthorized(t *testing.T) {
 	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	resp, err := http.Get(ts.URL + "/v1/health")
@@ -82,7 +82,7 @@ func TestHealthUnauthorized(t *testing.T) {
 
 func TestHealthOK(t *testing.T) {
 	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/health", nil)
@@ -107,7 +107,7 @@ func TestStaticCSS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).handler())
+	ts := httptest.NewServer(New(Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
 	home := getHTML(t, ts.URL+"/")
@@ -173,7 +173,7 @@ func getOK(t *testing.T, url string) (string, string) {
 
 func TestStopExtensionUnregisters(t *testing.T) {
 	s := New(Options{Token: "secret"})
-	ts := httptest.NewServer(s.handler())
+	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
 	registerExt(t, ts.URL, "secret", map[string]any{

@@ -84,10 +84,6 @@ func (s *Server) Handler() http.Handler {
 	return s.routes(context.Background())
 }
 
-func (s *Server) handler() http.Handler {
-	return s.Handler()
-}
-
 func (s *Server) Listen(ctx context.Context, ready func()) error {
 	ln, err := net.Listen("tcp", s.opts.Addr)
 	if err != nil {
