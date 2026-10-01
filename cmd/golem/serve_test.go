@@ -52,7 +52,7 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errc := make(chan error, 1)
-	go func() { errc <- serve(ctx, app, addr, "secret") }()
+	go func() { errc <- serve(ctx, app, addr, "", "secret") }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	var got string
@@ -392,7 +392,7 @@ func TestServeStartsWhenOtherExtensionBroken(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errc := make(chan error, 1)
-	go func() { errc <- serve(ctx, app, addr, "") }()
+	go func() { errc <- serve(ctx, app, addr, "", "") }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	var got string
@@ -450,7 +450,7 @@ func TestServeStartsVenvExtension(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errc := make(chan error, 1)
-	go func() { errc <- serve(ctx, app, addr, "") }()
+	go func() { errc <- serve(ctx, app, addr, "", "") }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	var got string

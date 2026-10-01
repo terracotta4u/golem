@@ -18,34 +18,36 @@ import (
 const defaultListen = "127.0.0.1:8743"
 
 func newServeCmd() *cobra.Command {
-	var addr, token string
+	var addr, publicURL, token string
 	cmd := &cobra.Command{
 		Use:     "serve",
 		Short:   "Start the Golem server",
 		Long:    "Start the Golem HTTP server and run installed extensions.",
-		Example: "  golem serve\n  golem serve --addr 127.0.0.1:9000",
+		Example: "  golem serve\n  golem serve --addr 192.168.1.20:8743\n  golem serve --url https://golem.example.com",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(cmd, addr, token)
+			return runServe(cmd, addr, publicURL, token)
 		},
 	}
-	cmd.Flags().StringVar(&addr, "addr", defaultListen, "loopback listen address (IP or localhost)")
+	cmd.Flags().StringVar(&addr, "addr", defaultListen, "listen address (loopback, IP, or wildcard)")
+	cmd.Flags().StringVar(&publicURL, "url", "", "public origin when the UI is reachable beyond this machine")
 	cmd.Flags().StringVar(&token, "token", "", "auth token (generated if empty)")
 	_ = cmd.RegisterFlagCompletionFunc("addr", cobra.NoFileCompletions)
+	_ = cmd.RegisterFlagCompletionFunc("url", cobra.NoFileCompletions)
 	_ = cmd.RegisterFlagCompletionFunc("token", cobra.NoFileCompletions)
 	return cmd
 }
 
-func runServe(cmd *cobra.Command, addr, token string) error {
+func runServe(cmd *cobra.Command, addr, publicURL, token string) error {
 	app, err := loadApp()
 	if err != nil {
 		return err
 	}
 	defer app.conversations.Close()
-	return serve(cmd.Context(), app, addr, token)
+	return serve(cmd.Context(), app, addr, publicURL, token)
 }
 
-func serve(ctx context.Context, app *app, listen, token string) error {
+func serve(ctx context.Context, app *app, listen, publicURL, token string) error {
 	fmt.Fprint(os.Stderr, "The Golem has awoken.\n")
 	if token == "" {
 		token = server.NewToken()
@@ -72,6 +74,7 @@ func serve(ctx context.Context, app *app, listen, token string) error {
 		Agent:    app.agent,
 		Store:    app.conversations,
 		Addr:     listen,
+		URL:      publicURL,
 		Token:    token,
 		Registry: app.reg,
 		Version:  version,

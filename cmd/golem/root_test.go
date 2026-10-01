@@ -38,7 +38,7 @@ func TestRunServeHelpShowsFlags(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, want := range []string{"--addr", "--token"} {
+	for _, want := range []string{"--addr", "--url", "--token"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("help = %q, want %q", stdout, want)
 		}

@@ -11,6 +11,8 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.Handle("GET /static/", s.pages.Static())
+	mux.HandleFunc("GET /login", s.loginPage)
+	mux.HandleFunc("POST /login", s.loginSubmit)
 
 	// API routes
 	mux.Handle("GET /v1/health", s.bearer(http.HandlerFunc(api.Health)))
@@ -20,21 +22,22 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux.Handle("POST /v1/extensions/heartbeat", s.bearer(http.HandlerFunc(s.regAPI.Heartbeat)))
 	mux.Handle("GET /v1/extensions", s.bearer(http.HandlerFunc(s.regAPI.List)))
 
-	// Web routes
-	mux.HandleFunc("GET /{$}", s.webChat.Home)
-	mux.HandleFunc("GET /conversations/{id}", s.webChat.Conversation)
-	mux.HandleFunc("POST /conversations/{id}/turns", s.webChat.Post(runCtx))
-	mux.HandleFunc("GET /turns/{id}", s.webChat.Events)
-	mux.HandleFunc("GET /settings", s.settings.Page)
-	mux.HandleFunc("GET /settings/general", s.settings.General)
-	mux.HandleFunc("POST /settings/general", s.settings.Save)
-	mux.HandleFunc("GET /settings/about", s.settings.About)
-	mux.HandleFunc("GET /settings/extensions", s.extensions.List)
-	mux.HandleFunc("GET /settings/extensions/add", s.extensions.Add)
-	mux.HandleFunc("POST /settings/extensions/add/url", s.extensions.AddURL)
-	mux.HandleFunc("POST /settings/extensions/add/archive", s.extensions.AddArchive)
-	mux.HandleFunc("GET /settings/extensions/{name}", s.extensions.Detail)
-	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.extensions.Remove)
+	// Web routes. Static files and the sign-in page stay outside the session.
+	mux.Handle("GET /{$}", s.web(http.HandlerFunc(s.webChat.Home)))
+	mux.Handle("GET /conversations/{id}", s.web(http.HandlerFunc(s.webChat.Conversation)))
+	mux.Handle("POST /conversations/{id}/turns", s.web(s.webChat.Post(runCtx)))
+	mux.Handle("GET /turns/{id}", s.web(http.HandlerFunc(s.webChat.Events)))
+	mux.Handle("GET /settings", s.web(http.HandlerFunc(s.settings.Page)))
+	mux.Handle("GET /settings/general", s.web(http.HandlerFunc(s.settings.General)))
+	mux.Handle("POST /settings/general", s.web(http.HandlerFunc(s.settings.Save)))
+	mux.Handle("GET /settings/about", s.web(http.HandlerFunc(s.settings.About)))
+	mux.Handle("GET /settings/extensions", s.web(http.HandlerFunc(s.extensions.List)))
+	mux.Handle("GET /settings/extensions/add", s.web(http.HandlerFunc(s.extensions.Add)))
+	mux.Handle("POST /settings/extensions/add/url", s.web(http.HandlerFunc(s.extensions.AddURL)))
+	mux.Handle("POST /settings/extensions/add/archive", s.web(http.HandlerFunc(s.extensions.AddArchive)))
+	mux.Handle("GET /settings/extensions/{name}", s.web(http.HandlerFunc(s.extensions.Detail)))
+	mux.Handle("POST /settings/extensions/{name}/remove", s.web(http.HandlerFunc(s.extensions.Remove)))
+	mux.Handle("POST /logout", s.web(http.HandlerFunc(s.logout)))
 
-	return localRequests(mux)
+	return s.localRequests(mux)
 }

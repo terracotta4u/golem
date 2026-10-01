@@ -1,0 +1,22 @@
+{{define "login"}}
+{{template "layout-start" .}}
+<main class="container container-md stack grow py-6">
+  <section class="panel stack gap-5 p-6">
+    <div class="stack gap-2">
+      <h1 class="type-display">Sign in</h1>
+      <p class="field-hint">Use the token printed when Golem started.</p>
+    </div>
+    {{if .Error}}
+    <p>{{.Error}}</p>
+    {{end}}
+    <form class="stack gap-5" method="post" action="/login">
+      <div class="field stack gap-2">
+        <label for="token">Token</label>
+        <input id="token" name="token" type="password" required autocomplete="current-password" spellcheck="false">
+      </div>
+      <button type="submit" class="btn-accent">Sign in</button>
+    </form>
+  </section>
+</main>
+{{template "layout-end" .}}
+{{end}}
