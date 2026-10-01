@@ -7,21 +7,23 @@ import (
 	"strings"
 )
 
-// localRequests keeps DNS-rebound hosts out of the local UI and rejects
-// cross-origin browser mutations. Non-browser extension clients still use
-// bearer authentication on /v1 routes.
-func localRequests(next http.Handler) http.Handler {
+// localRequests keeps unlisted hosts out and rejects cross-origin browser
+// mutations. Non-browser extension clients still use bearer authentication
+// on /v1 routes.
+func (s *Server) localRequests(next http.Handler) http.Handler {
 	protected := http.NewCrossOriginProtection().Handler(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
-		host := r.Host
-		if h, _, err := net.SplitHostPort(host); err == nil {
-			host = h
-		} else if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
-			host = host[1 : len(host)-1]
+		if s.accessErr != nil {
+			http.Error(w, s.accessErr.Error(), http.StatusInternalServerError)
+			return
 		}
-		if !loopbackHost(host) {
-			http.Error(w, "a loopback Host is required", http.StatusForbidden)
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+		if !s.access.allows(r.Host) {
+			msg := "a loopback Host is required"
+			if s.access.remote {
+				msg = "this host is not allowed"
+			}
+			http.Error(w, msg, http.StatusForbidden)
 			return
 		}
 		protected.ServeHTTP(w, r)

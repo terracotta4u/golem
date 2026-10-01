@@ -37,6 +37,11 @@
       </div>
     </a>
   </div>
+  {{if .Remote}}
+  <form method="post" action="/logout">
+    <button type="submit">Log out</button>
+  </form>
+  {{end}}
 </main>
 {{template "layout-end" .}}
 {{end}}

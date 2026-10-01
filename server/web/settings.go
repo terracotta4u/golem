@@ -19,16 +19,18 @@ type Settings struct {
 	pages   *Pages
 	version string
 	update  func(context.Context) (release.Status, bool)
+	remote  bool
 }
 
-func NewSettings(pages *Pages, version string, update func(context.Context) (release.Status, bool)) *Settings {
-	return &Settings{pages: pages, version: version, update: update}
+func NewSettings(pages *Pages, version string, update func(context.Context) (release.Status, bool), remote bool) *Settings {
+	return &Settings{pages: pages, version: version, update: update, remote: remote}
 }
 
 func (h *Settings) Page(w http.ResponseWriter, r *http.Request) {
 	h.pages.Render(w, "settings", map[string]any{
 		"Title":   "Settings",
 		"PageCSS": "settings.css",
+		"Remote":  h.remote,
 	})
 }
 
