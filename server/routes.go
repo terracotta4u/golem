@@ -36,5 +36,5 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux.HandleFunc("GET /settings/extensions/{name}", s.extensions.Detail)
 	mux.HandleFunc("POST /settings/extensions/{name}/remove", s.extensions.Remove)
 
-	return mux
+	return localRequests(mux)
 }

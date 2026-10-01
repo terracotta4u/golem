@@ -16,6 +16,10 @@ golem serve --addr 127.0.0.1:9000
 
 `--addr` defaults to `127.0.0.1:8743`. `--token` sets the API token; if you omit it, Golem generates one and prints it.
 
+Golem only listens on a loopback IP (`127.0.0.1`, `::1`) or `localhost`. Wildcard addresses such as `0.0.0.0` and non-loopback addresses are rejected. For IPv6, use `--addr '[::1]:8743'`.
+
+The web UI trusts clients on your machine and does not require a login. Remote serving and public reverse proxies are not supported. Open it using a loopback IP or `localhost`; other Host names are rejected. Browser requests that change state must come from the same origin (including the port), and the UI cannot be embedded in a frame. The extension API still requires its bearer token; normal SDK requests work without browser headers.
+
 Extensions added from the CLI while the server is running are not picked up until you restart `golem serve`. Adding from **Settings → Extensions** starts them immediately.
 
 ## version
