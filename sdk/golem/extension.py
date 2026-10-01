@@ -82,6 +82,7 @@ class Extension:
         self._channels: list[dict[str, Any]] = []
         self._tool_specs: list[dict[str, Any]] = []
         self._tools: dict[str, Callable[..., Any]] = {}
+        self._task_error: BaseException | None = None
         if provider is not None:
             self._set_provider(*provider)
         if channel is not None:
@@ -121,11 +122,17 @@ class Extension:
 
         Listens on ``127.0.0.1`` with an OS-assigned port, registers that
         URL with Golem, then waits until ``stop`` is set. If ``stop`` is
-        omitted, SIGINT and SIGTERM set it (main thread only).
+        omitted, SIGINT and SIGTERM set it (main thread only). A channel
+        task that raises exits the process with status 1 so the supervisor
+        can restart it. An error after ``stop`` is already set is logged
+        and does not change that shutdown.
 
         Args:
             stop: Optional event to end the process. Created automatically
                 when omitted.
+
+        Raises:
+            SystemExit: A channel task failed before shutdown was requested.
         """
         own_stop = stop is None
         if stop is None:
@@ -172,6 +179,8 @@ class Extension:
                 target=self._run_task, args=(fn, stop), daemon=True
             ).start()
         stop.wait()
+        if self._task_error is not None:
+            raise SystemExit(1)
 
     def _register(self, callback: str) -> None:
         providers, tools, channels = self._registration()
@@ -199,6 +208,10 @@ class Extension:
             fn(self.client, stop)
         except Exception as exc:  # noqa: BLE001
             print(f"{self.name} task: {exc}", file=sys.stderr, flush=True)
+            if stop.is_set():
+                return
+            self._task_error = exc
+            stop.set()
 
     def _registration(
         self,

@@ -48,7 +48,7 @@ entrypoint = "golem_embed:Embed"
 
 ## Channels
 
-A channel feeds messages into Golem. `run` is your loop. `client.send()` posts a turn and returns the assistant reply.
+A channel feeds messages into Golem. `run` is your loop. `client.send()` posts a turn and returns the assistant reply. If `run` raises, the process exits with status 1 and `golem serve` restarts it.
 
 ```python
 from golem import Channel
