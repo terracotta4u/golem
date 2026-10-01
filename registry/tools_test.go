@@ -119,8 +119,9 @@ func TestToolCallTimesOut(t *testing.T) {
 	remote.CallbackTimeout = 50 * time.Millisecond
 	t.Cleanup(func() { remote.CallbackTimeout = prev })
 
-	cb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
+	release := make(chan struct{})
+	cb := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		<-release
 	}))
 
 	r := New("secret")
@@ -142,6 +143,7 @@ func TestToolCallTimesOut(t *testing.T) {
 	}()
 	select {
 	case err := <-done:
+		close(release)
 		cb.Close()
 		var netErr net.Error
 		if !errors.As(err, &netErr) || !netErr.Timeout() {

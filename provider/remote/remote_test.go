@@ -232,8 +232,9 @@ func TestChatTimesOut(t *testing.T) {
 	CallbackTimeout = 50 * time.Millisecond
 	t.Cleanup(func() { CallbackTimeout = prev })
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		<-release
 	}))
 
 	done := make(chan error, 1)
@@ -245,6 +246,7 @@ func TestChatTimesOut(t *testing.T) {
 	}()
 	select {
 	case err := <-done:
+		close(release)
 		ts.Close()
 		var netErr net.Error
 		if !errors.As(err, &netErr) || !netErr.Timeout() {
