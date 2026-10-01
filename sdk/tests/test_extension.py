@@ -349,6 +349,14 @@ def test_channel_is_advertised_and_started(golem: _Golem) -> None:
         _stop(thread, stop)
 
 
+def test_unsupported_tool_is_rejected() -> None:
+    def weather(city: str, /) -> str:
+        return city
+
+    with pytest.raises(ValueError, match="positional-only"):
+        Extension("golem-weather", "http://127.0.0.1:9", tools=[weather])
+
+
 def test_provider_requires_a_route() -> None:
     with pytest.raises(ValueError, match="chat, chat_structured, or embed"):
         Extension(
