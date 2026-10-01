@@ -2,10 +2,12 @@ package web_test
 
 import (
 	"encoding/json"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -207,6 +209,47 @@ func TestSettingsShowsConf(t *testing.T) {
 	}
 	if !strings.Contains(body, `value="12"`) {
 		t.Fatalf("settings = %q, want max tool rounds", body)
+	}
+}
+
+func TestSettingsGeneralFormKeepsOtherProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg := conf.Conf{MaxToolRounds: 4}
+	cfg.DefaultModel = conf.ModelConfig{Provider: "ollama", Model: "llama3.2"}
+	cfg.FastModel = conf.ModelConfig{Provider: "anthropic", Model: "claude-haiku"}
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(server.New(server.Options{Token: "secret"}).Handler())
+	defer ts.Close()
+
+	body := getHTML(t, ts.URL+"/settings/general")
+	vals := settingsInputs(t, body)
+	if vals.Get("default_provider") != "ollama" || vals.Get("fast_provider") != "anthropic" {
+		t.Fatalf("form providers = %q / %q", vals.Get("default_provider"), vals.Get("fast_provider"))
+	}
+	if vals.Get("default_model") != "llama3.2" || vals.Get("fast_model") != "claude-haiku" || vals.Get("max_tool_rounds") != "4" {
+		t.Fatalf("form = %v", vals)
+	}
+	vals.Set("default_model", "llama3.3")
+	status, text := postSettings(t, ts.URL, vals)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, text)
+	}
+
+	got, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DefaultModel.Provider != "ollama" || got.DefaultModel.Model != "llama3.3" {
+		t.Fatalf("default = %+v", got.DefaultModel)
+	}
+	if got.FastModel.Provider != "anthropic" || got.FastModel.Model != "claude-haiku" {
+		t.Fatalf("fast = %+v", got.FastModel)
+	}
+	if got.MaxToolRounds != 4 {
+		t.Fatalf("max tool rounds = %d, want 4", got.MaxToolRounds)
 	}
 }
 
@@ -531,6 +574,26 @@ func TestSettingsSaveUpdatesFast(t *testing.T) {
 	if got.FastModel.Provider != "openrouter" || got.FastModel.Model != "openai/gpt-4o" {
 		t.Fatalf("fast = %+v, want openrouter/openai/gpt-4o", got.FastModel)
 	}
+}
+
+var (
+	inputTag  = regexp.MustCompile(`<input\b([^>]*)>`)
+	inputAttr = regexp.MustCompile(`\b(name|value)="([^"]*)"`)
+)
+
+func settingsInputs(t *testing.T, body string) url.Values {
+	t.Helper()
+	vals := url.Values{}
+	for _, tag := range inputTag.FindAllStringSubmatch(body, -1) {
+		attrs := map[string]string{}
+		for _, attr := range inputAttr.FindAllStringSubmatch(tag[1], -1) {
+			attrs[attr[1]] = html.UnescapeString(attr[2])
+		}
+		if name := attrs["name"]; name != "" {
+			vals.Set(name, attrs["value"])
+		}
+	}
+	return vals
 }
 
 func postSettings(t *testing.T, base string, vals url.Values) (int, string) {
