@@ -73,7 +73,7 @@ entrypoint = "golem_cli:CLI"
 
 ## Tools
 
-A tool is a function Golem can call. The name is the function name, the description is the first docstring line, and parameters come from the annotations. Point `[tool.golem]` at a list, or at one function.
+A tool is a function Golem can call. The name is the function name, the description is the first docstring line, and parameters come from the annotations. Each parameter must be `str`, `int`, `float`, or `bool`. Golem calls the function with keywords, so an async function, a positional-only parameter, `*args`, or `**kwargs` is rejected when the extension starts. Point `[tool.golem]` at a list, or at one function.
 
 ```python
 def weather(city: str) -> str:
