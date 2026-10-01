@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -271,6 +272,62 @@ func TestGetTurnEventsError(t *testing.T) {
 	}
 	if got := events[0].errText(); got != "boom" {
 		t.Fatalf("error = %q, want boom", got)
+	}
+}
+
+func TestPostTurnRejectsOtherChannel(t *testing.T) {
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(conversation.Conversation{ID: "123", Channel: "telegram", Title: "Telegram"}); err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
+	defer ts.Close()
+
+	body, _ := json.Marshal(map[string]string{"channel": "slack", "text": "hello"})
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/v1/conversations/123/turns", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer secret")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusConflict || !bytes.Contains(raw, []byte("another channel")) {
+		t.Fatalf("status = %d, body = %s; want 409", resp.StatusCode, raw)
+	}
+	got, err := st.Load("123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Channel != "telegram" || got.Title != "Telegram" {
+		t.Fatalf("stored = %+v, want the telegram conversation unchanged", got)
+	}
+
+	if err := st.Save(conversation.Conversation{ID: "a/b", Channel: "telegram"}); err != nil {
+		t.Fatal(err)
+	}
+	slashBody, _ := json.Marshal(map[string]string{"channel": "slack", "text": "hello"})
+	slashReq, err := http.NewRequest(http.MethodPost, ts.URL+"/v1/conversations/"+url.PathEscape("a/b")+"/turns", bytes.NewReader(slashBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	slashReq.Header.Set("Authorization", "Bearer secret")
+	slashReq.Header.Set("Content-Type", "application/json")
+	slashResp, err := http.DefaultClient.Do(slashReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer slashResp.Body.Close()
+	slashRaw, _ := io.ReadAll(slashResp.Body)
+	if slashResp.StatusCode != http.StatusConflict {
+		t.Fatalf("encoded id status = %d, body = %s; want 409 for one path segment", slashResp.StatusCode, slashRaw)
 	}
 }
 
