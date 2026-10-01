@@ -12,7 +12,10 @@ import (
 	"github.com/terracotta4u/golem/provider"
 )
 
-var ErrNotFound = errors.New("conversation not found")
+var (
+	ErrNotFound     = errors.New("conversation not found")
+	ErrWrongChannel = errors.New("conversation belongs to another channel")
+)
 
 type Conversation struct {
 	ID        string
