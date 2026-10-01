@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/terracotta4u/golem/provider"
-	"github.com/terracotta4u/golem/provider/remote"
 )
 
 type modelConfig func() (id, model string, err error)
@@ -40,35 +39,41 @@ var (
 )
 
 func (b boundChat) Chat(ctx context.Context, req provider.ChatRequest) (provider.Message, error) {
-	client, err := b.client()
+	p, model, err := b.resolve()
 	if err != nil {
 		return provider.Message{}, err
 	}
-	return client.Chat(ctx, req)
+	if !p.chat {
+		return provider.Message{}, fmt.Errorf("provider %q does not support chat", p.id)
+	}
+	return p.client.ForModel(model).Chat(ctx, req)
 }
 
 func (b boundChat) ChatStructured(ctx context.Context, msgs []provider.Message, schema provider.JSONSchema) (json.RawMessage, error) {
-	client, err := b.client()
+	p, model, err := b.resolve()
 	if err != nil {
 		return nil, err
 	}
-	return client.ChatStructured(ctx, msgs, schema)
+	// Unadvertised structured output is a format mismatch, so callers such as
+	// memory extraction can fall back to ordinary chat. A model that advertises
+	// the route and still rejects a schema returns the same error from the HTTP call.
+	if !p.structured {
+		return nil, provider.ErrUnsupportedFormat
+	}
+	return p.client.ForModel(model).ChatStructured(ctx, msgs, schema)
 }
 
-func (b boundChat) client() (*remote.Bound, error) {
+func (b boundChat) resolve() (providerCap, string, error) {
 	id, model, err := b.config()
 	if err != nil {
-		return nil, err
+		return providerCap{}, "", err
 	}
 	id = strings.TrimSpace(id)
 	p, err := b.reg.provider(id)
 	if err != nil {
-		return nil, err
+		return providerCap{}, "", err
 	}
-	if !p.supportsChat() {
-		return nil, fmt.Errorf("provider %q does not support chat", id)
-	}
-	return p.client.ForModel(model), nil
+	return p, model, nil
 }
 
 func (b boundEmbed) Embed(ctx context.Context, texts []string) ([][]float32, error) {

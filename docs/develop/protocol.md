@@ -67,7 +67,7 @@ After binding a loopback HTTP server, register. Re-registering the same `name` r
 
 `providers`, `tools`, and `channels` are separate arrays. Omit an array when the extension does not advertise that kind. Empty arrays are omitted from `GET /v1/extensions`.
 
-A provider requires `id` (the name used in conf `default_model.provider` or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. `structured` counts as chat. `chat` is optional when `embed` is set (an embeddings-only backend).
+A provider requires `id` (the name used in conf `default_model.provider` or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. Golem calls `/v1/chat` only when `chat` is set, and `/v1/chat/structured` only when `structured` is set. `structured` does not count as chat. `chat` is optional for an embeddings-only or structured-only provider.
 
 Embeddings-only provider entry:
 
