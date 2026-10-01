@@ -112,7 +112,7 @@ uv sync --dev
 uv run pytest
 ```
 
-From the Golem repo root, `make test-sdk` runs ruff and pytest.
+From the Golem repo root, `make test-sdk` runs ruff and pytest. `tests/test_smoke.py` starts the Go server in this repo and runs this SDK against it. That current pairing is the supported one.
 
 ## Releasing
 
