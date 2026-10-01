@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/terracotta4u/golem/provider"
 )
@@ -222,6 +224,34 @@ func TestEmbedSendsRequestAndMapsVectors(t *testing.T) {
 	}
 	if len(got[1]) != 2 || got[1][0] != 0.5 || got[1][1] != 0.75 {
 		t.Errorf("vec 1 = %v, want [0.5 0.75]", got[1])
+	}
+}
+
+func TestChatTimesOut(t *testing.T) {
+	prev := CallbackTimeout
+	CallbackTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { CallbackTimeout = prev })
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := New(ts.URL, "secret").ForModel("m").Chat(context.Background(), provider.ChatRequest{
+			Messages: []provider.Message{{Role: "user", Content: "hi"}},
+		})
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		ts.Close()
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Fatalf("err = %v, want a timeout", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("chat hung")
 	}
 }
 

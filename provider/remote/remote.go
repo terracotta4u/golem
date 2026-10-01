@@ -8,9 +8,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/terracotta4u/golem/provider"
 )
+
+// CallbackTimeout bounds one extension HTTP call. Zero means no limit.
+var CallbackTimeout time.Duration
 
 type Client struct {
 	url   string
