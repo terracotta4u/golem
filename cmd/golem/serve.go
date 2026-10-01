@@ -29,7 +29,7 @@ func newServeCmd() *cobra.Command {
 			return runServe(cmd, addr, token)
 		},
 	}
-	cmd.Flags().StringVar(&addr, "addr", defaultListen, "listen address")
+	cmd.Flags().StringVar(&addr, "addr", defaultListen, "loopback listen address (IP or localhost)")
 	cmd.Flags().StringVar(&token, "token", "", "auth token (generated if empty)")
 	_ = cmd.RegisterFlagCompletionFunc("addr", cobra.NoFileCompletions)
 	_ = cmd.RegisterFlagCompletionFunc("token", cobra.NoFileCompletions)
