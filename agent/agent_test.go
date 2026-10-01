@@ -1033,6 +1033,78 @@ func TestSendCapsToolRounds(t *testing.T) {
 	}
 }
 
+func TestSendChatErrorSavesUserAndFailure(t *testing.T) {
+	p := &scriptedProvider{err: errString("model down")}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conv := conversation.New("cli")
+	_, err = New(p, workspace(t)).Session(st, conv).Send(context.Background(), "hello")
+	if err == nil || !strings.Contains(err.Error(), "model down") {
+		t.Fatalf("err = %v, want model down", err)
+	}
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Messages) != 2 {
+		t.Fatalf("messages = %+v, want user and failure", saved.Messages)
+	}
+	if saved.Messages[0].Role != "user" || saved.Messages[0].Content != "hello" {
+		t.Errorf("user = %+v", saved.Messages[0])
+	}
+	if saved.Messages[1].Role != "assistant" || saved.Messages[1].Content != "model down" {
+		t.Errorf("failure = %+v", saved.Messages[1])
+	}
+}
+
+func TestSendToolThenChatErrorSavesToolResult(t *testing.T) {
+	echo := &stubTool{name: "echo", result: "pong"}
+	p := &scriptedProvider{
+		replies: []provider.Message{{
+			Role: "assistant",
+			ToolCalls: []provider.ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: provider.FunctionCall{
+					Name:      "echo",
+					Arguments: `{}`,
+				},
+			}},
+		}},
+		err: errString("model down"),
+	}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conv := conversation.New("cli")
+	_, err = New(p, workspace(t), echo).Session(st, conv).Send(context.Background(), "hello")
+	if err == nil || !strings.Contains(err.Error(), "model down") {
+		t.Fatalf("err = %v, want model down", err)
+	}
+	if len(echo.calls) != 1 {
+		t.Fatalf("tool calls = %d, want 1", len(echo.calls))
+	}
+	saved, err := st.Load(conv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Messages) != 4 {
+		t.Fatalf("messages = %+v, want user, tool call, tool result, failure", saved.Messages)
+	}
+	if saved.Messages[0].Role != "user" || saved.Messages[0].Content != "hello" {
+		t.Errorf("user = %+v", saved.Messages[0])
+	}
+	if saved.Messages[2].Role != "tool" || saved.Messages[2].Content != "pong" {
+		t.Errorf("tool = %+v", saved.Messages[2])
+	}
+	if saved.Messages[3].Role != "assistant" || saved.Messages[3].Content != "model down" {
+		t.Errorf("failure = %+v", saved.Messages[3])
+	}
+}
+
 func TestSendStopsWhenContextCanceled(t *testing.T) {
 	echo := &stubTool{name: "echo", result: "ok"}
 	p := &scriptedProvider{replies: toolThenReply(100, "done")}

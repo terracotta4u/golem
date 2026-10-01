@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -73,14 +74,17 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
+	if err := s.persist(); err != nil {
+		return "", err
+	}
 	s.retrieve(ctx, input)
 
 	for round := 0; ; round++ {
 		if err := ctx.Err(); err != nil {
-			return "", err
+			return "", s.fail(err)
 		}
 		if max := s.agent.MaxToolRounds; max > 0 && round >= max {
-			return "", fmt.Errorf("exceeded %d tool rounds", max)
+			return "", s.fail(fmt.Errorf("exceeded %d tool rounds", max))
 		}
 
 		byName, defs := s.agent.roundTools()
@@ -89,10 +93,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 			Tools:    defs,
 		})
 		if err != nil {
-			if n := len(s.conv.Messages); n > 0 && s.conv.Messages[n-1].Role == "user" {
-				s.conv.Messages = s.conv.Messages[:n-1]
-			}
-			return "", err
+			return "", s.fail(err)
 		}
 
 		s.conv.Messages = append(s.conv.Messages, msg)
@@ -125,7 +126,21 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 				Content:    result,
 			})
 		}
+		if err := s.persist(); err != nil {
+			return "", err
+		}
 	}
+}
+
+func (s *Session) fail(err error) error {
+	s.conv.Messages = append(s.conv.Messages, provider.Message{
+		Role:    "assistant",
+		Content: err.Error(),
+	})
+	if perr := s.persist(); perr != nil {
+		return errors.Join(err, perr)
+	}
+	return err
 }
 
 func withContext(prompt string, msgs []provider.Message) []provider.Message {
