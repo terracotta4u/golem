@@ -11,9 +11,9 @@ draft: false
 golem serve
 ```
 
-Golem listens on `http://127.0.0.1:8743` and prints a token. Open that URL in a browser. The token is for extensions talking to the local API, not for the web UI.
+Golem listens on `http://127.0.0.1:8743` and prints a token. Open that URL in a browser. On this address the web UI does not ask you to sign in. The token is for extensions, and for signing in when Golem is reachable from another machine.
 
-The server is local-only. It rejects non-loopback listen addresses and browser submissions from other origins. See [CLI](../usage/cli.md) for address options and the local access boundary.
+By default only this computer can open the UI. Browser submissions from other origins are rejected. See [CLI](../usage/cli.md) to serve Golem on your network or behind a hostname.
 
 Leave this process running.
 
