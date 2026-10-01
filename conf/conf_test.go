@@ -1,9 +1,11 @@
 package conf
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -345,5 +347,46 @@ func TestSetExtensionOriginKeepsEnv(t *testing.T) {
 	}
 	if got.Env["ECHO_TOKEN"] != "secret" {
 		t.Errorf("wiped env: %+v", got)
+	}
+}
+
+func TestUpdateKeepsConcurrentEdits(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	const n = 16
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			name := fmt.Sprintf("ext-%d", i)
+			if err := Update(func(cfg *Conf) error {
+				SetExtensionOrigin(cfg, name, "src", "HEAD", name)
+				return nil
+			}); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	got, _, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Extensions) != n {
+		t.Fatalf("extensions = %d, want %d (%v)", len(got.Extensions), n, got.Extensions)
+	}
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := filepath.Glob(filepath.Join(dir, ".conf.json.*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) != 0 {
+		t.Fatalf("temp conf files left behind: %v", left)
 	}
 }

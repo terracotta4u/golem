@@ -119,13 +119,10 @@ func (h *Extensions) Remove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cfg, _, err := conf.Load()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	conf.RemoveExtension(&cfg, name)
-	if err := conf.Save(cfg); err != nil {
+	if err := conf.Update(func(cfg *conf.Conf) error {
+		conf.RemoveExtension(cfg, name)
+		return nil
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -206,16 +203,13 @@ func (h *Extensions) install(w http.ResponseWriter, r *http.Request, src, ref, o
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	cfg, _, err := conf.Load()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	if originSource == "" {
 		originSource = p.Origin.Source
 	}
-	conf.SetExtensionOrigin(&cfg, p.Name, originSource, p.Origin.Ref, p.Origin.Revision)
-	if err := conf.Save(cfg); err != nil {
+	if err := conf.Update(func(cfg *conf.Conf) error {
+		conf.SetExtensionOrigin(cfg, p.Name, originSource, p.Origin.Ref, p.Origin.Revision)
+		return nil
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

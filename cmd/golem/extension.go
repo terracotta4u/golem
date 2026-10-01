@@ -93,12 +93,10 @@ func runExtensionAdd(cmd *cobra.Command, source string, force bool, ref string) 
 	if err != nil {
 		return err
 	}
-	cfg, _, err := conf.Load()
-	if err != nil {
-		return err
-	}
-	conf.SetExtensionOrigin(&cfg, p.Name, p.Origin.Source, p.Origin.Ref, p.Origin.Revision)
-	if err := conf.Save(cfg); err != nil {
+	if err := conf.Update(func(cfg *conf.Conf) error {
+		conf.SetExtensionOrigin(cfg, p.Name, p.Origin.Source, p.Origin.Ref, p.Origin.Revision)
+		return nil
+	}); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "installed %s\n", p.Name)
@@ -133,12 +131,10 @@ func runExtensionRemove(cmd *cobra.Command, name string) error {
 	if err := extension.Remove(root, name); err != nil {
 		return err
 	}
-	cfg, _, err := conf.Load()
-	if err != nil {
-		return err
-	}
-	conf.RemoveExtension(&cfg, name)
-	if err := conf.Save(cfg); err != nil {
+	if err := conf.Update(func(cfg *conf.Conf) error {
+		conf.RemoveExtension(cfg, name)
+		return nil
+	}); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "removed %s\n", name)
