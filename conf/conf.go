@@ -169,6 +169,18 @@ func Save(cfg Conf) error {
 	return write(path, cfg)
 }
 
+// Update reloads conf, applies fn, and writes it back.
+func Update(fn func(*Conf) error) error {
+	cfg, _, err := Load()
+	if err != nil {
+		return err
+	}
+	if err := fn(&cfg); err != nil {
+		return err
+	}
+	return Save(cfg)
+}
+
 func filePath() (string, error) {
 	dir, err := Dir()
 	if err != nil {
