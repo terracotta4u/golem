@@ -141,13 +141,15 @@ func (r *Registry) Register(req Registration) error {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// Reject a conflicting replacement before removing the live record.
+	// The extension's own previous tools and providers are not conflicts.
+	if err := r.toolConflictLocked(name, tools); err != nil {
+		return err
+	}
+	if err := r.providerConflictLocked(name, providers); err != nil {
+		return err
+	}
 	r.dropLocked(name)
-	if err := r.toolConflictLocked(tools); err != nil {
-		return err
-	}
-	if err := r.providerConflictLocked(providers); err != nil {
-		return err
-	}
 
 	client := remote.New(callback, r.token)
 	var live []providerCap
@@ -239,7 +241,7 @@ func (r *Registry) Drop(name string) {
 	r.dropLocked(name)
 }
 
-func (r *Registry) toolConflictLocked(tools []Tool) error {
+func (r *Registry) toolConflictLocked(self string, tools []Tool) error {
 	taken := map[string]struct{}{}
 	for _, tc := range tools {
 		if tool.Reserved(tc.Name) {
@@ -254,6 +256,9 @@ func (r *Registry) toolConflictLocked(tools []Tool) error {
 		return nil
 	}
 	for name, e := range r.exts {
+		if name == self {
+			continue
+		}
 		if !r.fresh(e) {
 			r.dropLocked(name)
 			continue
@@ -267,7 +272,7 @@ func (r *Registry) toolConflictLocked(tools []Tool) error {
 	return nil
 }
 
-func (r *Registry) providerConflictLocked(providers []Provider) error {
+func (r *Registry) providerConflictLocked(self string, providers []Provider) error {
 	taken := map[string]struct{}{}
 	for _, p := range providers {
 		if _, ok := taken[p.ID]; ok {
@@ -279,6 +284,9 @@ func (r *Registry) providerConflictLocked(providers []Provider) error {
 		return nil
 	}
 	for name, e := range r.exts {
+		if name == self {
+			continue
+		}
 		if !r.fresh(e) {
 			r.dropLocked(name)
 			continue
