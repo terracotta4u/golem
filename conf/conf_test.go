@@ -190,7 +190,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
+func TestLoadLeavesOmittedMemoryAbsent(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
@@ -210,8 +210,8 @@ func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
 	if got.DefaultModel.Provider != "openrouter" {
 		t.Errorf("default provider = %q, want openrouter", got.DefaultModel.Provider)
 	}
-	if got.Memory.Embedding.Provider != "openrouter" || got.Memory.Embedding.Model != "openai/text-embedding-3-small" {
-		t.Errorf("embedding = %+v", got.Memory.Embedding)
+	if got.Memory != nil {
+		t.Fatalf("memory = %+v, want absent", got.Memory)
 	}
 }
 

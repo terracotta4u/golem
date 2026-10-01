@@ -57,7 +57,10 @@ func TestMigrateLeavesExplicitValues(t *testing.T) {
 }
 
 func TestMigrateKeepsExplicitZero(t *testing.T) {
+	d := defaults()
 	cfg := Conf{
+		DefaultModel: d.DefaultModel,
+		FastModel:    d.FastModel,
 		Memory: &MemoryConfig{
 			Embedding: ModelConfig{Provider: "ollama", Model: "nomic-embed-text"},
 		},

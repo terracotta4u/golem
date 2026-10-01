@@ -95,6 +95,16 @@ func confModel(which string) func() (string, string, error) {
 }
 
 func attachMemory(a *agent.Agent, reg *registry.Registry) {
+	cfg, _, err := conf.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
+		return
+	}
+	mem := cfg.Memory
+	if mem == nil {
+		return
+	}
+
 	path, err := conf.MemoriesDB()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
@@ -106,16 +116,6 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 		return
 	}
 	a.Memories.Store = st
-
-	cfg, _, err := conf.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
-		return
-	}
-	mem := cfg.Memory
-	if mem == nil {
-		return
-	}
 	a.Memories.MinSimilarity = mem.MinSimilarity
 	a.Memories.BudgetTokens = mem.BudgetTokens
 
