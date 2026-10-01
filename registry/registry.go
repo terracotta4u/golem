@@ -61,10 +61,6 @@ type providerCap struct {
 	client     *remote.Client
 }
 
-func (p providerCap) supportsChat() bool {
-	return p.chat || p.structured
-}
-
 type extRecord struct {
 	name      string
 	callback  string
