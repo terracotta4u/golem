@@ -5,7 +5,7 @@ weight: 30
 draft: false
 ---
 
-After a turn, Golem asks the fast model to extract durable facts about you (preferences, standing context). One-off task details are skipped. Those facts are embedded and stored in `~/.golem/memory/memories.db`.
+After a turn, Golem asks the fast model to extract durable facts about you (preferences, standing context). If no fast model is set, extraction uses the default model. One-off task details are skipped. Those facts are embedded and stored in `~/.golem/memory/memories.db`.
 
 On later turns, Golem searches that store and may add matching memories to the system prompt. They are treated as context, not as instructions. They can be wrong or stale.
 
