@@ -74,6 +74,34 @@ func TestSetTokenUsedOnRegister(t *testing.T) {
 	}
 }
 
+func TestBindChatFollowsAdvertisedCapabilities(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		t.Errorf("path = %s, want no request for an unadvertised route", r.URL.Path)
+	}))
+	defer srv.Close()
+
+	reg := New("")
+	registerProvider(t, reg, "chat-only", srv.URL, true, false, false)
+	registerProvider(t, reg, "structured-only", srv.URL, false, true, false)
+
+	chatOnly := BindChat(reg, func() (string, string, error) { return "chat-only", "m", nil }).(provider.Structured)
+	_, err := chatOnly.ChatStructured(context.Background(), nil, provider.JSONSchema{Name: "memories"})
+	if !errors.Is(err, provider.ErrUnsupportedFormat) {
+		t.Fatalf("ChatStructured(chat-only) = %v, want ErrUnsupportedFormat", err)
+	}
+
+	structuredOnly := BindChat(reg, func() (string, string, error) { return "structured-only", "m", nil })
+	_, err = structuredOnly.Chat(context.Background(), provider.ChatRequest{})
+	if err == nil || errors.Is(err, provider.ErrUnsupportedFormat) || !strings.Contains(err.Error(), "does not support chat") {
+		t.Fatalf("Chat(structured-only) = %v, want chat unsupported", err)
+	}
+	if hits != 0 {
+		t.Fatalf("requests = %d, want none", hits)
+	}
+}
+
 func TestBindChatStructured(t *testing.T) {
 	want := json.RawMessage(`{"memories":[]}`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
