@@ -282,6 +282,7 @@ func (c *Chat) run(ctx context.Context, turnID, convID string, req postTurnReque
 	}
 
 	sess := c.agent.Session(c.store, conv)
+	sess.TurnID = turnID
 	sess.OnTool = func(name, args, result string) {
 		entry := ToolLog{Name: name, Args: args, Result: result}
 		fmt.Fprintln(os.Stderr, entry.Line())

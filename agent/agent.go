@@ -28,10 +28,9 @@ type Agent struct {
 	// A builtin with the same name is kept.
 	Catalog Catalog
 
-	provider  provider.Provider
-	list      []tool.Tool
-	workspace string
-	wg        sync.WaitGroup
+	provider provider.Provider
+	list     []tool.Tool
+	wg       sync.WaitGroup
 }
 
 // Memories is how an agent reads and records memories.
@@ -49,8 +48,8 @@ type Catalog interface {
 	Tools() []tool.Tool
 }
 
-func New(p provider.Provider, dir string, tools ...tool.Tool) *Agent {
-	return &Agent{provider: p, list: tools, workspace: dir}
+func New(p provider.Provider, tools ...tool.Tool) *Agent {
+	return &Agent{provider: p, list: tools}
 }
 
 type Session struct {
@@ -58,7 +57,10 @@ type Session struct {
 	store    conversation.Store
 	conv     conversation.Conversation
 	memories []memory.Memory
-	OnTool   func(name, args, result string)
+	// TurnID is the server turn this send belongs to. Extraction records it.
+	// Empty means this session is not a server turn.
+	TurnID string
+	OnTool func(name, args, result string)
 }
 
 func (a *Agent) Session(st conversation.Store, conv conversation.Conversation) *Session {
@@ -109,6 +111,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 				store:    s.agent.Memories.Store,
 				indexer:  s.agent.Memories.Index,
 				convID:   s.conv.ID,
+				turnID:   s.TurnID,
 				input:    input,
 				reply:    msg.Content,
 			})
@@ -192,6 +195,7 @@ type rememberJob struct {
 	store    *memory.Store
 	indexer  memory.Indexer
 	convID   string
+	turnID   string
 	input    string
 	reply    string
 }
@@ -208,7 +212,11 @@ func remember(ctx context.Context, job rememberJob) {
 		fmt.Fprintf(os.Stderr, "memory: extract: %v\n", err)
 		return
 	}
-	saved, err := job.store.SaveExtracted(contents, job.convID, uuid.NewString())
+	turnID := job.turnID
+	if turnID == "" {
+		turnID = uuid.NewString()
+	}
+	saved, err := job.store.SaveExtracted(contents, job.convID, turnID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: save: %v\n", err)
 	}

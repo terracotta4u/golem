@@ -48,8 +48,3 @@ func TestSystemPromptListsSkills(t *testing.T) {
 		t.Errorf("missing skill tool instruction in %q", got)
 	}
 }
-
-func workspace(t *testing.T) string {
-	t.Helper()
-	return t.TempDir()
-}
