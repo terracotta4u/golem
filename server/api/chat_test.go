@@ -10,13 +10,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conf"
 	"github.com/terracotta4u/golem/conversation"
+	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
 	"github.com/terracotta4u/golem/registry"
 	"github.com/terracotta4u/golem/server"
@@ -251,6 +254,40 @@ func TestToolLogPrettyArgs(t *testing.T) {
 	}
 }
 
+func TestExtractedMemoryUsesTurnID(t *testing.T) {
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := agent.New(&turnThenMemory{}, t.TempDir())
+	a.Memories.Store = mem
+	s := server.New(server.Options{
+		Agent: a,
+		Store: st,
+		Token: "secret",
+	})
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	id := postTurn(t, ts.URL, "secret", "conv-1", "I prefer tea")
+	events := getTurnEvents(t, ts.URL, "secret", id)
+	if len(events) != 1 || events[0].Event != "done" {
+		t.Fatalf("events = %+v, want done", events)
+	}
+	a.Wait()
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].TurnID != id || list[0].Content != "User prefers tea." {
+		t.Fatalf("memories = %+v, want turn %s", list, id)
+	}
+}
+
 func TestGetTurnEventsError(t *testing.T) {
 	st, err := conversation.Open(t.TempDir())
 	if err != nil {
@@ -473,6 +510,22 @@ func readSSE(t *testing.T, r io.Reader) []sseEvent {
 	}
 	flush()
 	return events
+}
+
+type turnThenMemory struct {
+	mu sync.Mutex
+	n  int
+}
+
+func (p *turnThenMemory) Chat(context.Context, provider.ChatRequest) (provider.Message, error) {
+	p.mu.Lock()
+	p.n++
+	n := p.n
+	p.mu.Unlock()
+	if n == 1 {
+		return provider.Message{Role: "assistant", Content: "noted"}, nil
+	}
+	return provider.Message{Role: "assistant", Content: `{"memories":["User prefers tea."]}`}, nil
 }
 
 type replyProvider struct {
