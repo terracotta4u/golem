@@ -58,12 +58,6 @@ func (h *Settings) Save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, _, err := conf.Load()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	defaultModel, errMsg := parseModelConfig(r, "default_provider", "default_model")
 	if errMsg != "" {
 		http.Error(w, errMsg, http.StatusBadRequest)
@@ -78,6 +72,7 @@ func (h *Settings) Save(w http.ResponseWriter, r *http.Request) {
 	rawRounds := strings.TrimSpace(r.FormValue("max_tool_rounds"))
 	maxRounds := 0
 	if rawRounds != "" {
+		var err error
 		maxRounds, err = strconv.Atoi(rawRounds)
 		if err != nil || maxRounds < 0 {
 			http.Error(w, "max_tool_rounds must be a non-negative integer", http.StatusBadRequest)
@@ -85,10 +80,12 @@ func (h *Settings) Save(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cfg.DefaultModel = defaultModel
-	cfg.FastModel = fastModel
-	cfg.MaxToolRounds = maxRounds
-	if err := conf.Save(cfg); err != nil {
+	if err := conf.Update(func(cfg *conf.Conf) error {
+		cfg.DefaultModel = defaultModel
+		cfg.FastModel = fastModel
+		cfg.MaxToolRounds = maxRounds
+		return nil
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

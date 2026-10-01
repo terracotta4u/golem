@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -122,6 +124,15 @@ func UVPythonDir() (string, error) {
 // Load creates ~/.golem and a default conf on first run, then reads the conf.
 // created is true when the conf file did not already exist.
 func Load() (cfg Conf, created bool, err error) {
+	err = withLock(func() error {
+		var loadErr error
+		cfg, created, loadErr = loadUnlocked()
+		return loadErr
+	})
+	return cfg, created, err
+}
+
+func loadUnlocked() (cfg Conf, created bool, err error) {
 	path, err := filePath()
 	if err != nil {
 		return Conf{}, false, err
@@ -155,30 +166,76 @@ func write(path string, cfg Conf) error {
 		return fmt.Errorf("encode conf: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".conf.json.*")
+	if err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
 }
 
 func Save(cfg Conf) error {
-	path, err := filePath()
-	if err != nil {
-		return err
-	}
-	return write(path, cfg)
+	return withLock(func() error {
+		path, err := filePath()
+		if err != nil {
+			return err
+		}
+		return write(path, cfg)
+	})
 }
 
-// Update reloads conf, applies fn, and writes it back.
+// Update reloads conf, applies fn, and writes it back while holding the
+// conf lock, so a concurrent Save or Update cannot drop this edit.
 func Update(fn func(*Conf) error) error {
-	cfg, _, err := Load()
+	return withLock(func() error {
+		cfg, _, err := loadUnlocked()
+		if err != nil {
+			return err
+		}
+		if err := fn(&cfg); err != nil {
+			return err
+		}
+		path, err := filePath()
+		if err != nil {
+			return err
+		}
+		return write(path, cfg)
+	})
+}
+
+func withLock(fn func() error) error {
+	dir, err := Dir()
 	if err != nil {
 		return err
 	}
-	if err := fn(&cfg); err != nil {
-		return err
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
 	}
-	return Save(cfg)
+	f, err := os.OpenFile(filepath.Join(dir, "conf.json.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("lock conf: %w", err)
+	}
+	defer f.Close()
+	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
+		return fmt.Errorf("lock conf: %w", err)
+	}
+	defer unix.Flock(int(f.Fd()), unix.LOCK_UN)
+	return fn()
 }
 
 func filePath() (string, error) {

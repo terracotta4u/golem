@@ -378,4 +378,15 @@ func TestUpdateKeepsConcurrentEdits(t *testing.T) {
 	if len(got.Extensions) != n {
 		t.Fatalf("extensions = %d, want %d (%v)", len(got.Extensions), n, got.Extensions)
 	}
+	dir, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := filepath.Glob(filepath.Join(dir, ".conf.json.*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) != 0 {
+		t.Fatalf("temp conf files left behind: %v", left)
+	}
 }
