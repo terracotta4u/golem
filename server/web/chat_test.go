@@ -221,7 +221,7 @@ func TestWebPostTurn(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "Pasta."}),
 		Store: st,
 		Token: "secret",
 	})
@@ -257,7 +257,7 @@ func TestWebPostTurnPersists(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "Pasta."}),
 		Store: st,
 		Token: "secret",
 	})
@@ -299,7 +299,7 @@ func TestWebPostTurnPersistsToolCall(t *testing.T) {
 		},
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
+		Agent: agent.New(p, &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -358,7 +358,7 @@ func TestWebPostTurnEscapesHTML(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "ok"}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "ok"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -422,7 +422,7 @@ func TestWebTurnEventsDone(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "Pasta."}, t.TempDir()),
+		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "Pasta."}),
 		Store: st,
 		Token: "secret",
 	})
@@ -456,7 +456,7 @@ func TestWebTurnEventsDoneRendersMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "**Pasta.**"}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "**Pasta.**"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -476,7 +476,7 @@ func TestWebTurnEventsLateSubscriber(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "Pasta."}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "Pasta."}),
 		Store: st,
 		Token: "secret",
 	})
@@ -522,7 +522,7 @@ func TestWebTurnEventsLogThenDone(t *testing.T) {
 		},
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
+		Agent: agent.New(p, &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -568,7 +568,7 @@ func TestWebTurnEventsError(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&errProvider{err: errors.New("boom")}, t.TempDir()),
+		Agent: agent.New(&errProvider{err: errors.New("boom")}),
 		Store: st,
 		Token: "secret",
 	})

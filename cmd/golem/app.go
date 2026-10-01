@@ -59,14 +59,9 @@ func loadApp() (*app, error) {
 
 	tools := tool.Builtins(skills)
 
-	dir, err := conf.Dir()
-	if err != nil {
-		return nil, err
-	}
-
 	reg := registry.New("")
 
-	a := agent.New(registry.BindChat(reg, confModel("default")), dir, tools...)
+	a := agent.New(registry.BindChat(reg, confModel("default")), tools...)
 	a.Fast = registry.BindChat(reg, confModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, reg)

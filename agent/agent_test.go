@@ -38,9 +38,8 @@ func TestSendRunsToolThenReplies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := workspace(t)
 	conv := conversation.New("cli")
-	reply, err := New(p, dir, echo).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, echo).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +85,7 @@ func TestSendUsesDefaultWhenFastSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(def, workspace(t))
+	a := New(def)
 	a.Fast = fast
 	conv := conversation.New("cli")
 	reply, err := a.Session(st, conv).Send(context.Background(), "hello")
@@ -124,7 +123,7 @@ func TestSendNamesChatFromFast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(def, workspace(t))
+	a := New(def)
 	a.Fast = fast
 	conv := conversation.New("cli")
 	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner for Saturday"); err != nil {
@@ -166,7 +165,7 @@ func TestSendNameFallsBackToFirstMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(def, workspace(t))
+	a := New(def)
 	a.Fast = fast
 	conv := conversation.New("cli")
 	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner"); err != nil {
@@ -194,7 +193,7 @@ func TestSendNameFallsBackWhenFastEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(def, workspace(t))
+	a := New(def)
 	a.Fast = fast
 	conv := conversation.New("cli")
 	if _, err := a.Session(st, conv).Send(context.Background(), "help me plan dinner"); err != nil {
@@ -222,7 +221,7 @@ func TestSendDoesNotRenameExistingTitle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(def, workspace(t))
+	a := New(def)
 	a.Fast = fast
 	conv := conversation.New("cli")
 	conv.Title = "Keep me"
@@ -262,7 +261,7 @@ func TestSendReportsToolResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := New(p, workspace(t), echo).Session(st, conversation.New("cli"))
+	sess := New(p, echo).Session(st, conversation.New("cli"))
 	var got struct{ name, args, result string }
 	sess.OnTool = func(name, args, result string) {
 		got.name, got.args, got.result = name, args, result
@@ -290,7 +289,6 @@ func TestWithContextEmptyIsSingleSystem(t *testing.T) {
 }
 
 func TestSendIncludesMemoriesInSystemPrompt(t *testing.T) {
-	dir := workspace(t)
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
 	}}
@@ -298,7 +296,7 @@ func TestSendIncludesMemoriesInSystemPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := New(p, dir).Session(st, conversation.New("cli"))
+	sess := New(p).Session(st, conversation.New("cli"))
 	sess.memories = []memory.Memory{{Content: "User prefers the Go standard library."}}
 	if _, err := sess.Send(context.Background(), "Should I add a router dependency?"); err != nil {
 		t.Fatal(err)
@@ -328,7 +326,6 @@ func TestSendIncludesMemoriesInSystemPrompt(t *testing.T) {
 }
 
 func TestSendRetrievesMemoryIntoChat(t *testing.T) {
-	dir := workspace(t)
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "use the standard library"},
 	}}
@@ -340,7 +337,7 @@ func TestSendRetrievesMemoryIntoChat(t *testing.T) {
 		{Memory: memory.Memory{Content: "User prefers the Go standard library."}, Score: 0.9},
 		{Memory: memory.Memory{Content: "User likes vintage computers."}, Score: 0.19},
 	}}
-	a := New(p, dir)
+	a := New(p)
 	a.Memories = Memories{Search: idx, MinSimilarity: 0.5, BudgetTokens: 800}
 	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "Should I add a router dependency?"); err != nil {
 		t.Fatal(err)
@@ -386,7 +383,7 @@ func TestSendRetrievesOnceBeforeToolLoop(t *testing.T) {
 	idx := &stubSearcher{hits: []memory.Result{
 		{Memory: memory.Memory{Content: "User prefers the Go standard library."}, Score: 0.9},
 	}}
-	a := New(p, workspace(t), echo)
+	a := New(p, echo)
 	a.Memories = Memories{Search: idx, MinSimilarity: 0.5, BudgetTokens: 800}
 	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
@@ -415,7 +412,7 @@ func TestSendSearchErrorStillReplies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t))
+	a := New(p)
 	a.Memories.Search = &stubSearcher{err: errString("index down")}
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
@@ -433,7 +430,6 @@ func TestSendSearchErrorStillReplies(t *testing.T) {
 }
 
 func TestSendNilMemoryIsUnchanged(t *testing.T) {
-	dir := workspace(t)
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: "hi"},
 	}}
@@ -441,7 +437,7 @@ func TestSendNilMemoryIsUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := New(p, dir).Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
+	if _, err := New(p).Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
 	}
 	if len(p.got) == 0 {
@@ -485,7 +481,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 		t.Fatal(err)
 	}
 	idx := &stubIndexer{}
-	a := New(p, workspace(t), echo)
+	a := New(p, echo)
 	a.Memories = Memories{Store: mem, Index: idx}
 	conv := conversation.New("cli")
 	reply, err := a.Session(st, conv).Send(context.Background(), "I prefer using the Go standard library when possible.")
@@ -551,7 +547,7 @@ func TestSendExtractsWithFastProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(def, workspace(t))
+	a := New(def)
 	a.Fast = fast
 	a.Memories = Memories{Store: mem}
 	conv := conversation.New("cli")
@@ -594,7 +590,7 @@ func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t))
+	a := New(p)
 	a.Memories.Store = mem
 
 	var once sync.Once
@@ -705,7 +701,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t))
+	a := New(p)
 	a.Memories.Store = mem
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
@@ -741,7 +737,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	idx := &stubIndexer{err: errString("embed down")}
-	a := New(p, workspace(t))
+	a := New(p)
 	a.Memories = Memories{Store: mem, Index: idx}
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "I prefer using the Go standard library when possible.")
 	if err != nil {
@@ -784,7 +780,7 @@ func TestUnknownToolIsMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := conversation.New("cli")
-	reply, err := New(p, workspace(t)).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -822,7 +818,7 @@ func TestSendCallsCatalogTool(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t), echo)
+	a := New(p, echo)
 	a.Catalog = fixedCatalog{weather}
 	reply, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "weather?")
 	if err != nil {
@@ -857,7 +853,7 @@ func TestSendRefreshesCatalogEachRound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t), echo)
+	a := New(p, echo)
 	a.Catalog = &seqCatalog{rounds: [][]tool.Tool{nil, {weather}}}
 	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
@@ -891,7 +887,7 @@ func TestSendKeepsBuiltinWhenCatalogRepeatsName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t), builtin)
+	a := New(p, builtin)
 	a.Catalog = fixedCatalog{ext}
 	if _, err := a.Session(st, conversation.New("cli")).Send(context.Background(), "hello"); err != nil {
 		t.Fatal(err)
@@ -956,7 +952,7 @@ func TestSendLoadsSkillIntoPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := conversation.New("cli")
-	reply, err := New(p, workspace(t), tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
+	reply, err := New(p, tool.NewSkill([]skill.Skill{sk})).Session(st, conv).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1000,7 +996,7 @@ func TestSendAllowsManyToolRounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reply, err := New(p, workspace(t), echo).Session(st, conversation.New("cli")).Send(context.Background(), "hello")
+	reply, err := New(p, echo).Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1022,7 +1018,7 @@ func TestSendCapsToolRounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := New(p, workspace(t), echo)
+	a := New(p, echo)
 	a.MaxToolRounds = 2
 	_, err = a.Session(st, conversation.New("cli")).Send(context.Background(), "hello")
 	if err == nil || !strings.Contains(err.Error(), "exceeded 2 tool rounds") {
@@ -1040,7 +1036,7 @@ func TestSendChatErrorSavesUserAndFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := conversation.New("cli")
-	_, err = New(p, workspace(t)).Session(st, conv).Send(context.Background(), "hello")
+	_, err = New(p).Session(st, conv).Send(context.Background(), "hello")
 	if err == nil || !strings.Contains(err.Error(), "model down") {
 		t.Fatalf("err = %v, want model down", err)
 	}
@@ -1080,7 +1076,7 @@ func TestSendToolThenChatErrorSavesToolResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	conv := conversation.New("cli")
-	_, err = New(p, workspace(t), echo).Session(st, conv).Send(context.Background(), "hello")
+	_, err = New(p, echo).Session(st, conv).Send(context.Background(), "hello")
 	if err == nil || !strings.Contains(err.Error(), "model down") {
 		t.Fatalf("err = %v, want model down", err)
 	}
@@ -1114,7 +1110,7 @@ func TestSendStopsWhenContextCanceled(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = New(p, workspace(t), echo).Session(st, conversation.New("cli")).Send(ctx, "hello")
+	_, err = New(p, echo).Session(st, conversation.New("cli")).Send(ctx, "hello")
 	if err != context.Canceled {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}

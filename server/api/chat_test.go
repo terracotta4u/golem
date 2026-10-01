@@ -33,7 +33,7 @@ func TestPostTurnDone(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "hello back"}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "hello back"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -109,7 +109,7 @@ func TestGetTurnEventsDone(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "hello back"}, t.TempDir()),
+		Agent: agent.New(&gateProvider{waiting: waiting, release: release, text: "hello back"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -143,7 +143,7 @@ func TestGetTurnEventsLateSubscriber(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&replyProvider{text: "hello back"}, t.TempDir()),
+		Agent: agent.New(&replyProvider{text: "hello back"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -192,7 +192,7 @@ func TestGetTurnEventsLogThenDone(t *testing.T) {
 		},
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(p, t.TempDir(), &stubTool{name: "echo", result: "pong"}),
+		Agent: agent.New(p, &stubTool{name: "echo", result: "pong"}),
 		Store: st,
 		Token: "secret",
 	})
@@ -263,7 +263,7 @@ func TestExtractedMemoryUsesTurnID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := agent.New(&turnThenMemory{}, t.TempDir())
+	a := agent.New(&turnThenMemory{})
 	a.Memories.Store = mem
 	s := server.New(server.Options{
 		Agent: a,
@@ -294,7 +294,7 @@ func TestGetTurnEventsError(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(&errProvider{err: errors.New("boom")}, t.TempDir()),
+		Agent: agent.New(&errProvider{err: errors.New("boom")}),
 		Store: st,
 		Token: "secret",
 	})
@@ -641,7 +641,7 @@ func TestRegisteredToolIsCalled(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := server.New(server.Options{
-		Agent: agent.New(p, t.TempDir()),
+		Agent: agent.New(p),
 		Store: st,
 		Token: "secret",
 	})
@@ -721,7 +721,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 				return "", "", err
 			}
 			return c.DefaultModel.Provider, c.DefaultModel.Model, nil
-		}), t.TempDir()),
+		})),
 		Store:    st,
 		Registry: reg,
 		Token:    "secret",
