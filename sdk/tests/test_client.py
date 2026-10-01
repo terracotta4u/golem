@@ -1,6 +1,7 @@
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import quote
 
 import pytest
 
@@ -75,6 +76,10 @@ class _Handler(BaseHTTPRequestHandler):
         if auth != "Bearer secret":
             self._write_json(401, {"error": "unauthorized"})
             return
+        encoded = "/v1/conversations/" + quote("a/b c?", safe="") + "/turns"
+        if self.path == encoded:
+            self._write_json(202, {"id": "turn-encoded"})
+            return
         if self.path == "/v1/conversations/chat-1/turns":
             req = self._read_json()
             if req.get("channel") != "telegram" or req.get("text") != "hello":
@@ -99,6 +104,11 @@ def golem_url() -> str:
     finally:
         server.shutdown()
         thread.join(timeout=2)
+
+
+def test_post_turn_encodes_conversation_id(golem_url: str) -> None:
+    turn_id = Client(golem_url, "secret").post_turn("a/b c?", "telegram", "hello")
+    assert turn_id == "turn-encoded"
 
 
 def test_post_turn_and_stream(golem_url: str) -> None:

@@ -4,6 +4,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -108,7 +109,7 @@ class Client:
         """
         accepted = self._request(
             "POST",
-            f"/v1/conversations/{conversation_id}/turns",
+            f"/v1/conversations/{_path_segment(conversation_id)}/turns",
             {"channel": channel, "text": text},
         )
         if accepted.get("error"):
@@ -131,7 +132,7 @@ class Client:
             GolemError: The stream failed or an event was not JSON.
         """
         req = urllib.request.Request(
-            self.url + f"/v1/turns/{turn_id}",
+            self.url + f"/v1/turns/{_path_segment(turn_id)}",
             headers=self._headers(),
             method="GET",
         )
@@ -270,6 +271,11 @@ class Client:
             return json.loads(raw)
         except json.JSONDecodeError as exc:
             raise GolemError(f"invalid json: {raw.decode(errors='replace')}") from exc
+
+
+def _path_segment(value: str) -> str:
+    """Percent-encode one URL path segment, including slash and ``?``."""
+    return urllib.parse.quote(value, safe="")
 
 
 def _read_sse(resp: Any) -> Iterator[tuple[str, str]]:
