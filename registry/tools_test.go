@@ -3,12 +3,17 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/terracotta4u/golem/provider/remote"
 )
 
 func TestToolsSortedByName(t *testing.T) {
@@ -106,6 +111,46 @@ func TestToolCall(t *testing.T) {
 	}
 	if string(gotBody) != `{"city":"Lisbon"}` {
 		t.Fatalf("body = %s", gotBody)
+	}
+}
+
+func TestToolCallTimesOut(t *testing.T) {
+	prev := remote.CallbackTimeout
+	remote.CallbackTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { remote.CallbackTimeout = prev })
+
+	release := make(chan struct{})
+	cb := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		<-release
+	}))
+
+	r := New("secret")
+	if err := r.Register(Registration{
+		Name:        "golem-weather",
+		CallbackURL: cb.URL,
+		Tools:       []Tool{toolCap("weather")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tools := r.Tools()
+	if len(tools) != 1 {
+		t.Fatalf("len = %d", len(tools))
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := tools[0].Call(context.Background(), []byte(`{"city":"Lisbon"}`))
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		close(release)
+		cb.Close()
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Fatalf("err = %v, want a timeout", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("tool call hung")
 	}
 }
 

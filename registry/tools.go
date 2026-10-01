@@ -11,6 +11,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/terracotta4u/golem/provider/remote"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -90,7 +91,7 @@ func (t extensionTool) Call(ctx context.Context, args json.RawMessage) (string, 
 	if t.token != "" {
 		req.Header.Set("Authorization", "Bearer "+t.token)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := (&http.Client{Timeout: remote.CallbackTimeout}).Do(req)
 	if err != nil {
 		return "", err
 	}

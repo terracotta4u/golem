@@ -8,9 +8,14 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/terracotta4u/golem/provider"
 )
+
+// CallbackTimeout bounds one extension HTTP call. A hung provider or tool
+// fails that call instead of holding the conversation open.
+var CallbackTimeout = 2 * time.Minute
 
 type Client struct {
 	url   string
@@ -22,7 +27,7 @@ func New(url, token string) *Client {
 	return &Client{
 		url:   strings.TrimRight(url, "/"),
 		token: token,
-		http:  http.DefaultClient,
+		http:  &http.Client{Timeout: CallbackTimeout},
 	}
 }
 
