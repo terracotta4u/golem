@@ -536,6 +536,53 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	}
 }
 
+func TestSendExtractsWithFastProvider(t *testing.T) {
+	def := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: "use the standard library"},
+	}}
+	fast := &scriptedProvider{replies: []provider.Message{
+		{Role: "assistant", Content: `["User prefers the Go standard library."]`},
+	}}
+	st, err := conversation.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(def, workspace(t))
+	a.Fast = fast
+	a.Memories = Memories{Store: mem}
+	conv := conversation.New("cli")
+	conv.Title = "library"
+	reply, err := a.Session(st, conv).Send(context.Background(), "I prefer using the Go standard library when possible.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "use the standard library" {
+		t.Errorf("reply = %q", reply)
+	}
+	a.Wait()
+	if len(def.got) != 1 {
+		t.Fatalf("default Chat calls = %d, want the turn only", len(def.got))
+	}
+	if len(fast.got) != 1 {
+		t.Fatalf("fast Chat calls = %d, want extract only", len(fast.got))
+	}
+	extract := fast.got[0]
+	if len(extract.Messages) != 3 || extract.Messages[1].Role != "user" || extract.Messages[2].Content != "use the standard library" {
+		t.Fatalf("extract = %+v", extract.Messages)
+	}
+	list, err := mem.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Content != "User prefers the Go standard library." {
+		t.Fatalf("saved = %+v", list)
+	}
+}
+
 func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 	unblock := make(chan struct{})
 	p := &blockingExtractProvider{unblock: unblock}
