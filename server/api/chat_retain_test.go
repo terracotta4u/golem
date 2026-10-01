@@ -43,7 +43,7 @@ func TestCompletedTurnExpires(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewChat(agent.New(staticReply("hi"), t.TempDir()), st)
-	c.retain = 20 * time.Millisecond
+	c.retain = 200 * time.Millisecond
 	id := c.Start(context.Background(), "conv-1", "cli", "hello")
 
 	deadline := time.Now().Add(2 * time.Second)
