@@ -17,9 +17,7 @@
       </div>
       <div class="field stack gap-2">
         <label for="default_provider">Provider</label>
-        <select id="default_provider" name="default_provider">
-          <option value="openrouter"{{if eq .DefaultProvider "openrouter"}} selected{{end}}>OpenRouter</option>
-        </select>
+        <input id="default_provider" name="default_provider" type="text" required value="{{.DefaultProvider}}">
       </div>
       <div class="field stack gap-2">
         <label for="default_model">Model</label>
@@ -31,9 +29,7 @@
       </div>
       <div class="field stack gap-2">
         <label for="fast_provider">Provider</label>
-        <select id="fast_provider" name="fast_provider">
-          <option value="openrouter"{{if eq .FastProvider "openrouter"}} selected{{end}}>OpenRouter</option>
-        </select>
+        <input id="fast_provider" name="fast_provider" type="text" required value="{{.FastProvider}}">
       </div>
       <div class="field stack gap-2">
         <label for="fast_model">Model</label>
