@@ -7,7 +7,8 @@ class Channel:
     """Long-running input into Golem, such as a CLI or a chat app.
 
     Set ``id`` before ``run``. The process harness starts ``run`` on a
-    background thread and sets ``stop`` on shutdown.
+    background thread and sets ``stop`` on shutdown. If ``run`` raises, the
+    process exits with status 1 so the supervisor can restart it.
 
     Attributes:
         id: Channel name advertised to Golem, for example ``cli``.

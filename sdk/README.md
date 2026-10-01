@@ -45,7 +45,7 @@ Golem launches this as `python -m golem --name golem-embed --provider local-embe
 
 ### Channel Extensions
 
-A channel feeds messages into Golem (Telegram, CLI, and so on). `run` is your loop. `client.send()` posts a turn and returns the assistant reply. The channel `id` is advertised to Golem.
+A channel feeds messages into Golem (Telegram, CLI, and so on). `run` is your loop. `client.send()` posts a turn and returns the assistant reply. The channel `id` is advertised to Golem. If `run` raises, the process exits with status 1 and `golem serve` restarts it.
 
 ```python
 from golem import Channel
