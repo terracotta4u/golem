@@ -20,8 +20,7 @@ func migrate(cfg *Conf) bool {
 		changed = true
 	}
 	if cfg.Memory == nil {
-		cfg.Memory = d.Memory
-		return true
+		return changed
 	}
 	if cfg.Memory.Embedding.Provider == "" {
 		cfg.Memory.Embedding.Provider = d.Memory.Embedding.Provider
@@ -29,14 +28,6 @@ func migrate(cfg *Conf) bool {
 	}
 	if cfg.Memory.Embedding.Model == "" {
 		cfg.Memory.Embedding.Model = d.Memory.Embedding.Model
-		changed = true
-	}
-	if cfg.Memory.BudgetTokens == 0 {
-		cfg.Memory.BudgetTokens = d.Memory.BudgetTokens
-		changed = true
-	}
-	if cfg.Memory.MinSimilarity == 0 {
-		cfg.Memory.MinSimilarity = d.Memory.MinSimilarity
 		changed = true
 	}
 	return changed

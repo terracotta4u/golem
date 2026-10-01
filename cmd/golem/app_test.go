@@ -127,6 +127,57 @@ func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 	}
 }
 
+func TestLoadAppSkipsDisabledMemory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Memory = nil
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.agent.Memories.Store != nil || app.agent.Memories.Search != nil || app.agent.Memories.Index != nil {
+		t.Fatal("memory was attached while disabled")
+	}
+	path, err := conf.MemoriesDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("memories.db err = %v, want not exist", err)
+	}
+}
+
+func TestLoadAppKeepsExplicitZeroMemory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Memory.BudgetTokens = 0
+	cfg.Memory.MinSimilarity = 0
+	if err := conf.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.agent.Memories.Store == nil {
+		t.Fatal("Store is nil")
+	}
+	if app.agent.Memories.BudgetTokens != 0 || app.agent.Memories.MinSimilarity != 0 {
+		t.Fatalf("budget/min = %d/%v, want 0/0", app.agent.Memories.BudgetTokens, app.agent.Memories.MinSimilarity)
+	}
+}
+
 func TestLoadAppWiresFast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := conf.Load(); err != nil {

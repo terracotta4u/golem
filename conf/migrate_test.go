@@ -16,14 +16,8 @@ func TestMigrateFillsMissingFields(t *testing.T) {
 	if cfg.FastModel != d.FastModel {
 		t.Errorf("fast = %+v, want %+v", cfg.FastModel, d.FastModel)
 	}
-	if cfg.Memory == nil {
-		t.Fatal("memory is nil")
-	}
-	if cfg.Memory.Embedding.Provider != d.Memory.Embedding.Provider || cfg.Memory.Embedding.Model != d.Memory.Embedding.Model {
-		t.Errorf("embedding = %+v", cfg.Memory.Embedding)
-	}
-	if cfg.Memory.BudgetTokens != 800 || cfg.Memory.MinSimilarity != 0.5 {
-		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
+	if cfg.Memory != nil {
+		t.Fatalf("memory = %+v, want absent", cfg.Memory)
 	}
 }
 
@@ -62,17 +56,22 @@ func TestMigrateLeavesExplicitValues(t *testing.T) {
 	}
 }
 
-func TestMigrateFillsRetrievalKnobsOnExistingMemory(t *testing.T) {
+func TestMigrateKeepsExplicitZero(t *testing.T) {
+	d := defaults()
 	cfg := Conf{
+		DefaultModel: d.DefaultModel,
+		FastModel:    d.FastModel,
 		Memory: &MemoryConfig{
 			Embedding: ModelConfig{Provider: "ollama", Model: "nomic-embed-text"},
 		},
 	}
-	migrate(&cfg)
+	if migrate(&cfg) {
+		t.Fatal("explicit zero budget and similarity should not be rewritten")
+	}
 	if cfg.Memory.Embedding.Provider != "ollama" {
 		t.Errorf("wiped embedding provider: %+v", cfg.Memory.Embedding)
 	}
-	if cfg.Memory.BudgetTokens != 800 || cfg.Memory.MinSimilarity != 0.5 {
-		t.Errorf("budget/min = %d/%v", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
+	if cfg.Memory.BudgetTokens != 0 || cfg.Memory.MinSimilarity != 0 {
+		t.Errorf("budget/min = %d/%v, want 0/0", cfg.Memory.BudgetTokens, cfg.Memory.MinSimilarity)
 	}
 }

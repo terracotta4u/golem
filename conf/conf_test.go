@@ -190,7 +190,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
+func TestLoadLeavesOmittedMemoryAbsent(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
@@ -210,8 +210,8 @@ func TestLoadFillsEmbeddingWhenOmitted(t *testing.T) {
 	if got.DefaultModel.Provider != "openrouter" {
 		t.Errorf("default provider = %q, want openrouter", got.DefaultModel.Provider)
 	}
-	if got.Memory.Embedding.Provider != "openrouter" || got.Memory.Embedding.Model != "openai/text-embedding-3-small" {
-		t.Errorf("embedding = %+v", got.Memory.Embedding)
+	if got.Memory != nil {
+		t.Fatalf("memory = %+v, want absent", got.Memory)
 	}
 }
 
@@ -250,10 +250,8 @@ func TestLoadWritesMigratedConfToDisk(t *testing.T) {
 	if !strings.Contains(s, `"default_model"`) || !strings.Contains(s, `"fast_model"`) {
 		t.Errorf("file missing migrated models: %s", s)
 	}
-	if !strings.Contains(s, `"memory"`) ||
-		!strings.Contains(s, `"openai/text-embedding-3-small"`) ||
-		!strings.Contains(s, `"budget_tokens"`) {
-		t.Errorf("file missing migrated memory: %s", s)
+	if strings.Contains(s, `"memory"`) {
+		t.Errorf("file added a memory block: %s", s)
 	}
 	if !strings.Contains(s, `"golem-telegram"`) {
 		t.Errorf("file dropped extensions: %s", s)
