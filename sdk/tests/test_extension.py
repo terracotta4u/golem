@@ -349,6 +349,89 @@ def test_channel_is_advertised_and_started(golem: _Golem) -> None:
         _stop(thread, stop)
 
 
+def test_channel_failure_exits_the_process(golem: _Golem, capsys: pytest.CaptureFixture[str]) -> None:
+    stop = threading.Event()
+    exited: dict[str, object] = {}
+
+    class CLI(Channel):
+        def run(self, client: Any, done: threading.Event) -> None:
+            assert client.url == golem.url
+            raise RuntimeError("disconnected")
+
+    cli = CLI()
+    cli.id = "cli"
+    ext = Extension(
+        "golem-cli",
+        golem.url,
+        golem.token,
+        heartbeat_interval=0.05,
+        channel=cli,
+    )
+
+    def target() -> None:
+        try:
+            ext.run(stop)
+        except SystemExit as exc:
+            exited["code"] = exc.code
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    try:
+        _wait_registered(golem)
+        assert stop.wait(timeout=2)
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+        assert exited.get("code") == 1
+        time.sleep(0.15)
+        count = len(golem.heartbeats)
+        time.sleep(0.2)
+        assert len(golem.heartbeats) == count
+        assert "disconnected" in capsys.readouterr().err
+    finally:
+        _stop(thread, stop)
+
+
+def test_channel_error_during_shutdown_returns(golem: _Golem) -> None:
+    stop = threading.Event()
+    started = threading.Event()
+    exited: dict[str, object] = {}
+
+    class CLI(Channel):
+        def run(self, client: Any, done: threading.Event) -> None:
+            assert client.url == golem.url
+            started.set()
+            done.wait()
+            raise RuntimeError("shutdown")
+
+    cli = CLI()
+    cli.id = "cli"
+    ext = Extension(
+        "golem-cli",
+        golem.url,
+        golem.token,
+        heartbeat_interval=0.05,
+        channel=cli,
+    )
+
+    def target() -> None:
+        try:
+            ext.run(stop)
+        except SystemExit as exc:
+            exited["code"] = exc.code
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    try:
+        _wait_registered(golem)
+        assert started.wait(timeout=2)
+        stop.set()
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+        assert "code" not in exited
+    finally:
+        _stop(thread, stop)
+
+
 def test_provider_requires_a_route() -> None:
     with pytest.raises(ValueError, match="chat, chat_structured, or embed"):
         Extension(
