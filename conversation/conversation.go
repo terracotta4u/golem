@@ -12,7 +12,10 @@ import (
 	"github.com/terracotta4u/golem/provider"
 )
 
-var ErrNotFound = errors.New("conversation not found")
+var (
+	ErrNotFound     = errors.New("conversation not found")
+	ErrWrongChannel = errors.New("conversation belongs to another channel")
+)
 
 type Conversation struct {
 	ID        string
@@ -39,6 +42,9 @@ func New(channel string) Conversation {
 // LoadOrCreate loads a conversation by id, or returns an unsaved one with that
 // id and channel. Callers that already have a stable identity (a Slack thread,
 // a Telegram chat) should use this instead of New.
+//
+// The id is unique across channels. An existing conversation with a different
+// channel is returned as ErrWrongChannel and is left unchanged.
 func (db *DB) LoadOrCreate(id, channel string) (Conversation, error) {
 	if id == "" {
 		return Conversation{}, fmt.Errorf("conversation id is required")
@@ -47,7 +53,13 @@ func (db *DB) LoadOrCreate(id, channel string) (Conversation, error) {
 	if errors.Is(err, ErrNotFound) {
 		return Conversation{ID: id, Channel: channel}, nil
 	}
-	return c, err
+	if err != nil {
+		return Conversation{}, err
+	}
+	if c.Channel != channel {
+		return Conversation{}, fmt.Errorf("%w: %s", ErrWrongChannel, c.Channel)
+	}
+	return c, nil
 }
 
 func TitleFrom(text string) string {

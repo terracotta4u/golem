@@ -23,7 +23,7 @@ A process can be a channel, a provider, and a source of tools.
 {"channel": "telegram", "text": "hello"}
 ```
 
-`202` → `{"id": "<turn-id>"}`. `{id}` is the conversation id (a Telegram chat id, a Slack thread, etc.).
+`202` → `{"id": "<turn-id>"}`. `{id}` is the conversation id (a Telegram chat id, a Slack thread, etc.). It is unique across channels: the same id with a different `channel` returns `409`. Percent-encode the id so `/`, `?`, and `#` stay inside one path segment.
 
 `GET /v1/turns/{id}` — SSE (`text/event-stream`). Events:
 

@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,6 +116,37 @@ func TestClose(t *testing.T) {
 	}
 	if _, err := st.Load("missing"); err == nil {
 		t.Fatal("Load after Close succeeded")
+	}
+}
+
+func TestLoadOrCreateRejectsOtherChannel(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := Conversation{ID: "123", Channel: "telegram", Title: "Telegram"}
+	if err := st.Save(saved); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.LoadOrCreate("123", "telegram")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Channel != "telegram" || got.Title != "Telegram" {
+		t.Fatalf("same channel = %+v", got)
+	}
+
+	other, err := st.LoadOrCreate("123", "slack")
+	if !errors.Is(err, ErrWrongChannel) {
+		t.Fatalf("other channel = %+v, %v; want ErrWrongChannel", other, err)
+	}
+	loaded, err := st.Load("123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Channel != "telegram" || loaded.Title != "Telegram" {
+		t.Fatalf("stored = %+v, want the telegram conversation unchanged", loaded)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -135,6 +136,16 @@ func (c *Chat) Post(runCtx context.Context) http.HandlerFunc {
 		if convID == "" || req.Channel == "" || req.Text == "" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "channel and text are required"})
 			return
+		}
+		if c.store != nil {
+			if _, err := c.store.LoadOrCreate(convID, req.Channel); err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, conversation.ErrWrongChannel) {
+					status = http.StatusConflict
+				}
+				writeJSON(w, status, map[string]string{"error": err.Error()})
+				return
+			}
 		}
 
 		id := c.Start(runCtx, convID, req.Channel, req.Text)
