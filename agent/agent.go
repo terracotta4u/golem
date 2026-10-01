@@ -104,7 +104,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 				return msg.Content, err
 			}
 			s.agent.goRemember(ctx, rememberJob{
-				provider: s.agent.provider,
+				provider: s.agent.extractor(),
 				store:    s.agent.Memories.Store,
 				indexer:  s.agent.Memories.Index,
 				convID:   s.conv.ID,
@@ -146,6 +146,14 @@ func (s *Session) retrieve(ctx context.Context, query string) {
 		return
 	}
 	s.memories = memory.Retrieve(hits, s.agent.Memories.MinSimilarity, s.agent.Memories.BudgetTokens, 0, memory.ApproxTokenEstimator{})
+}
+
+// extractor is the fast provider when one is set, otherwise the default.
+func (a *Agent) extractor() provider.Provider {
+	if a.Fast != nil {
+		return a.Fast
+	}
+	return a.provider
 }
 
 func (a *Agent) goRemember(ctx context.Context, job rememberJob) {
