@@ -47,6 +47,71 @@ func TestRegisterRejectsDuplicate(t *testing.T) {
 	}
 }
 
+func TestRegisterConflictKeepsPrevious(t *testing.T) {
+	r := New("")
+	if err := r.Register(Registration{
+		Name:        "alpha",
+		CallbackURL: "http://127.0.0.1:9",
+		Tools:       []Tool{toolCap("alpha")},
+		Providers: []Provider{{
+			ID:   "alpha",
+			Chat: true,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Register(Registration{
+		Name:        "beta",
+		CallbackURL: "http://127.0.0.1:10",
+		Tools:       []Tool{toolCap("beta")},
+		Providers: []Provider{{
+			ID:   "beta",
+			Chat: true,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, next := range []Registration{
+		{
+			Name:        "alpha",
+			CallbackURL: "http://127.0.0.1:11",
+			Tools:       []Tool{toolCap("beta")},
+		},
+		{
+			Name:        "alpha",
+			CallbackURL: "http://127.0.0.1:11",
+			Providers: []Provider{{
+				ID:   "beta",
+				Chat: true,
+			}},
+		},
+		{
+			Name:        "alpha",
+			CallbackURL: "http://127.0.0.1:11",
+			Tools:       []Tool{toolCap("read")},
+		},
+	} {
+		err := r.Register(next)
+		if !errors.Is(err, ErrConflict) {
+			t.Fatalf("Register(%+v) = %v, want conflict", next, err)
+		}
+		if err := r.Heartbeat("alpha"); err != nil {
+			t.Fatalf("Heartbeat(alpha) = %v after a rejected update", err)
+		}
+		list := r.List()
+		var got *Registration
+		for i := range list {
+			if list[i].Name == "alpha" {
+				got = &list[i]
+			}
+		}
+		if got == nil || got.CallbackURL != "http://127.0.0.1:9" || len(got.Tools) != 1 || got.Tools[0].Name != "alpha" || len(got.Providers) != 1 || got.Providers[0].ID != "alpha" {
+			t.Fatalf("alpha after rejected update = %+v", got)
+		}
+	}
+}
+
 func TestRegisterReplacesSameExtension(t *testing.T) {
 	r := New("")
 	body := Registration{
