@@ -100,6 +100,9 @@ func TestLocalHostBoundary(t *testing.T) {
 			if w.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200", w.Code)
 			}
+			if got := w.Header().Get("Content-Security-Policy"); got != "frame-ancestors 'none'" {
+				t.Fatalf("CSP = %q, want local UI protected from framing", got)
+			}
 		})
 	}
 }

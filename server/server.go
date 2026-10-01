@@ -85,7 +85,7 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) Listen(ctx context.Context, ready func()) error {
-	ln, err := net.Listen("tcp", s.opts.Addr)
+	ln, err := listenLoopback(s.opts.Addr)
 	if err != nil {
 		return err
 	}
@@ -112,6 +112,23 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 		return ctx.Err()
 	}
 	return err
+}
+
+func listenLoopback(addr string) (net.Listener, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil || !loopbackHost(host) {
+		return nil, fmt.Errorf("listen address must use a loopback IP or localhost (for example 127.0.0.1:8743)")
+	}
+	// Resolve once and bind the checked IP, rather than trusting a hostname
+	// to resolve to the same address again when the listener is opened.
+	resolved, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	if !resolved.IP.IsLoopback() {
+		return nil, fmt.Errorf("listen address must resolve to a loopback IP")
+	}
+	return net.ListenTCP("tcp", resolved)
 }
 
 func (s *Server) startExtension(name string) error {
