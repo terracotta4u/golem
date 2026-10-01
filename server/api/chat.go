@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -18,24 +19,30 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 )
 
-const subBuf = 32
+const (
+	subBuf = 32
+	// turnRetention is how long a finished turn can still be streamed.
+	turnRetention = 5 * time.Minute
+)
 
 // Chat runs a conversation turn and streams its events.
 type Chat struct {
 	agent *agent.Agent
 	store conversation.Store
 
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
-	turns map[string]*turn
+	mu     sync.Mutex
+	locks  map[string]*sync.Mutex
+	turns  map[string]*turn
+	retain time.Duration
 }
 
 func NewChat(agent *agent.Agent, store conversation.Store) *Chat {
 	return &Chat{
-		agent: agent,
-		store: store,
-		locks: make(map[string]*sync.Mutex),
-		turns: make(map[string]*turn),
+		agent:  agent,
+		store:  store,
+		locks:  make(map[string]*sync.Mutex),
+		turns:  make(map[string]*turn),
+		retain: turnRetention,
 	}
 }
 
@@ -317,6 +324,19 @@ func (c *Chat) finish(id, text string, err error) {
 	t.subs = nil
 	c.mu.Unlock()
 	sendEvent(subs, ev)
+	if c.retain > 0 {
+		time.AfterFunc(c.retain, func() { c.dropTurn(id) })
+	}
+}
+
+func (c *Chat) dropTurn(id string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	t, ok := c.turns[id]
+	if !ok || (t.Status != "done" && t.Status != "error") {
+		return
+	}
+	delete(c.turns, id)
 }
 
 func (c *Chat) snapshotAndSubscribe(id string) (turn, chan Event, bool) {
@@ -364,9 +384,30 @@ func copySubs(subs []chan Event) []chan Event {
 }
 
 func sendEvent(subs []chan Event, ev Event) {
+	terminal := ev.Name == "done" || ev.Name == "error"
 	for _, ch := range subs {
+		if terminal {
+			sendTerminal(ch, ev)
+			continue
+		}
 		select {
 		case ch <- ev:
+		default:
+		}
+	}
+}
+
+// sendTerminal keeps done and error when the subscriber is behind.
+// Older buffered events are discarded until the terminal event fits.
+func sendTerminal(ch chan Event, ev Event) {
+	for {
+		select {
+		case ch <- ev:
+			return
+		default:
+		}
+		select {
+		case <-ch:
 		default:
 		}
 	}
