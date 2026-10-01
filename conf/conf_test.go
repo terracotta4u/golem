@@ -250,10 +250,8 @@ func TestLoadWritesMigratedConfToDisk(t *testing.T) {
 	if !strings.Contains(s, `"default_model"`) || !strings.Contains(s, `"fast_model"`) {
 		t.Errorf("file missing migrated models: %s", s)
 	}
-	if !strings.Contains(s, `"memory"`) ||
-		!strings.Contains(s, `"openai/text-embedding-3-small"`) ||
-		!strings.Contains(s, `"budget_tokens"`) {
-		t.Errorf("file missing migrated memory: %s", s)
+	if strings.Contains(s, `"memory"`) {
+		t.Errorf("file added a memory block: %s", s)
 	}
 	if !strings.Contains(s, `"golem-telegram"`) {
 		t.Errorf("file dropped extensions: %s", s)
