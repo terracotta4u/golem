@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -18,24 +19,29 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 )
 
-const subBuf = 32
+const (
+	subBuf        = 32
+	turnRetention = 5 * time.Minute
+)
 
 // Chat runs a conversation turn and streams its events.
 type Chat struct {
 	agent *agent.Agent
 	store conversation.Store
 
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
-	turns map[string]*turn
+	mu     sync.Mutex
+	locks  map[string]*sync.Mutex
+	turns  map[string]*turn
+	retain time.Duration
 }
 
 func NewChat(agent *agent.Agent, store conversation.Store) *Chat {
 	return &Chat{
-		agent: agent,
-		store: store,
-		locks: make(map[string]*sync.Mutex),
-		turns: make(map[string]*turn),
+		agent:  agent,
+		store:  store,
+		locks:  make(map[string]*sync.Mutex),
+		turns:  make(map[string]*turn),
+		retain: turnRetention,
 	}
 }
 
