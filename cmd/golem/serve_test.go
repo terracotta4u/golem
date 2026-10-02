@@ -18,6 +18,26 @@ import (
 	"github.com/terracotta4u/golem/supervisor"
 )
 
+func TestServeRefusesWhenLockHeld(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = serve(context.Background(), app, "127.0.0.1:0", "", "secret")
+	if err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("err = %v, want already running", err)
+	}
+}
+
 func TestServeHoldsServeLock(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
