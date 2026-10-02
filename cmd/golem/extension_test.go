@@ -351,6 +351,33 @@ func TestRunExtensionList(t *testing.T) {
 	}
 }
 
+func TestRunExtensionRemoveRefusesWhileServeRunning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+
+	err = run([]string{"extension", "remove", "echo"})
+	if err == nil || !strings.Contains(err.Error(), "golem serve is running") {
+		t.Fatalf("err = %v, want serve is running", err)
+	}
+	dir, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "echo")); err != nil {
+		t.Fatalf("install removed while serve is running: %v", err)
+	}
+}
+
 func TestRunExtensionRemove(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
