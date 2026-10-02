@@ -44,4 +44,4 @@ golem extension add --force https://github.com/terracotta4u/golem-openrouter
 
 `--ref` is a git ref for GitHub URLs (default is HEAD). `--force` replaces an existing install of the same name.
 
-`list` prints name, version, and source. `remove` uninstalls by package name.
+`list` prints name, version, and source. `remove` uninstalls by package name when `golem serve` is not running. While serve is running, `remove` and `add --force` refuse, so they cannot change files under a live extension. Use **Settings → Extensions**, or stop the server.
