@@ -467,9 +467,12 @@ func TestExtensionAddStartErrorLeavesFiles(t *testing.T) {
 	}).Handler())
 	defer ts.Close()
 
-	status, _ := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
+	status, body := postArchive(t, ts.URL+"/settings/extensions/add/archive", zipPath)
 	if status != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", status)
+	}
+	if !strings.Contains(body, "installed but not running") {
+		t.Fatalf("body = %q, want installed but not running", body)
 	}
 	root, err := conf.ExtensionsDir()
 	if err != nil {
