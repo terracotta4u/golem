@@ -24,7 +24,7 @@ golem extension add ./echo.zip
 
 Or in the web UI: **Settings → Extensions → Add extension** (GitHub URL or zip). Adding from the UI starts the process immediately. Adding from the CLI while `golem serve` is running does not; restart the server.
 
-`golem extension list` and **Settings → Extensions** show what is installed. `golem extension remove NAME` (or Remove on the extension page) uninstalls it and stops the process.
+`golem extension list` and **Settings → Extensions** show what is installed. Remove on the extension page stops the process and uninstalls it. `golem extension remove NAME` uninstalls only when `golem serve` is not running. While serve is running, `remove` and `golem extension add --force` refuse; use the extensions page, or stop the server. A new `golem extension add` still installs and waits for the next serve to start it. If adding from the page saves the extension but fails to start it, the extension stays installed and the next `golem serve` starts it.
 
 ## Keys
 

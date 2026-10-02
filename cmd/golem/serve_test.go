@@ -18,6 +18,70 @@ import (
 	"github.com/terracotta4u/golem/supervisor"
 )
 
+func TestServeRefusesWhenLockHeld(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = serve(context.Background(), app, "127.0.0.1:0", "", "secret")
+	if err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("err = %v, want already running", err)
+	}
+}
+
+func TestServeHoldsServeLock(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+	if _, _, err := conf.Load(); err != nil {
+		t.Fatal(err)
+	}
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errc := make(chan error, 1)
+	go func() { errc <- serve(ctx, app, addr, "", "secret") }()
+
+	deadline := time.Now().Add(5 * time.Second)
+	held := false
+	for time.Now().Before(deadline) {
+		unlock, ok, err := conf.TryHoldServe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			held = true
+			break
+		}
+		unlock()
+		time.Sleep(20 * time.Millisecond)
+	}
+	cancel()
+	if err := <-errc; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
+	}
+	if !held {
+		t.Fatal("serve did not hold the serve lock")
+	}
+}
+
 func TestServeStartsConfiguredExtension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

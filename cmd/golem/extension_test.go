@@ -110,6 +110,51 @@ func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 	}
 }
 
+func TestRunExtensionAddStillInstallsWhileServeRunning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatalf("add while serve is running: %v", err)
+	}
+}
+
+func TestRunExtensionAddForceRefusesWhileServeRunning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+
+	replacement := t.TempDir()
+	writePythonExt(t, replacement)
+	err = run([]string{"extension", "add", "--force", replacement})
+	if err == nil || !strings.Contains(err.Error(), "golem serve is running") {
+		t.Fatalf("err = %v, want serve is running", err)
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Extensions["echo"].Source != src {
+		t.Fatalf("source = %q, want the original install %q", cfg.Extensions["echo"].Source, src)
+	}
+}
+
 func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := conf.Load(); err != nil {
@@ -348,6 +393,33 @@ func TestRunExtensionList(t *testing.T) {
 	want := "echo  0.1.0  " + src
 	if got != want {
 		t.Errorf("list = %q, want %q", got, want)
+	}
+}
+
+func TestRunExtensionRemoveRefusesWhileServeRunning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+
+	err = run([]string{"extension", "remove", "echo"})
+	if err == nil || !strings.Contains(err.Error(), "golem serve is running") {
+		t.Fatalf("err = %v, want serve is running", err)
+	}
+	dir, err := conf.ExtensionsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "echo")); err != nil {
+		t.Fatalf("install removed while serve is running: %v", err)
 	}
 }
 

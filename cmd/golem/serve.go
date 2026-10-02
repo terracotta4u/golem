@@ -48,6 +48,18 @@ func runServe(cmd *cobra.Command, addr, publicURL, token string) error {
 }
 
 func serve(ctx context.Context, app *app, listen, publicURL, token string) error {
+	// Held until this process exits so CLI remove and force-add can see that
+	// extension children belong to a running server. A taken lock means
+	// another serve is up, or a CLI command is in the middle of a change.
+	unlock, ok, err := conf.TryHoldServe()
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("golem serve is already running, or an extension command is in progress")
+	}
+	defer unlock()
+
 	fmt.Fprint(os.Stderr, "The Golem has awoken.\n")
 	if token == "" {
 		token = server.NewToken()
