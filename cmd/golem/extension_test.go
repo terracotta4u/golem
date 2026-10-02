@@ -110,6 +110,35 @@ func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 	}
 }
 
+func TestRunExtensionAddForceRefusesWhileServeRunning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+
+	replacement := t.TempDir()
+	writePythonExt(t, replacement)
+	err = run([]string{"extension", "add", "--force", replacement})
+	if err == nil || !strings.Contains(err.Error(), "golem serve is running") {
+		t.Fatalf("err = %v, want serve is running", err)
+	}
+	cfg, _, err := conf.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Extensions["echo"].Source != src {
+		t.Fatalf("source = %q, want the original install %q", cfg.Extensions["echo"].Source, src)
+	}
+}
+
 func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := conf.Load(); err != nil {
