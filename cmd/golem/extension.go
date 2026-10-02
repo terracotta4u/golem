@@ -82,6 +82,14 @@ func completeInstalledExtensions(cmd *cobra.Command, args []string, toComplete s
 }
 
 func runExtensionAdd(cmd *cobra.Command, source string, force bool, ref string) error {
+	if force {
+		// Replacing files under a running child is the server's job.
+		unlock, err := holdUnlessServing()
+		if err != nil {
+			return err
+		}
+		defer unlock()
+	}
 	destRoot, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
@@ -124,6 +132,12 @@ func runExtensionList(cmd *cobra.Command) error {
 }
 
 func runExtensionRemove(cmd *cobra.Command, name string) error {
+	unlock, err := holdUnlessServing()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	root, err := conf.ExtensionsDir()
 	if err != nil {
 		return err
@@ -139,4 +153,18 @@ func runExtensionRemove(cmd *cobra.Command, name string) error {
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "removed %s\n", name)
 	return nil
+}
+
+// holdUnlessServing takes the serve lock when golem serve is not running
+// and keeps it until unlock. The caller holds it across the file and config
+// change so serve cannot start in the middle.
+func holdUnlessServing() (func(), error) {
+	unlock, ok, err := conf.TryHoldServe()
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("golem serve is running; use Settings → Extensions, or stop the server")
+	}
+	return unlock, nil
 }

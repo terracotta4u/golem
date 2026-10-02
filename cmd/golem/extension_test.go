@@ -110,6 +110,22 @@ func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 	}
 }
 
+func TestRunExtensionAddStillInstallsWhileServeRunning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	unlock, err := conf.HoldServe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+
+	src := t.TempDir()
+	writePythonExt(t, src)
+	stubEchoRuntime(t)
+	if err := run([]string{"extension", "add", src}); err != nil {
+		t.Fatalf("add while serve is running: %v", err)
+	}
+}
+
 func TestRunExtensionAddForceRefusesWhileServeRunning(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	src := t.TempDir()
