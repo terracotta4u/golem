@@ -215,7 +215,7 @@ func (h *Extensions) install(w http.ResponseWriter, r *http.Request, src, ref, o
 	}
 	if h.start != nil {
 		if err := h.start(p.Name); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, p.Name+" is installed but not running: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
