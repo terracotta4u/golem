@@ -94,6 +94,112 @@ func TestSyncProjectFrozenWhenLockfilePresent(t *testing.T) {
 	}
 }
 
+func TestSyncProjectUsesPinnedPython(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(t.TempDir(), "uv")
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".python-version"), []byte("3.11\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var got []*exec.Cmd
+	u := UV{
+		Bin:       bin,
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			got = append(got, snapshotCmd(cmd))
+			return nil
+		},
+	}
+	if err := u.SyncProject(dir); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("runs = %d, want 3", len(got))
+	}
+
+	wantInstall := []string{bin, "python", "install", "3.11"}
+	if strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") {
+		t.Errorf("install = %q, want %q", got[0].Args, wantInstall)
+	}
+	wantVenv := []string{bin, "venv", "--python", "3.11", ".venv"}
+	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
+		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
+	}
+	wantSync := []string{bin, "sync", "--python", "3.11", "--no-dev", "--no-editable"}
+	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
+		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
+	}
+}
+
+func TestSyncProjectFrozenUsesPinnedPython(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "uv.lock"), []byte("# lock\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".python-version"), []byte("3.11\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var got []*exec.Cmd
+	u := UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			got = append(got, snapshotCmd(cmd))
+			return nil
+		},
+	}
+	if err := u.SyncProject(dir); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("runs = %d, want 3", len(got))
+	}
+	want := []string{u.Bin, "sync", "--python", "3.11", "--frozen", "--no-dev", "--no-editable"}
+	if strings.Join(got[2].Args, " ") != strings.Join(want, " ") {
+		t.Errorf("sync = %q, want %q", got[2].Args, want)
+	}
+}
+
+func TestSyncProjectMalformedPythonVersion(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".python-version"), []byte("foo/bar\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	u := UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(*exec.Cmd) error {
+			called = true
+			return nil
+		},
+	}
+	err := u.SyncProject(dir)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "invalid version") || !strings.Contains(err.Error(), ".python-version") {
+		t.Errorf("error = %v, want parse error", err)
+	}
+	if called {
+		t.Fatal("SyncProject ran uv after a malformed .python-version")
+	}
+}
+
 func snapshotCmd(cmd *exec.Cmd) *exec.Cmd {
 	return &exec.Cmd{
 		Path: cmd.Path,
