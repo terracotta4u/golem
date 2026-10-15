@@ -119,15 +119,18 @@ func TestSyncProjectUsesPythonVersionFile(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("runs = %d, want 3", len(got))
 	}
-	wantInstall := []string{u.Bin, "python", "install", "3.11"}
+	wantInstall := []string{u.Bin, "python", "install"}
 	if strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") {
 		t.Errorf("install = %q, want %q", got[0].Args, wantInstall)
 	}
-	wantVenv := []string{u.Bin, "venv", "--python", "3.11", ".venv"}
+	if got[0].Dir != dir {
+		t.Errorf("install Dir = %q, want %s", got[0].Dir, dir)
+	}
+	wantVenv := []string{u.Bin, "venv", ".venv"}
 	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
 		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
 	}
-	wantSync := []string{u.Bin, "sync", "--python", "3.11", "--no-dev", "--no-editable"}
+	wantSync := []string{u.Bin, "sync", "--no-dev", "--no-editable"}
 	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
 		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
 	}
@@ -158,29 +161,10 @@ func TestSyncProjectFrozenUsesPythonVersionFile(t *testing.T) {
 	if err := u.SyncProject(dir); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{u.Bin, "sync", "--python", "3.13.1", "--frozen", "--no-dev", "--no-editable"}
-	if len(got) != 3 || strings.Join(got[2].Args, " ") != strings.Join(want, " ") {
-		t.Fatalf("sync = %v, want %v", got, want)
-	}
-}
-
-func TestSyncProjectRejectsInvalidPythonVersion(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".python-version"), []byte("latest\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	u := UV{
-		Bin:       filepath.Join(t.TempDir(), "uv"),
-		CacheDir:  t.TempDir(),
-		PythonDir: t.TempDir(),
-		Run: func(*exec.Cmd) error {
-			t.Fatal("uv called")
-			return nil
-		},
-	}
-	err := u.SyncProject(dir)
-	if err == nil || !strings.Contains(err.Error(), `invalid Python version "latest"`) {
-		t.Fatalf("error = %v, want invalid Python version", err)
+	wantInstall := []string{u.Bin, "python", "install"}
+	wantSync := []string{u.Bin, "sync", "--frozen", "--no-dev", "--no-editable"}
+	if len(got) != 3 || strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") || got[0].Dir != dir || strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
+		t.Fatalf("commands = %v, want install %v in %s and sync %v", got, wantInstall, dir, wantSync)
 	}
 }
 

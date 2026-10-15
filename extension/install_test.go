@@ -145,40 +145,29 @@ func TestInstallUsesPythonVersionFile(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("uv runs = %d, want 3", len(got))
 	}
-	wantInstall := []string{bin, "python", "install", "3.11"}
+	dest := filepath.Join(destRoot, "echo")
+	wantInstall := []string{bin, "python", "install"}
 	if strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") {
 		t.Errorf("install = %q, want %q", got[0].Args, wantInstall)
 	}
-	wantVenv := []string{bin, "venv", "--python", "3.11", ".venv"}
+	if got[0].Dir != dest {
+		t.Errorf("install Dir = %q, want %s", got[0].Dir, dest)
+	}
+	wantVenv := []string{bin, "venv", ".venv"}
 	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
 		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
 	}
-	wantSync := []string{bin, "sync", "--python", "3.11", "--no-dev", "--no-editable"}
+	wantSync := []string{bin, "sync", "--no-dev", "--no-editable"}
 	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
 		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
 	}
 
-	dest := filepath.Join(destRoot, "echo")
 	data, err := os.ReadFile(filepath.Join(dest, ".python-version"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(data) != "3.11\n" {
 		t.Errorf(".python-version = %q, want 3.11", data)
-	}
-}
-
-func TestInstallRejectsInvalidPythonVersion(t *testing.T) {
-	src := t.TempDir()
-	writePythonSrc(t, src)
-	if err := os.WriteFile(filepath.Join(src, ".python-version"), []byte("latest\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	stubEchoUV(t)
-
-	_, err := Install(src, t.TempDir(), Options{})
-	if err == nil || !strings.Contains(err.Error(), `invalid Python version "latest"`) {
-		t.Fatalf("error = %v, want invalid Python version", err)
 	}
 }
 
