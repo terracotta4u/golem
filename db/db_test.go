@@ -72,17 +72,21 @@ func TestOpenCreatesGolemDB(t *testing.T) {
 }
 
 func TestMigrateRollsBackWhenVersionUpdateFails(t *testing.T) {
-	dir := t.TempDir()
-	prev := versionSQL
-	versionSQL = `SELECT * FROM no_such_table`
-	t.Cleanup(func() { versionSQL = prev })
-
-	_, err := Open(dir)
+	path := filepath.Join(t.TempDir(), FileName)
+	sqlDB, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = applyMigration(sqlDB, schema, `SELECT * FROM no_such_table`)
 	if err == nil || !strings.Contains(err.Error(), "set schema version") {
-		t.Fatalf("Open err = %v, want set schema version", err)
+		sqlDB.Close()
+		t.Fatalf("applyMigration err = %v, want set schema version", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatal(err)
 	}
 
-	sqlDB, err := sql.Open("sqlite", filepath.Join(dir, FileName))
+	sqlDB, err = sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
