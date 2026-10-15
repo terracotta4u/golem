@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -67,6 +68,39 @@ func TestOpenCreatesGolemDB(t *testing.T) {
 	}
 	if journal != "wal" {
 		t.Errorf("journal_mode = %q, want wal", journal)
+	}
+}
+
+func TestMigrateRollsBackWhenVersionUpdateFails(t *testing.T) {
+	dir := t.TempDir()
+	prev := versionSQL
+	versionSQL = `SELECT * FROM no_such_table`
+	t.Cleanup(func() { versionSQL = prev })
+
+	_, err := Open(dir)
+	if err == nil || !strings.Contains(err.Error(), "set schema version") {
+		t.Fatalf("Open err = %v, want set schema version", err)
+	}
+
+	sqlDB, err := sql.Open("sqlite", filepath.Join(dir, FileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+
+	var version int
+	if err := sqlDB.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != 0 {
+		t.Errorf("user_version = %d, want 0", version)
+	}
+	var tables int
+	if err := sqlDB.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`).Scan(&tables); err != nil {
+		t.Fatal(err)
+	}
+	if tables != 0 {
+		t.Errorf("tables = %d, want 0", tables)
 	}
 }
 

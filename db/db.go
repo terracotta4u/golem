@@ -17,6 +17,10 @@ const (
 	schemaVersion = 1
 )
 
+// versionSQL records schemaVersion. Tests replace it so a migration can fail
+// after the schema statements run.
+var versionSQL = fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)
+
 // schema is the whole application database. conversation_id on memories is
 // not a foreign key: a fact outlives the conversation it was learned from.
 const schema = `
@@ -120,11 +124,19 @@ func migrate(sqlDB *sql.DB) error {
 	if version != 0 {
 		return fmt.Errorf("golem.db schema version %d is not supported", version)
 	}
-	if _, err := sqlDB.Exec(schema); err != nil {
+	tx, err := sqlDB.Begin()
+	if err != nil {
+		return fmt.Errorf("begin schema: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
 	}
-	if _, err := sqlDB.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, schemaVersion)); err != nil {
+	if _, err := tx.Exec(versionSQL); err != nil {
 		return fmt.Errorf("set schema version: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit schema: %w", err)
 	}
 	return nil
 }
