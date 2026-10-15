@@ -17,7 +17,7 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	// API routes
 	mux.Handle("GET /v1/health", s.bearer(http.HandlerFunc(api.Health)))
 	mux.Handle("POST /v1/conversations/{id}/turns", s.bearer(s.chat.Post(runCtx)))
-	mux.Handle("GET /v1/turns/{id}", s.bearer(http.HandlerFunc(s.chat.Get)))
+	mux.Handle("GET /v1/turns/{id}/events", s.bearer(http.HandlerFunc(s.chat.Get)))
 	mux.Handle("POST /v1/extensions/register", s.bearer(http.HandlerFunc(s.regAPI.Register)))
 	mux.Handle("POST /v1/extensions/heartbeat", s.bearer(http.HandlerFunc(s.regAPI.Heartbeat)))
 	mux.Handle("GET /v1/extensions", s.bearer(http.HandlerFunc(s.regAPI.List)))
@@ -26,7 +26,7 @@ func (s *Server) routes(runCtx context.Context) http.Handler {
 	mux.Handle("GET /{$}", s.web(http.HandlerFunc(s.webChat.Home)))
 	mux.Handle("GET /conversations/{id}", s.web(http.HandlerFunc(s.webChat.Conversation)))
 	mux.Handle("POST /conversations/{id}/turns", s.web(s.webChat.Post(runCtx)))
-	mux.Handle("GET /turns/{id}", s.web(http.HandlerFunc(s.webChat.Events)))
+	mux.Handle("GET /turns/{id}/events", s.web(http.HandlerFunc(s.webChat.Events)))
 	mux.Handle("GET /settings", s.web(http.HandlerFunc(s.settings.Page)))
 	mux.Handle("GET /settings/general", s.web(http.HandlerFunc(s.settings.General)))
 	mux.Handle("POST /settings/general", s.web(http.HandlerFunc(s.settings.Save)))

@@ -25,7 +25,7 @@ A process can be a channel, a provider, and a source of tools.
 
 `202` → `{"id": "<turn-id>"}`. `{id}` is the conversation id (a Telegram chat id, a Slack thread, etc.). It is unique across channels: the same id with a different `channel` returns `409`. Percent-encode the conversation id so `/`, `?`, and `#` stay inside one path segment.
 
-`GET /v1/turns/{id}` — SSE (`text/event-stream`). Percent-encode the turn id the same way. Events:
+`GET /v1/turns/{id}/events` — SSE (`text/event-stream`). Percent-encode the turn id the same way. Events:
 
 ```
 event: log

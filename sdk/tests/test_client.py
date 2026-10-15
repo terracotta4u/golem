@@ -46,8 +46,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/v1/health":
             self._write_json(200, {"ok": True})
             return
-        if self.path.startswith("/v1/turns/"):
-            turn_id = self.path.rsplit("/", 1)[-1]
+        prefix, suffix = "/v1/turns/", "/events"
+        if self.path.startswith(prefix) and self.path.endswith(suffix):
+            turn_id = self.path[len(prefix) : -len(suffix)]
             if turn_id == "turn-1":
                 self._write_sse(
                     [

@@ -239,7 +239,7 @@ func TestWebPostTurn(t *testing.T) {
 		t.Fatalf("body = %q, want assistant placeholder", body)
 	}
 	id := turnID(t, body)
-	if !strings.Contains(body, `hx-sse:connect="/turns/`+id) {
+	if !strings.Contains(body, `hx-sse:connect="/turns/`+id+`/events"`) {
 		t.Fatalf("body = %q, want hx-sse:connect", body)
 	}
 	if !strings.Contains(body, `hx-sse:close="close"`) {
@@ -403,7 +403,7 @@ func TestWebTurnEventsNotFound(t *testing.T) {
 	ts := httptest.NewServer(server.New(server.Options{Store: st, Token: "secret"}).Handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/turns/missing")
+	resp, err := http.Get(ts.URL + "/turns/missing/events")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -588,7 +588,7 @@ func TestWebTurnEventsError(t *testing.T) {
 
 func getWebTurnEvents(t *testing.T, base, turnID string) []sseEvent {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, base+"/turns/"+turnID, nil)
+	req, err := http.NewRequest(http.MethodGet, base+"/turns/"+turnID+"/events", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

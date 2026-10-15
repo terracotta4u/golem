@@ -54,7 +54,7 @@ func TestGetTurnEventsUnauthorized(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/v1/turns/missing")
+	resp, err := http.Get(ts.URL + "/v1/turns/missing/events")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestGetTurnEventsNotFound(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/turns/missing", nil)
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/turns/missing/events", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +402,7 @@ func postTurn(t *testing.T, base, token, convID, text string) string {
 
 func getTurnEvents(t *testing.T, base, token, id string) []sseEvent {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, base+"/v1/turns/"+id, nil)
+	req, err := http.NewRequest(http.MethodGet, base+"/v1/turns/"+id+"/events", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
