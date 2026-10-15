@@ -70,7 +70,7 @@ func New(opts Options) *Server {
 	if s.opts.Agent != nil && s.opts.Agent.Catalog == nil {
 		s.opts.Agent.Catalog = s.reg
 	}
-	s.settings = web.NewSettings(s.pages, opts.Version, s.updateStatus, parsed.remote)
+	s.settings = web.NewSettings(s.pages, opts.Version, parsed.remote)
 	s.extensions = web.NewExtensions(s.pages, s.startExtension, s.stopExtension)
 	s.regAPI = api.NewExtensions(s.reg)
 	s.chat = api.NewChat(opts.Agent, opts.Store)

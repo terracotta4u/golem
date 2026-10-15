@@ -113,11 +113,6 @@ button.btn-accent {
   font-weight: var(--weight-bold);
 }
 
-.install-cmd {
-  overflow-x: auto;
-  background: var(--bg-2);
-}
-
 button.link-danger {
   align-self: start;
   padding: 0;
