@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
 )
@@ -36,7 +36,7 @@ func TestRunExtensionAddInstalls(t *testing.T) {
 		t.Errorf("stderr = %q, want installed echo", stderr)
 	}
 
-	dir, err := conf.ExtensionsDir()
+	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestRunExtensionAddInstalls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestRunExtensionAddRecordsAbsoluteSource(t *testing.T) {
 	if err := run([]string{"extension", "add", rel}); err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestRunExtensionAddRefusesDuplicate(t *testing.T) {
 
 func TestRunExtensionAddStillInstallsWhileServeRunning(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	unlock, err := conf.HoldServe()
+	unlock, err := config.HoldServe()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestRunExtensionAddForceRefusesWhileServeRunning(t *testing.T) {
 	if err := run([]string{"extension", "add", src}); err != nil {
 		t.Fatal(err)
 	}
-	unlock, err := conf.HoldServe()
+	unlock, err := config.HoldServe()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestRunExtensionAddForceRefusesWhileServeRunning(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "golem serve is running") {
 		t.Fatalf("err = %v, want serve is running", err)
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,18 +157,18 @@ func TestRunExtensionAddForceRefusesWhileServeRunning(t *testing.T) {
 
 func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	writeConf(t, conf.Conf{
-		Extensions: map[string]conf.Extension{
+	writeConfig(t, config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
 	})
 	src := t.TempDir()
 	writePythonExt(t, src)
 	stubEchoRuntime(t)
-	dir, err := conf.ExtensionsDir()
+	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestRunExtensionAddForceKeepsSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,14 +224,14 @@ func TestRunExtensionAddFromZip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dir, err := conf.ExtensionsDir()
+	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "echo", "pyproject.toml")); err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestRunExtensionAddFromGitHub(t *testing.T) {
 	if err := run([]string{"extension", "add", "https://github.com/terracotta4u/golem-telegram"}); err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestRunExtensionAddGitHubRef(t *testing.T) {
 	if err := run([]string{"extension", "add", "--ref", "v1.2.0", "https://github.com/terracotta4u/golem-telegram"}); err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,18 +305,18 @@ func TestRunExtensionAddGitHubRef(t *testing.T) {
 
 func TestRunExtensionAddGitHubForceKeepsSecrets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	writeConf(t, conf.Conf{
-		Extensions: map[string]conf.Extension{
+	writeConfig(t, config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
 	})
 	sha := "cccccccccccccccccccccccccccccccccccccccc"
 	stubGitHub(t, "terracotta4u", "golem-telegram", "HEAD", sha)
 	stubEchoRuntime(t)
-	dir, err := conf.ExtensionsDir()
+	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestRunExtensionAddGitHubForceKeepsSecrets(t *testing.T) {
 	if err := run([]string{"extension", "add", "--force", "https://github.com/terracotta4u/golem-telegram"}); err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestRunExtensionRemoveRefusesWhileServeRunning(t *testing.T) {
 	if err := run([]string{"extension", "add", src}); err != nil {
 		t.Fatal(err)
 	}
-	unlock, err := conf.HoldServe()
+	unlock, err := config.HoldServe()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,7 +414,7 @@ func TestRunExtensionRemoveRefusesWhileServeRunning(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "golem serve is running") {
 		t.Fatalf("err = %v, want serve is running", err)
 	}
-	dir, err := conf.ExtensionsDir()
+	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -435,19 +435,19 @@ func TestRunExtensionRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dir, err := conf.ExtensionsDir()
+	dir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "echo")); !os.IsNotExist(err) {
 		t.Fatal("install dir still present")
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := cfg.Extensions["echo"]; ok {
-		t.Fatal("echo still in conf")
+		t.Fatal("echo still in config")
 	}
 }
 
@@ -565,9 +565,9 @@ func stubGitHub(t *testing.T, owner, repo, ref, sha string) *httptest.Server {
 	return srv
 }
 
-func writeConf(t *testing.T, cfg conf.Conf) {
+func writeConfig(t *testing.T, cfg config.Config) {
 	t.Helper()
-	dir, err := conf.Dir()
+	dir, err := config.Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -578,7 +578,7 @@ func writeConf(t *testing.T, cfg conf.Conf) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "conf.json"), append(data, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

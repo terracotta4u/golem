@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 )
 
 const maxBody = 1 << 20
@@ -30,7 +30,7 @@ func (h *Settings) Page(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Settings) General(w http.ResponseWriter, r *http.Request) {
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -75,7 +75,7 @@ func (h *Settings) Save(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := conf.Update(func(cfg *conf.Conf) error {
+	if err := config.Update(func(cfg *config.Config) error {
 		cfg.DefaultModel = defaultModel
 		cfg.FastModel = fastModel
 		cfg.MaxToolRounds = maxRounds
@@ -105,14 +105,14 @@ func displayVersion(v string) string {
 	return strings.TrimPrefix(v, "v")
 }
 
-func parseModelConfig(r *http.Request, providerField, modelField string) (conf.ModelConfig, string) {
+func parseModelConfig(r *http.Request, providerField, modelField string) (config.ModelConfig, string) {
 	provider := strings.TrimSpace(r.FormValue(providerField))
 	if provider == "" {
-		return conf.ModelConfig{}, "provider is required"
+		return config.ModelConfig{}, "provider is required"
 	}
 	model := strings.TrimSpace(r.FormValue(modelField))
 	if model == "" {
-		return conf.ModelConfig{}, "model is required"
+		return config.ModelConfig{}, "model is required"
 	}
-	return conf.ModelConfig{Provider: provider, Model: model}, ""
+	return config.ModelConfig{Provider: provider, Model: model}, ""
 }

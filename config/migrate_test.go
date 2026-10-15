@@ -1,9 +1,9 @@
-package conf
+package config
 
 import "testing"
 
 func TestMigrateFillsMissingFields(t *testing.T) {
-	cfg := Conf{DefaultModel: ModelConfig{Model: "custom-model"}}
+	cfg := Config{DefaultModel: ModelConfig{Model: "custom-model"}}
 	migrate(&cfg)
 
 	d := defaults()
@@ -21,18 +21,18 @@ func TestMigrateFillsMissingFields(t *testing.T) {
 	}
 }
 
-func TestMigrateReportsWhetherConfChanged(t *testing.T) {
-	cfg := Conf{DefaultModel: ModelConfig{Model: "custom-model"}}
+func TestMigrateReportsWhetherConfigChanged(t *testing.T) {
+	cfg := Config{DefaultModel: ModelConfig{Model: "custom-model"}}
 	if !migrate(&cfg) {
 		t.Fatal("missing fields should count as a change")
 	}
 	if migrate(&cfg) {
-		t.Fatal("second migrate should not change a complete conf")
+		t.Fatal("second migrate should not change a complete config")
 	}
 }
 
 func TestMigrateLeavesExplicitValues(t *testing.T) {
-	cfg := Conf{
+	cfg := Config{
 		DefaultModel: ModelConfig{Provider: "other", Model: "custom-model"},
 		FastModel:    ModelConfig{Provider: "ollama", Model: "llama3.2"},
 		Memory: &MemoryConfig{
@@ -58,7 +58,7 @@ func TestMigrateLeavesExplicitValues(t *testing.T) {
 
 func TestMigrateKeepsExplicitZero(t *testing.T) {
 	d := defaults()
-	cfg := Conf{
+	cfg := Config{
 		DefaultModel: d.DefaultModel,
 		FastModel:    d.FastModel,
 		Memory: &MemoryConfig{

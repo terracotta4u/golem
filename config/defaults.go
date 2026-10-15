@@ -1,7 +1,7 @@
-package conf
+package config
 
-func defaults() Conf {
-	return Conf{
+func defaults() Config {
+	return Config{
 		DefaultModel: ModelConfig{Provider: "openrouter", Model: "openai/gpt-4o-mini"},
 		FastModel:    ModelConfig{Provider: "openrouter", Model: "openai/gpt-4o-mini"},
 		Memory: &MemoryConfig{

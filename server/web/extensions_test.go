@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
 	"github.com/terracotta4u/golem/server"
@@ -52,17 +52,17 @@ func TestExtensionsPage(t *testing.T) {
 
 func TestExtensionsPageListsInstalled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeInstalledExt(t, root, "echo", "0.1.0")
 	writeInstalledExt(t, root, "telegram", "1.2.3")
-	if err := conf.Save(conf.Conf{
-		Extensions: map[string]conf.Extension{
+	if err := config.Save(config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Source: "https://github.com/example/echo"},
 		},
 	}); err != nil {
@@ -95,16 +95,16 @@ func TestExtensionsPageListsInstalled(t *testing.T) {
 
 func TestExtensionDetail(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeInstalledExt(t, root, "echo", "0.1.0")
-	if err := conf.Save(conf.Conf{
-		Extensions: map[string]conf.Extension{
+	if err := config.Save(config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Source: "https://github.com/example/echo", Ref: "HEAD", Revision: "abc123"},
 		},
 	}); err != nil {
@@ -162,17 +162,17 @@ func TestExtensionDetailUnknown(t *testing.T) {
 
 func TestExtensionRemove(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeInstalledExt(t, root, "echo", "0.1.0")
 	writeInstalledExt(t, root, "telegram", "1.2.3")
-	if err := conf.Save(conf.Conf{
-		Extensions: map[string]conf.Extension{
+	if err := config.Save(config.Config{
+		Extensions: map[string]config.Extension{
 			"echo":     {Source: "https://github.com/example/echo"},
 			"telegram": {Source: "/tmp/telegram"},
 		},
@@ -205,12 +205,12 @@ func TestExtensionRemove(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "echo")); !os.IsNotExist(err) {
 		t.Fatalf("echo dir still present: %v", err)
 	}
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := got.Extensions["echo"]; ok {
-		t.Fatal("echo still in conf")
+		t.Fatal("echo still in config")
 	}
 	if got.Extensions["telegram"].Source != "/tmp/telegram" {
 		t.Fatalf("telegram = %+v", got.Extensions["telegram"])
@@ -219,10 +219,10 @@ func TestExtensionRemove(t *testing.T) {
 
 func TestExtensionRemoveStopsThenDeletes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,10 +255,10 @@ func TestExtensionRemoveStopsThenDeletes(t *testing.T) {
 
 func TestExtensionRemoveStopErrorKeepsFiles(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,7 +368,7 @@ func TestExtensionAddURLRequiresGitHub(t *testing.T) {
 
 func TestExtensionAddArchiveInstalls(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 	stubEchoRuntime(t)
@@ -390,14 +390,14 @@ func TestExtensionAddArchiveInstalls(t *testing.T) {
 		t.Fatalf("list = %q, want echo detail link", body)
 	}
 
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "echo", "pyproject.toml")); err != nil {
 		t.Fatal(err)
 	}
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -408,7 +408,7 @@ func TestExtensionAddArchiveInstalls(t *testing.T) {
 
 func TestExtensionAddStartsAfterInstall(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 	stubEchoRuntime(t)
@@ -420,19 +420,19 @@ func TestExtensionAddStartsAfterInstall(t *testing.T) {
 	ts := httptest.NewServer(server.New(server.Options{
 		Token: "secret",
 		StartExtension: func(name string) error {
-			root, err := conf.ExtensionsDir()
+			root, err := config.ExtensionsDir()
 			if err != nil {
 				return err
 			}
 			if _, err := os.Stat(filepath.Join(root, name, "pyproject.toml")); err != nil {
 				t.Errorf("start before install: %v", err)
 			}
-			got, _, err := conf.Load()
+			got, _, err := config.Load()
 			if err != nil {
 				return err
 			}
 			if got.Extensions[name].Source != "echo.zip" {
-				t.Errorf("start before conf save: %+v", got.Extensions[name])
+				t.Errorf("start before config save: %+v", got.Extensions[name])
 			}
 			started = append(started, name)
 			return nil
@@ -451,7 +451,7 @@ func TestExtensionAddStartsAfterInstall(t *testing.T) {
 
 func TestExtensionAddStartErrorLeavesFiles(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 	stubEchoRuntime(t)
@@ -474,7 +474,7 @@ func TestExtensionAddStartErrorLeavesFiles(t *testing.T) {
 	if !strings.Contains(body, "installed but not running") {
 		t.Fatalf("body = %q, want installed but not running", body)
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}

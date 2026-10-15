@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
 )
 
@@ -24,7 +24,7 @@ func NewExtensions(pages *Pages, start, stop func(name string) error) *Extension
 }
 
 func (h *Extensions) List(w http.ResponseWriter, r *http.Request) {
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -34,7 +34,7 @@ func (h *Extensions) List(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -66,7 +66,7 @@ func (h *Extensions) Detail(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -80,7 +80,7 @@ func (h *Extensions) Detail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -106,7 +106,7 @@ func (h *Extensions) Remove(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -119,8 +119,8 @@ func (h *Extensions) Remove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := conf.Update(func(cfg *conf.Conf) error {
-		conf.RemoveExtension(cfg, name)
+	if err := config.Update(func(cfg *config.Config) error {
+		config.RemoveExtension(cfg, name)
 		return nil
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -193,7 +193,7 @@ func (h *Extensions) AddArchive(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Extensions) install(w http.ResponseWriter, r *http.Request, src, ref, originSource string) {
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -206,8 +206,8 @@ func (h *Extensions) install(w http.ResponseWriter, r *http.Request, src, ref, o
 	if originSource == "" {
 		originSource = p.Origin.Source
 	}
-	if err := conf.Update(func(cfg *conf.Conf) error {
-		conf.SetExtensionOrigin(cfg, p.Name, originSource, p.Origin.Ref, p.Origin.Revision)
+	if err := config.Update(func(cfg *config.Config) error {
+		config.SetExtensionOrigin(cfg, p.Name, originSource, p.Origin.Ref, p.Origin.Revision)
 		return nil
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

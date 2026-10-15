@@ -208,13 +208,13 @@ func TestBindChatRereadsConfig(t *testing.T) {
 }
 
 func TestBindChatConfigError(t *testing.T) {
-	want := errors.New("conf boom")
+	want := errors.New("config boom")
 	p := BindChat(New(""), func() (string, string, error) {
 		return "", "", want
 	})
 	_, err := p.Chat(context.Background(), provider.ChatRequest{})
 	if !errors.Is(err, want) {
-		t.Fatalf("err = %v, want conf boom", err)
+		t.Fatalf("err = %v, want config boom", err)
 	}
 }
 

@@ -1,4 +1,4 @@
-package conf
+package config
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestLoadCreatesConf(t *testing.T) {
+func TestLoadCreatesConfig(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	cfg, created, err := Load()
@@ -17,7 +17,7 @@ func TestLoadCreatesConf(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !created {
-		t.Fatal("expected first load to create conf")
+		t.Fatal("expected first load to create config")
 	}
 	if cfg.DefaultModel.Provider != "openrouter" || cfg.DefaultModel.Model != "openai/gpt-4o-mini" {
 		t.Errorf("default = %+v", cfg.DefaultModel)
@@ -36,7 +36,7 @@ func TestLoadCreatesConf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "conf.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "config.json")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,7 +45,7 @@ func TestLoadCreatesConf(t *testing.T) {
 		t.Fatal(err)
 	}
 	if created2 {
-		t.Fatal("second load should not create conf")
+		t.Fatal("second load should not create config")
 	}
 	if cfg2.DefaultModel != cfg.DefaultModel || cfg2.FastModel != cfg.FastModel {
 		t.Errorf("cfg2 = %+v", cfg2)
@@ -59,10 +59,10 @@ func TestLoadCreatesConf(t *testing.T) {
 		t.Errorf("MaxToolRounds = %d, want 0 (no cap)", cfg.MaxToolRounds)
 	}
 	if strings.Contains(string(data), "max_tool_rounds") {
-		t.Errorf("default conf should omit max_tool_rounds: %s", data)
+		t.Errorf("default config should omit max_tool_rounds: %s", data)
 	}
 	if strings.Contains(string(data), "listen") {
-		t.Errorf("default conf should omit listen: %s", data)
+		t.Errorf("default config should omit listen: %s", data)
 	}
 	if !strings.Contains(string(data), `"default_model"`) ||
 		!strings.Contains(string(data), `"fast_model"`) ||
@@ -70,7 +70,7 @@ func TestLoadCreatesConf(t *testing.T) {
 		!strings.Contains(string(data), `"openai/text-embedding-3-small"`) ||
 		!strings.Contains(string(data), `"budget_tokens"`) ||
 		!strings.Contains(string(data), `"min_similarity"`) {
-		t.Errorf("default conf should include models and memory knobs: %s", data)
+		t.Errorf("default config should include models and memory knobs: %s", data)
 	}
 }
 
@@ -154,7 +154,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	cfg := Conf{Extensions: map[string]Extension{
+	cfg := Config{Extensions: map[string]Extension{
 		"echo": {Source: "/tmp/echo", Ref: "HEAD", Revision: "abc123"},
 	}}
 	cfg.DefaultModel.Model = "test-model"
@@ -182,7 +182,7 @@ func TestLoadLeavesOmittedMemoryAbsent(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	partial := Conf{DefaultModel: ModelConfig{Model: "test-model"}}
+	partial := Config{DefaultModel: ModelConfig{Model: "test-model"}}
 	if err := Save(partial); err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestLoadLeavesOmittedMemoryAbsent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if created {
-		t.Fatal("conf already existed")
+		t.Fatal("config already existed")
 	}
 	if got.DefaultModel.Provider != "openrouter" {
 		t.Errorf("default provider = %q, want openrouter", got.DefaultModel.Provider)
@@ -202,7 +202,7 @@ func TestLoadLeavesOmittedMemoryAbsent(t *testing.T) {
 	}
 }
 
-func TestLoadWritesMigratedConfToDisk(t *testing.T) {
+func TestLoadWritesMigratedConfigToDisk(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestSaveMemoryEmbeddingRoundTrip(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	cfg := Conf{
+	cfg := Config{
 		DefaultModel: ModelConfig{Model: "test-model"},
 		Memory: &MemoryConfig{
 			Embedding: ModelConfig{Provider: "ollama", Model: "nomic-embed-text"},
@@ -276,7 +276,7 @@ func TestLoadMaxToolRounds(t *testing.T) {
 	if _, _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
-	rounds := Conf{DefaultModel: ModelConfig{Model: "test-model"}, MaxToolRounds: 20}
+	rounds := Config{DefaultModel: ModelConfig{Model: "test-model"}, MaxToolRounds: 20}
 	if err := Save(rounds); err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestLoadMaxToolRounds(t *testing.T) {
 }
 
 func TestRemoveExtensionDeletesEntry(t *testing.T) {
-	cfg := Conf{
+	cfg := Config{
 		Extensions: map[string]Extension{
 			"echo":     {Env: map[string]string{"ECHO_TOKEN": "x"}},
 			"telegram": {},
@@ -301,7 +301,7 @@ func TestRemoveExtensionDeletesEntry(t *testing.T) {
 	}
 	RemoveExtension(&cfg, "echo")
 	if _, ok := cfg.Extensions["echo"]; ok {
-		t.Fatal("echo still in conf")
+		t.Fatal("echo still in config")
 	}
 	if _, ok := cfg.Extensions["telegram"]; !ok {
 		t.Fatal("removed telegram")
@@ -309,7 +309,7 @@ func TestRemoveExtensionDeletesEntry(t *testing.T) {
 }
 
 func TestSetExtensionOriginWritesFields(t *testing.T) {
-	var cfg Conf
+	var cfg Config
 	SetExtensionOrigin(&cfg, "echo", "/tmp/echo", "HEAD", "abc123")
 	got := cfg.Extensions["echo"]
 	if got.Source != "/tmp/echo" || got.Ref != "HEAD" || got.Revision != "abc123" {
@@ -318,7 +318,7 @@ func TestSetExtensionOriginWritesFields(t *testing.T) {
 }
 
 func TestSetExtensionOriginKeepsEnv(t *testing.T) {
-	cfg := Conf{
+	cfg := Config{
 		Extensions: map[string]Extension{
 			"echo": {Env: map[string]string{"ECHO_TOKEN": "secret"}},
 		},
@@ -345,7 +345,7 @@ func TestUpdateKeepsConcurrentEdits(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			name := fmt.Sprintf("ext-%d", i)
-			if err := Update(func(cfg *Conf) error {
+			if err := Update(func(cfg *Config) error {
 				SetExtensionOrigin(cfg, name, "src", "HEAD", name)
 				return nil
 			}); err != nil {
@@ -365,11 +365,11 @@ func TestUpdateKeepsConcurrentEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	left, err := filepath.Glob(filepath.Join(dir, ".conf.json.*"))
+	left, err := filepath.Glob(filepath.Join(dir, ".config.json.*"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(left) != 0 {
-		t.Fatalf("temp conf files left behind: %v", left)
+		t.Fatalf("temp config files left behind: %v", left)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/terracotta4u/golem/agent"
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/registry"
@@ -13,28 +13,28 @@ import (
 )
 
 type app struct {
-	cfg           conf.Conf
+	cfg           config.Config
 	conversations *conversation.DB
 	agent         *agent.Agent
 	reg           *registry.Registry
 }
 
 // setup loads ~/.golem, opens the conversation database, and reports first-run creation.
-func setup() (conf.Conf, *conversation.DB, error) {
-	cfg, created, err := conf.Load()
+func setup() (config.Config, *conversation.DB, error) {
+	cfg, created, err := config.Load()
 	if err != nil {
-		return conf.Conf{}, nil, err
+		return config.Config{}, nil, err
 	}
-	dir, err := conf.Dir()
+	dir, err := config.Dir()
 	if err != nil {
-		return conf.Conf{}, nil, err
+		return config.Config{}, nil, err
 	}
 	if created {
 		fmt.Fprintf(os.Stderr, "created %s\n", dir)
 	}
 	conversations, err := conversation.Open(dir)
 	if err != nil {
-		return conf.Conf{}, nil, err
+		return config.Config{}, nil, err
 	}
 	return cfg, conversations, nil
 }
@@ -55,17 +55,17 @@ func loadApp() (*app, error) {
 
 	reg := registry.New("")
 
-	a := agent.New(registry.BindChat(reg, confModel("default")), tools...)
-	a.Fast = registry.BindChat(reg, confModel("fast"))
+	a := agent.New(registry.BindChat(reg, configModel("default")), tools...)
+	a.Fast = registry.BindChat(reg, configModel("fast"))
 	a.MaxToolRounds = cfg.MaxToolRounds
 	attachMemory(a, reg)
 	ok = true
 	return &app{cfg: cfg, conversations: conversations, agent: a, reg: reg}, nil
 }
 
-func confModel(which string) func() (string, string, error) {
+func configModel(which string) func() (string, string, error) {
 	return func() (string, string, error) {
-		cfg, _, err := conf.Load()
+		cfg, _, err := config.Load()
 		if err != nil {
 			return "", "", err
 		}
@@ -84,7 +84,7 @@ func confModel(which string) func() (string, string, error) {
 }
 
 func attachMemory(a *agent.Agent, reg *registry.Registry) {
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
 		return
@@ -94,7 +94,7 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 		return
 	}
 
-	path, err := conf.MemoriesDB()
+	path, err := config.MemoriesDB()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: %v\n", err)
 		return
@@ -108,7 +108,7 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 	a.Memories.MinSimilarity = mem.MinSimilarity
 	a.Memories.BudgetTokens = mem.BudgetTokens
 
-	emb := registry.BindEmbed(reg, confModel("embed"))
+	emb := registry.BindEmbed(reg, configModel("embed"))
 	idx, err := memory.NewIndex(st, emb, mem.Embedding.Provider, mem.Embedding.Model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "memory: index: %v\n", err)

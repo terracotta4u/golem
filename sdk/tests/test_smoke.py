@@ -27,7 +27,7 @@ def test_go_server_and_sdk_round_trip(tmp_path: Path) -> None:
     home = tmp_path / "home"
     golem = home / ".golem"
     golem.mkdir(parents=True)
-    (golem / "conf.json").write_text(
+    (golem / "config.json").write_text(
         json.dumps(
             {
                 "default_model": {"provider": "echo", "model": "test"},

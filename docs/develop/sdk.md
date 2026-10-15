@@ -32,7 +32,7 @@ id = "echo"
 entrypoint = "golem_echo:Echo"
 ```
 
-`id` is the name used in Golem conf (`default_model.provider` or `memory.embedding.provider`). An embeddings-only class can omit `chat`:
+`id` is the name used in Golem config (`default_model.provider` or `memory.embedding.provider`). An embeddings-only class can omit `chat`:
 
 ```python
 class Embed(Provider):

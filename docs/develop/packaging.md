@@ -26,7 +26,7 @@ id = "echo"
 entrypoint = "golem_echo:Echo"
 ```
 
-`description` shows up in **Settings → Extensions**. `id` is the name used in Golem conf. `entrypoint` is `module:Class`. Depend on [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) unless you speak the [protocol](protocol.md) yourself.
+`description` shows up in **Settings → Extensions**. `id` is the name used in Golem config. `entrypoint` is `module:Class`. Depend on [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) unless you speak the [protocol](protocol.md) yourself.
 
 A channel uses the same shape:
 
