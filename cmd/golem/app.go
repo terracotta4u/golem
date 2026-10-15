@@ -9,7 +9,6 @@ import (
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/registry"
-	"github.com/terracotta4u/golem/skill"
 	"github.com/terracotta4u/golem/tool"
 )
 
@@ -52,12 +51,7 @@ func loadApp() (*app, error) {
 		}
 	}()
 
-	skills, err := loadSkills()
-	if err != nil {
-		return nil, err
-	}
-
-	tools := tool.Builtins(skills)
+	tools := tool.Builtins()
 
 	reg := registry.New("")
 
@@ -122,15 +116,4 @@ func attachMemory(a *agent.Agent, reg *registry.Registry) {
 	}
 	a.Memories.Search = idx
 	a.Memories.Index = idx
-}
-
-func loadSkills() ([]skill.Skill, error) {
-	dir, err := conf.SkillsDir()
-	if err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create %s: %w", dir, err)
-	}
-	return skill.LoadDir(dir)
 }

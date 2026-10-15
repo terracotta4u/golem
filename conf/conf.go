@@ -76,15 +76,6 @@ func ExtensionsDir() (string, error) {
 	return filepath.Join(dir, "extensions"), nil
 }
 
-// SkillsDir is ~/.golem/skills.
-func SkillsDir() (string, error) {
-	dir, err := Dir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "skills"), nil
-}
-
 // RuntimeDir is ~/.golem/runtime.
 func RuntimeDir() (string, error) {
 	dir, err := Dir()

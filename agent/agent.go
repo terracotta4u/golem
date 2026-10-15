@@ -91,7 +91,7 @@ func (s *Session) Send(ctx context.Context, input string) (string, error) {
 
 		byName, defs := s.agent.roundTools()
 		msg, err := s.agent.provider.Chat(ctx, provider.ChatRequest{
-			Messages: withContext(systemPrompt(s.memories, s.agent.list...), s.conv.Messages),
+			Messages: withContext(systemPrompt(s.memories), s.conv.Messages),
 			Tools:    defs,
 		})
 		if err != nil {
