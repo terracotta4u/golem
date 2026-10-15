@@ -7,20 +7,33 @@ import (
 )
 
 func (u UV) SyncProject(dir string) error {
-	if err := u.EnsurePython(DefaultPython); err != nil {
-		return err
-	}
-	venv := filepath.Join(dir, ".venv")
-	if err := u.run(u.projectCommand(dir, venv, "venv", "--python", DefaultPython, ".venv")); err != nil {
-		return err
-	}
-	args := []string{"sync", "--python", DefaultPython, "--no-dev", "--no-editable"}
+	args := []string{"sync", "--no-dev", "--no-editable"}
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
-		args = []string{"sync", "--python", DefaultPython, "--frozen", "--no-dev", "--no-editable"}
+		args = []string{"sync", "--frozen", "--no-dev", "--no-editable"}
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	return u.run(u.projectCommand(dir, venv, args...))
+	version, err := projectPython(dir)
+	if err != nil {
+		return err
+	}
+	if version != "" {
+		args = append(args, "--python", version)
+	}
+	return u.run(u.projectCommand(dir, filepath.Join(dir, ".venv"), args...))
+}
+
+// projectPython is DefaultPython when dir has no .python-version file.
+// An empty result means the file is present and uv should read the pin.
+func projectPython(dir string) (string, error) {
+	_, err := os.Stat(filepath.Join(dir, ".python-version"))
+	if err == nil {
+		return "", nil
+	}
+	if os.IsNotExist(err) {
+		return DefaultPython, nil
+	}
+	return "", err
 }
 
 func (u UV) projectCommand(dir, venv string, args ...string) *exec.Cmd {

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestSyncProjectInvokesVenvAndSync(t *testing.T) {
+func TestSyncProjectInvokesSync(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(t.TempDir(), "uv")
 	cache := t.TempDir()
@@ -17,49 +17,37 @@ func TestSyncProjectInvokesVenvAndSync(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var got []*exec.Cmd
+	var got *exec.Cmd
 	u := UV{
 		Bin:       bin,
 		CacheDir:  cache,
 		PythonDir: python,
 		Run: func(cmd *exec.Cmd) error {
-			got = append(got, snapshotCmd(cmd))
+			got = snapshotCmd(cmd)
 			return nil
 		},
 	}
 	if err := u.SyncProject(dir); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 {
-		t.Fatalf("runs = %d, want 3", len(got))
+	if got == nil {
+		t.Fatal("uv not called")
 	}
 
-	wantInstall := []string{bin, "python", "install", DefaultPython}
-	if strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") {
-		t.Errorf("install = %q, want %q", got[0].Args, wantInstall)
+	want := []string{bin, "sync", "--no-dev", "--no-editable", "--python", DefaultPython}
+	if strings.Join(got.Args, " ") != strings.Join(want, " ") {
+		t.Errorf("sync = %q, want %q", got.Args, want)
 	}
-
-	wantVenv := []string{bin, "venv", "--python", DefaultPython, ".venv"}
-	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
-		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
+	if got.Dir != dir {
+		t.Errorf("Dir = %q, want %s", got.Dir, dir)
 	}
-	wantSync := []string{bin, "sync", "--python", DefaultPython, "--no-dev", "--no-editable"}
-	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
-		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
-	}
-
 	venv := filepath.Join(dir, ".venv")
-	for i, cmd := range got[1:] {
-		if cmd.Dir != dir {
-			t.Errorf("cmd %d Dir = %q, want %s", i+1, cmd.Dir, dir)
-		}
-		env := envMap(cmd.Env)
-		if env["UV_PROJECT_ENVIRONMENT"] != venv {
-			t.Errorf("cmd %d UV_PROJECT_ENVIRONMENT = %q, want %q", i+1, env["UV_PROJECT_ENVIRONMENT"], venv)
-		}
-		if env["UV_PYTHON_PREFERENCE"] != "only-managed" {
-			t.Errorf("cmd %d UV_PYTHON_PREFERENCE = %q", i+1, env["UV_PYTHON_PREFERENCE"])
-		}
+	env := envMap(got.Env)
+	if env["UV_PROJECT_ENVIRONMENT"] != venv {
+		t.Errorf("UV_PROJECT_ENVIRONMENT = %q, want %q", env["UV_PROJECT_ENVIRONMENT"], venv)
+	}
+	if env["UV_PYTHON_PREFERENCE"] != "only-managed" {
+		t.Errorf("UV_PYTHON_PREFERENCE = %q", env["UV_PYTHON_PREFERENCE"])
 	}
 }
 
@@ -72,25 +60,84 @@ func TestSyncProjectFrozenWhenLockfilePresent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var got []*exec.Cmd
+	var got *exec.Cmd
 	u := UV{
 		Bin:       filepath.Join(t.TempDir(), "uv"),
 		CacheDir:  t.TempDir(),
 		PythonDir: t.TempDir(),
 		Run: func(cmd *exec.Cmd) error {
-			got = append(got, snapshotCmd(cmd))
+			got = snapshotCmd(cmd)
 			return nil
 		},
 	}
 	if err := u.SyncProject(dir); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 {
-		t.Fatalf("runs = %d, want 3", len(got))
+	want := []string{u.Bin, "sync", "--frozen", "--no-dev", "--no-editable", "--python", DefaultPython}
+	if got == nil || strings.Join(got.Args, " ") != strings.Join(want, " ") {
+		t.Fatalf("sync = %v, want %v", got, want)
 	}
-	want := []string{u.Bin, "sync", "--python", DefaultPython, "--frozen", "--no-dev", "--no-editable"}
-	if strings.Join(got[2].Args, " ") != strings.Join(want, " ") {
-		t.Errorf("sync = %q, want %q", got[2].Args, want)
+}
+
+func TestSyncProjectUsesPythonVersionFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".python-version"), []byte("# pin\n\n3.11\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var got *exec.Cmd
+	u := UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			got = snapshotCmd(cmd)
+			return nil
+		},
+	}
+	if err := u.SyncProject(dir); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{u.Bin, "sync", "--no-dev", "--no-editable"}
+	if got == nil || strings.Join(got.Args, " ") != strings.Join(want, " ") {
+		t.Fatalf("sync = %v, want %v", got, want)
+	}
+	if got.Dir != dir {
+		t.Errorf("Dir = %q, want %s", got.Dir, dir)
+	}
+}
+
+func TestSyncProjectFrozenUsesPythonVersionFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"echo\"\nversion = \"0.1.0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "uv.lock"), []byte("# lock\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".python-version"), []byte("3.13.1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var got *exec.Cmd
+	u := UV{
+		Bin:       filepath.Join(t.TempDir(), "uv"),
+		CacheDir:  t.TempDir(),
+		PythonDir: t.TempDir(),
+		Run: func(cmd *exec.Cmd) error {
+			got = snapshotCmd(cmd)
+			return nil
+		},
+	}
+	if err := u.SyncProject(dir); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{u.Bin, "sync", "--frozen", "--no-dev", "--no-editable"}
+	if got == nil || strings.Join(got.Args, " ") != strings.Join(want, " ") || got.Dir != dir {
+		t.Fatalf("sync = %v, want %v in %s", got, want, dir)
 	}
 }
 
