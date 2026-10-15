@@ -8,13 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/registry"
-	"github.com/terracotta4u/golem/release"
 	"github.com/terracotta4u/golem/server/api"
 	"github.com/terracotta4u/golem/server/web"
 )
@@ -32,7 +30,6 @@ type Options struct {
 	Registry *registry.Registry
 
 	Version string
-	Release *release.Checker
 }
 
 type Server struct {
@@ -47,10 +44,6 @@ type Server struct {
 	chat       *api.Chat
 	webChat    *web.Chat
 	reg        *registry.Registry
-
-	updateOnce sync.Once
-	update     release.Status
-	updateOK   bool
 }
 
 func New(opts Options) *Server {
@@ -123,7 +116,6 @@ func (s *Server) Listen(ctx context.Context, ready func()) error {
 		}
 	}
 	fmt.Fprintln(os.Stderr)
-	go s.reportUpdate(ctx, os.Stderr)
 	if ready != nil {
 		ready()
 	}
