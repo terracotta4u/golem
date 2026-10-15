@@ -5,10 +5,9 @@ weight: 20
 draft: false
 ---
 
-These pages cover the CLI, config, memory, skills, and updates.
+These pages cover the CLI, config, memory, and updates.
 
 - [CLI](cli.md)
 - [Configuration](configuration.md)
 - [Memory](memory.md)
-- [Skills](skills.md)
 - [Updates](updates.md)
