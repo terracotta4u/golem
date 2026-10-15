@@ -84,9 +84,6 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if err := os.WriteFile(gitConfig, []byte("[core]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(src, ".python-version"), []byte("3.10\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
 
 	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
@@ -112,8 +109,76 @@ func TestInstallSkipsVenvAndJunk(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, ".git")); !os.IsNotExist(err) {
 		t.Fatal("copied .git")
 	}
-	if _, err := os.Stat(filepath.Join(dest, ".python-version")); !os.IsNotExist(err) {
-		t.Fatal("copied .python-version")
+}
+
+func TestInstallUsesPythonVersionFile(t *testing.T) {
+	src := t.TempDir()
+	destRoot := t.TempDir()
+	writePythonSrc(t, src)
+	if err := os.WriteFile(filepath.Join(src, ".python-version"), []byte("3.11\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	bin := filepath.Join(t.TempDir(), "uv")
+	var got []*exec.Cmd
+	orig := ensureRuntime
+	ensureRuntime = func() (runtime.UV, error) {
+		return runtime.UV{
+			Bin:       bin,
+			CacheDir:  t.TempDir(),
+			PythonDir: t.TempDir(),
+			Run: func(cmd *exec.Cmd) error {
+				got = append(got, &exec.Cmd{
+					Args: append([]string{}, cmd.Args...),
+					Dir:  cmd.Dir,
+				})
+				writeVenvScript(t, cmd.Dir, "python")
+				return nil
+			},
+		}, nil
+	}
+	t.Cleanup(func() { ensureRuntime = orig })
+
+	if _, err := Install(src, destRoot, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("uv runs = %d, want 3", len(got))
+	}
+	wantInstall := []string{bin, "python", "install", "3.11"}
+	if strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") {
+		t.Errorf("install = %q, want %q", got[0].Args, wantInstall)
+	}
+	wantVenv := []string{bin, "venv", "--python", "3.11", ".venv"}
+	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
+		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
+	}
+	wantSync := []string{bin, "sync", "--python", "3.11", "--no-dev", "--no-editable"}
+	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
+		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
+	}
+
+	dest := filepath.Join(destRoot, "echo")
+	data, err := os.ReadFile(filepath.Join(dest, ".python-version"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "3.11\n" {
+		t.Errorf(".python-version = %q, want 3.11", data)
+	}
+}
+
+func TestInstallRejectsInvalidPythonVersion(t *testing.T) {
+	src := t.TempDir()
+	writePythonSrc(t, src)
+	if err := os.WriteFile(filepath.Join(src, ".python-version"), []byte("latest\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stubEchoUV(t)
+
+	_, err := Install(src, t.TempDir(), Options{})
+	if err == nil || !strings.Contains(err.Error(), `invalid Python version "latest"`) {
+		t.Fatalf("error = %v, want invalid Python version", err)
 	}
 }
 
