@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/runtime"
 	"github.com/terracotta4u/golem/supervisor"
@@ -20,12 +20,12 @@ import (
 
 func TestServeRefusesWhenLockHeld(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	unlock, err := conf.HoldServe()
+	unlock, err := config.HoldServe()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer unlock()
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 	app, err := loadApp()
@@ -46,7 +46,7 @@ func TestServeHoldsServeLock(t *testing.T) {
 	}
 	addr := ln.Addr().String()
 	ln.Close()
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 	app, err := loadApp()
@@ -62,7 +62,7 @@ func TestServeHoldsServeLock(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	held := false
 	for time.Now().Before(deadline) {
-		unlock, ok, err := conf.TryHoldServe()
+		unlock, ok, err := config.TryHoldServe()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,10 +92,10 @@ func TestServeStartsConfiguredExtension(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	extDir, err := conf.ExtensionsDir()
+	extDir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,8 +146,8 @@ func TestRunningExtensionsFillsFromInstall(t *testing.T) {
 	dir := writeProject(t, root, "echo")
 	script := writeVenvEcho(t, dir)
 
-	got, err := runningExtensions(conf.Conf{
-		Extensions: map[string]conf.Extension{
+	got, err := runningExtensions(config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"TOKEN": "x"}},
 		},
 	}, root)
@@ -178,8 +178,8 @@ func TestPrepareExtension(t *testing.T) {
 		t.Fatalf("list = %d, want 1", len(list))
 	}
 
-	got, err := prepareExtension(conf.Conf{
-		Extensions: map[string]conf.Extension{
+	got, err := prepareExtension(config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Env: map[string]string{"TOKEN": "x"}},
 		},
 	}, list[0])
@@ -223,7 +223,7 @@ entrypoint = "golem_echo:Echo"
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := prepareExtension(conf.Conf{}, list[0])
+	got, err := prepareExtension(config.Config{}, list[0])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestStartNamedExtensionAddsProcess(t *testing.T) {
 	defer cancel()
 	sup.Start(ctx)
 
-	if err := startNamedExtension(conf.Conf{}, root, sup, "echo"); err != nil {
+	if err := startNamedExtension(config.Config{}, root, sup, "echo"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -281,19 +281,19 @@ func TestStartNamedExtensionMissingErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sup.Start(ctx)
-	if err := startNamedExtension(conf.Conf{}, t.TempDir(), sup, "echo"); err == nil {
+	if err := startNamedExtension(config.Config{}, t.TempDir(), sup, "echo"); err == nil {
 		t.Fatal("expected error")
 	}
 	cancel()
 	sup.Wait()
 }
 
-func TestRunningExtensionsStartsWithoutConf(t *testing.T) {
+func TestRunningExtensionsStartsWithoutConfig(t *testing.T) {
 	root := t.TempDir()
 	dir := writeProject(t, root, "echo")
 	script := writeVenvEcho(t, dir)
 
-	got, err := runningExtensions(conf.Conf{}, root)
+	got, err := runningExtensions(config.Config{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	})
 	t.Cleanup(restore)
 
-	got, err := runningExtensions(conf.Conf{}, root)
+	got, err := runningExtensions(config.Config{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +338,7 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	}
 
 	runs = 0
-	got, err = runningExtensions(conf.Conf{}, root)
+	got, err = runningExtensions(config.Config{}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,9 +350,9 @@ func TestRunningExtensionsRepairsMissingVenv(t *testing.T) {
 	}
 }
 
-func TestRunningExtensionsIgnoresConfWithoutInstall(t *testing.T) {
-	got, err := runningExtensions(conf.Conf{
-		Extensions: map[string]conf.Extension{"echo": {}},
+func TestRunningExtensionsIgnoresConfigWithoutInstall(t *testing.T) {
+	got, err := runningExtensions(config.Config{
+		Extensions: map[string]config.Extension{"echo": {}},
 	}, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -373,7 +373,7 @@ func TestRunningExtensionsNameMismatch(t *testing.T) {
 	}
 
 	stderr := captureStderr(t, func() {
-		got, err := runningExtensions(conf.Conf{}, root)
+		got, err := runningExtensions(config.Config{}, root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -403,7 +403,7 @@ func TestRunningExtensionsSkipsUnprepared(t *testing.T) {
 	t.Cleanup(restore)
 
 	stderr := captureStderr(t, func() {
-		got, err := runningExtensions(conf.Conf{}, root)
+		got, err := runningExtensions(config.Config{}, root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -426,10 +426,10 @@ func TestServeStartsWhenOtherExtensionBroken(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	extDir, err := conf.ExtensionsDir()
+	extDir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,10 +491,10 @@ func TestServeStartsVenvExtension(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
-	extDir, err := conf.ExtensionsDir()
+	extDir, err := config.ExtensionsDir()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,6 @@
-package conf
+package config
 
-func migrate(cfg *Conf) bool {
+func migrate(cfg *Config) bool {
 	d := defaults()
 	changed := false
 	if cfg.DefaultModel.Provider == "" {

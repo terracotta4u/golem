@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/terracotta4u/golem/agent"
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/conversation"
 	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
@@ -680,13 +680,13 @@ func TestRegisteredToolIsCalled(t *testing.T) {
 
 func TestRegisteredProviderServesTurn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.DefaultModel.Provider = "stub"
 	cfg.DefaultModel.Model = "stub-model"
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -716,7 +716,7 @@ func TestRegisteredProviderServesTurn(t *testing.T) {
 	}
 	s := server.New(server.Options{
 		Agent: agent.New(registry.BindChat(reg, func() (string, string, error) {
-			c, _, err := conf.Load()
+			c, _, err := config.Load()
 			if err != nil {
 				return "", "", err
 			}

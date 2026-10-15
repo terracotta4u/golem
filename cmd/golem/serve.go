@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
 	"github.com/terracotta4u/golem/server"
 	"github.com/terracotta4u/golem/supervisor"
@@ -50,7 +50,7 @@ func serve(ctx context.Context, app *app, listen, publicURL, token string) error
 	// Held until this process exits so CLI remove and force-add can see that
 	// extension children belong to a running server. A taken lock means
 	// another serve is up, or a CLI command is in the middle of a change.
-	unlock, ok, err := conf.TryHoldServe()
+	unlock, ok, err := config.TryHoldServe()
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func serve(ctx context.Context, app *app, listen, publicURL, token string) error
 	}
 	fmt.Fprintf(os.Stderr, "Token: %s\n\n", token)
 
-	extRoot, err := conf.ExtensionsDir()
+	extRoot, err := config.ExtensionsDir()
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func serve(ctx context.Context, app *app, listen, publicURL, token string) error
 		Registry: app.reg,
 		Version:  version,
 		StartExtension: func(name string) error {
-			cfg, _, err := conf.Load()
+			cfg, _, err := config.Load()
 			if err != nil {
 				return err
 			}
@@ -104,7 +104,7 @@ func serve(ctx context.Context, app *app, listen, publicURL, token string) error
 	return err
 }
 
-func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Process, error) {
+func runningExtensions(cfg config.Config, extRoot string) ([]supervisor.Process, error) {
 	list, err := extension.List(extRoot)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func runningExtensions(cfg conf.Conf, extRoot string) ([]supervisor.Process, err
 	return out, nil
 }
 
-func startNamedExtension(cfg conf.Conf, extRoot string, sup *supervisor.Supervisor, name string) error {
+func startNamedExtension(cfg config.Config, extRoot string, sup *supervisor.Supervisor, name string) error {
 	dir := filepath.Join(extRoot, name)
 	p, err := extension.Load(dir)
 	if err != nil {
@@ -139,7 +139,7 @@ func startNamedExtension(cfg conf.Conf, extRoot string, sup *supervisor.Supervis
 	return sup.Add(ext)
 }
 
-func prepareExtension(cfg conf.Conf, p extension.Project) (supervisor.Process, error) {
+func prepareExtension(cfg config.Config, p extension.Project) (supervisor.Process, error) {
 	entry := cfg.Extensions[p.Name]
 	if err := extension.EnsureVenv(p.Dir, p); err != nil {
 		return supervisor.Process{}, err

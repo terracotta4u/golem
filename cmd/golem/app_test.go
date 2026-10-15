@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/provider"
 )
 
 func TestLoadAppWiresMemory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -21,7 +21,7 @@ func TestLoadAppWiresMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, err := conf.MemoriesDB()
+	path, err := config.MemoriesDB()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,12 +50,12 @@ func TestLoadAppWiresMemory(t *testing.T) {
 
 func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.Memory.Embedding.Provider = "ollama"
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,12 +80,12 @@ func TestLoadAppUnknownEmbedderWiresLazyIndex(t *testing.T) {
 
 func TestLoadAppSkipsDisabledMemory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.Memory = nil
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -96,7 +96,7 @@ func TestLoadAppSkipsDisabledMemory(t *testing.T) {
 	if app.agent.Memories.Store != nil || app.agent.Memories.Search != nil || app.agent.Memories.Index != nil {
 		t.Fatal("memory was attached while disabled")
 	}
-	path, err := conf.MemoriesDB()
+	path, err := config.MemoriesDB()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,13 +107,13 @@ func TestLoadAppSkipsDisabledMemory(t *testing.T) {
 
 func TestLoadAppKeepsExplicitZeroMemory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.Memory.BudgetTokens = 0
 	cfg.Memory.MinSimilarity = 0
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,7 +131,7 @@ func TestLoadAppKeepsExplicitZeroMemory(t *testing.T) {
 
 func TestLoadAppWiresFast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, _, err := conf.Load(); err != nil {
+	if _, _, err := config.Load(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -146,13 +146,13 @@ func TestLoadAppWiresFast(t *testing.T) {
 
 func TestLoadAppUnknownChatProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.FastModel.Provider = "ollama"
 	cfg.FastModel.Model = "llama3.2"
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 

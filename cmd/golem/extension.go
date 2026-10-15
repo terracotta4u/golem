@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/extension"
 )
 
@@ -66,7 +66,7 @@ func completeInstalledExtensions(cmd *cobra.Command, args []string, toComplete s
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
@@ -90,7 +90,7 @@ func runExtensionAdd(cmd *cobra.Command, source string, force bool, ref string) 
 		}
 		defer unlock()
 	}
-	destRoot, err := conf.ExtensionsDir()
+	destRoot, err := config.ExtensionsDir()
 	if err != nil {
 		return err
 	}
@@ -101,8 +101,8 @@ func runExtensionAdd(cmd *cobra.Command, source string, force bool, ref string) 
 	if err != nil {
 		return err
 	}
-	if err := conf.Update(func(cfg *conf.Conf) error {
-		conf.SetExtensionOrigin(cfg, p.Name, p.Origin.Source, p.Origin.Ref, p.Origin.Revision)
+	if err := config.Update(func(cfg *config.Config) error {
+		config.SetExtensionOrigin(cfg, p.Name, p.Origin.Source, p.Origin.Ref, p.Origin.Revision)
 		return nil
 	}); err != nil {
 		return err
@@ -112,7 +112,7 @@ func runExtensionAdd(cmd *cobra.Command, source string, force bool, ref string) 
 }
 
 func runExtensionList(cmd *cobra.Command) error {
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func runExtensionList(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	cfg, _, err := conf.Load()
+	cfg, _, err := config.Load()
 	if err != nil {
 		return err
 	}
@@ -138,15 +138,15 @@ func runExtensionRemove(cmd *cobra.Command, name string) error {
 	}
 	defer unlock()
 
-	root, err := conf.ExtensionsDir()
+	root, err := config.ExtensionsDir()
 	if err != nil {
 		return err
 	}
 	if err := extension.Remove(root, name); err != nil {
 		return err
 	}
-	if err := conf.Update(func(cfg *conf.Conf) error {
-		conf.RemoveExtension(cfg, name)
+	if err := config.Update(func(cfg *config.Config) error {
+		config.RemoveExtension(cfg, name)
 		return nil
 	}); err != nil {
 		return err
@@ -159,7 +159,7 @@ func runExtensionRemove(cmd *cobra.Command, name string) error {
 // and keeps it until unlock. The caller holds it across the file and config
 // change so serve cannot start in the middle.
 func holdUnlessServing() (func(), error) {
-	unlock, ok, err := conf.TryHoldServe()
+	unlock, ok, err := config.TryHoldServe()
 	if err != nil {
 		return nil, err
 	}

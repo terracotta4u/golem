@@ -1,4 +1,4 @@
-package conf
+package config
 
 import (
 	"encoding/json"
@@ -11,10 +11,10 @@ import (
 
 const (
 	dirName  = ".golem"
-	fileName = "conf.json"
+	fileName = "config.json"
 )
 
-type Conf struct {
+type Config struct {
 	DefaultModel  ModelConfig          `json:"default_model"`
 	FastModel     ModelConfig          `json:"fast_model"`
 	MaxToolRounds int                  `json:"max_tool_rounds,omitempty"`
@@ -112,9 +112,9 @@ func UVPythonDir() (string, error) {
 	return filepath.Join(dir, "python"), nil
 }
 
-// Load creates ~/.golem and a default conf on first run, then reads the conf.
-// created is true when the conf file did not already exist.
-func Load() (cfg Conf, created bool, err error) {
+// Load creates ~/.golem and a default config on first run, then reads the config.
+// created is true when the config file did not already exist.
+func Load() (cfg Config, created bool, err error) {
 	err = withLock(func() error {
 		var loadErr error
 		cfg, created, loadErr = loadUnlocked()
@@ -123,41 +123,41 @@ func Load() (cfg Conf, created bool, err error) {
 	return cfg, created, err
 }
 
-func loadUnlocked() (cfg Conf, created bool, err error) {
+func loadUnlocked() (cfg Config, created bool, err error) {
 	path, err := filePath()
 	if err != nil {
-		return Conf{}, false, err
+		return Config{}, false, err
 	}
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		cfg := defaults()
 		if err := write(path, cfg); err != nil {
-			return Conf{}, false, err
+			return Config{}, false, err
 		}
 		return cfg, true, nil
 	}
 	if err != nil {
-		return Conf{}, false, fmt.Errorf("read %s: %w", path, err)
+		return Config{}, false, fmt.Errorf("read %s: %w", path, err)
 	}
 
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return Conf{}, false, fmt.Errorf("parse %s: %w", path, err)
+		return Config{}, false, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if migrate(&cfg) {
 		if err := write(path, cfg); err != nil {
-			return Conf{}, false, err
+			return Config{}, false, err
 		}
 	}
 	return cfg, false, nil
 }
 
-func write(path string, cfg Conf) error {
+func write(path string, cfg Config) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode conf: %w", err)
+		return fmt.Errorf("encode config: %w", err)
 	}
 	data = append(data, '\n')
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".conf.json.*")
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".config.json.*")
 	if err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
@@ -180,7 +180,7 @@ func write(path string, cfg Conf) error {
 	return nil
 }
 
-func Save(cfg Conf) error {
+func Save(cfg Config) error {
 	return withLock(func() error {
 		path, err := filePath()
 		if err != nil {
@@ -190,9 +190,9 @@ func Save(cfg Conf) error {
 	})
 }
 
-// Update reloads conf, applies fn, and writes it back while holding the
-// conf lock, so a concurrent Save or Update cannot drop this edit.
-func Update(fn func(*Conf) error) error {
+// Update reloads config, applies fn, and writes it back while holding the
+// config lock, so a concurrent Save or Update cannot drop this edit.
+func Update(fn func(*Config) error) error {
 	return withLock(func() error {
 		cfg, _, err := loadUnlocked()
 		if err != nil {
@@ -217,13 +217,13 @@ func withLock(fn func() error) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
 	}
-	f, err := os.OpenFile(filepath.Join(dir, "conf.json.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(filepath.Join(dir, "config.json.lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return fmt.Errorf("lock conf: %w", err)
+		return fmt.Errorf("lock config: %w", err)
 	}
 	defer f.Close()
 	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
-		return fmt.Errorf("lock conf: %w", err)
+		return fmt.Errorf("lock config: %w", err)
 	}
 	defer unix.Flock(int(f.Fd()), unix.LOCK_UN)
 	return fn()
@@ -240,11 +240,11 @@ func filePath() (string, error) {
 	return filepath.Join(dir, fileName), nil
 }
 
-func RemoveExtension(cfg *Conf, name string) {
+func RemoveExtension(cfg *Config, name string) {
 	delete(cfg.Extensions, name)
 }
 
-func SetExtensionOrigin(cfg *Conf, name, source, ref, revision string) {
+func SetExtensionOrigin(cfg *Config, name, source, ref, revision string) {
 	if cfg.Extensions == nil {
 		cfg.Extensions = make(map[string]Extension)
 	}

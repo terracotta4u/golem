@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/terracotta4u/golem/conf"
+	"github.com/terracotta4u/golem/config"
 	"github.com/terracotta4u/golem/server"
 )
 
@@ -118,14 +118,14 @@ func TestGeneralSettingsPage(t *testing.T) {
 	}
 }
 
-func TestSettingsShowsConf(t *testing.T) {
+func TestSettingsShowsConfig(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg := conf.Conf{MaxToolRounds: 12}
+	cfg := config.Config{MaxToolRounds: 12}
 	cfg.DefaultModel.Provider = "openrouter"
 	cfg.DefaultModel.Model = "openai/gpt-4o"
 	cfg.FastModel.Provider = "openrouter"
 	cfg.FastModel.Model = "openai/gpt-4o-mini"
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -146,10 +146,10 @@ func TestSettingsShowsConf(t *testing.T) {
 
 func TestSettingsGeneralFormKeepsOtherProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg := conf.Conf{MaxToolRounds: 4}
-	cfg.DefaultModel = conf.ModelConfig{Provider: "ollama", Model: "llama3.2"}
-	cfg.FastModel = conf.ModelConfig{Provider: "anthropic", Model: "claude-haiku"}
-	if err := conf.Save(cfg); err != nil {
+	cfg := config.Config{MaxToolRounds: 4}
+	cfg.DefaultModel = config.ModelConfig{Provider: "ollama", Model: "llama3.2"}
+	cfg.FastModel = config.ModelConfig{Provider: "anthropic", Model: "claude-haiku"}
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -170,7 +170,7 @@ func TestSettingsGeneralFormKeepsOtherProvider(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", status, text)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,11 +185,11 @@ func TestSettingsGeneralFormKeepsOtherProvider(t *testing.T) {
 	}
 }
 
-func TestSettingsSaveUpdatesConf(t *testing.T) {
+func TestSettingsSaveUpdatesConfig(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Model = "old-model"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -210,7 +210,7 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 		t.Fatalf("body = %q, want saved model", body)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,13 +223,13 @@ func TestSettingsSaveUpdatesConf(t *testing.T) {
 
 func TestSettingsSavePreservesExtensions(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{
-		Extensions: map[string]conf.Extension{
+	old := config.Config{
+		Extensions: map[string]config.Extension{
 			"echo": {Source: "/tmp/echo", Env: map[string]string{"ECHO_TOKEN": "x"}},
 		},
 	}
 	old.DefaultModel.Model = "old-model"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -246,7 +246,7 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,10 +258,10 @@ func TestSettingsSavePreservesExtensions(t *testing.T) {
 
 func TestSettingsSaveRequiresProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Provider = "old-provider"
 	old.DefaultModel.Model = "old-model"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -278,7 +278,7 @@ func TestSettingsSaveRequiresProvider(t *testing.T) {
 		t.Fatalf("status = %d, want 400", status)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,11 +289,11 @@ func TestSettingsSaveRequiresProvider(t *testing.T) {
 
 func TestSettingsSaveRequiresFastProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Model = "old-default"
 	old.FastModel.Provider = "old-fast-provider"
 	old.FastModel.Model = "old-fast"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -310,7 +310,7 @@ func TestSettingsSaveRequiresFastProvider(t *testing.T) {
 		t.Fatalf("status = %d, want 400", status)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,9 +321,9 @@ func TestSettingsSaveRequiresFastProvider(t *testing.T) {
 
 func TestSettingsSaveRequiresModel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Model = "old-model"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -340,7 +340,7 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 		t.Fatalf("status = %d, want 400", status)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,9 +351,9 @@ func TestSettingsSaveRequiresModel(t *testing.T) {
 
 func TestSettingsSaveAcceptsOtherProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Model = "old-model"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -370,7 +370,7 @@ func TestSettingsSaveAcceptsOtherProvider(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,9 +381,9 @@ func TestSettingsSaveAcceptsOtherProvider(t *testing.T) {
 
 func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{MaxToolRounds: 4}
+	old := config.Config{MaxToolRounds: 4}
 	old.DefaultModel.Model = "old-model"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -401,7 +401,7 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 		t.Fatalf("status = %d, want 400", status)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,10 +412,10 @@ func TestSettingsSaveRejectsBadMaxToolRounds(t *testing.T) {
 
 func TestSettingsSaveRequiresFastModel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Model = "old-default"
 	old.FastModel.Model = "old-fast"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -432,7 +432,7 @@ func TestSettingsSaveRequiresFastModel(t *testing.T) {
 		t.Fatalf("status = %d, want 400", status)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,10 +443,10 @@ func TestSettingsSaveRequiresFastModel(t *testing.T) {
 
 func TestSettingsSaveAcceptsOtherFastProvider(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	old := conf.Conf{}
+	old := config.Config{}
 	old.DefaultModel.Model = "old-model"
 	old.FastModel.Model = "old-fast"
-	if err := conf.Save(old); err != nil {
+	if err := config.Save(old); err != nil {
 		t.Fatal(err)
 	}
 
@@ -463,7 +463,7 @@ func TestSettingsSaveAcceptsOtherFastProvider(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -474,12 +474,12 @@ func TestSettingsSaveAcceptsOtherFastProvider(t *testing.T) {
 
 func TestSettingsSaveUpdatesFast(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	cfg := conf.Conf{}
+	cfg := config.Config{}
 	cfg.DefaultModel.Provider = "openrouter"
 	cfg.DefaultModel.Model = "old-model"
 	cfg.FastModel.Provider = "openrouter"
 	cfg.FastModel.Model = "old-fast"
-	if err := conf.Save(cfg); err != nil {
+	if err := config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -496,7 +496,7 @@ func TestSettingsSaveUpdatesFast(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
 
-	got, _, err := conf.Load()
+	got, _, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
