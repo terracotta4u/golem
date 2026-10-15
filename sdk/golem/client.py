@@ -25,7 +25,7 @@ class GolemError(Exception):
 
 @dataclass(frozen=True)
 class TurnEvent:
-    """One SSE event from ``GET /v1/turns/{id}``.
+    """One SSE event from ``GET /v1/turns/{id}/events``.
 
     Attributes:
         name: Event type: ``log``, ``done``, or ``error``.
@@ -132,7 +132,7 @@ class Client:
             GolemError: The stream failed or an event was not JSON.
         """
         req = urllib.request.Request(
-            self.url + f"/v1/turns/{_path_segment(turn_id)}",
+            self.url + f"/v1/turns/{_path_segment(turn_id)}/events",
             headers=self._headers(),
             method="GET",
         )
