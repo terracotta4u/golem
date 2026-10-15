@@ -162,7 +162,7 @@ func TestRegisterToolRejectsBuiltin(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	for _, name := range []string{"read", "write", "edit", "shell", "skill"} {
+	for _, name := range []string{"read", "write", "edit", "shell"} {
 		status, raw := postJSON(t, ts.URL+"/v1/extensions/register", "secret", map[string]any{
 			"name":         "golem-weather",
 			"callback_url": "http://127.0.0.1:9",

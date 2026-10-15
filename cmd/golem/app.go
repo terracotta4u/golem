@@ -51,7 +51,7 @@ func loadApp() (*app, error) {
 		}
 	}()
 
-	tools := tool.Builtins(nil)
+	tools := tool.Builtins()
 
 	reg := registry.New("")
 

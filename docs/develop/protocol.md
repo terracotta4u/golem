@@ -77,7 +77,7 @@ Embeddings-only provider entry:
 
 Two live extensions cannot share a provider `id` (`409`).
 
-A `tools` entry requires `name` and `parameters` (a JSON Schema object). `description` is optional. The names `read`, `write`, `edit`, `shell`, and `skill` are reserved (`409`). Two live extensions cannot share a tool name (`409`).
+A `tools` entry requires `name` and `parameters` (a JSON Schema object). `description` is optional. The names `read`, `write`, `edit`, and `shell` are reserved (`409`). Two live extensions cannot share a tool name (`409`).
 
 ```json
 {
