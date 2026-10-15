@@ -196,8 +196,11 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "conversations.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "golem.db")); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "conversations.db")); !os.IsNotExist(err) {
+		t.Fatalf("conversations.db: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "conversations")); !os.IsNotExist(err) {
 		t.Fatalf("conversations directory present: %v", err)
