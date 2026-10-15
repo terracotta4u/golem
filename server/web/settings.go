@@ -1,29 +1,24 @@
 package web
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/terracotta4u/golem/conf"
-	"github.com/terracotta4u/golem/release"
 )
 
 const maxBody = 1 << 20
 
 // Settings serves the settings pages.
-// Update reports whether a newer release was found. Nil skips the check.
 type Settings struct {
 	pages   *Pages
 	version string
-	update  func(context.Context) (release.Status, bool)
 	remote  bool
 }
 
-func NewSettings(pages *Pages, version string, update func(context.Context) (release.Status, bool), remote bool) *Settings {
-	return &Settings{pages: pages, version: version, update: update, remote: remote}
+func NewSettings(pages *Pages, version string, remote bool) *Settings {
+	return &Settings{pages: pages, version: version, remote: remote}
 }
 
 func (h *Settings) Page(w http.ResponseWriter, r *http.Request) {
@@ -93,24 +88,21 @@ func (h *Settings) Save(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Settings) About(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-	var st release.Status
-	var checked bool
-	if h.update != nil {
-		st, checked = h.update(ctx)
-	}
-	ver := release.Display(h.version)
+	ver := displayVersion(h.version)
 	h.pages.Render(w, "settings-about", map[string]any{
-		"Title":     "About",
-		"Version":   ver,
-		"Latest":    release.Display(st.Latest),
-		"Available": st.Available,
-		"Checked":   checked,
-		"Dev":       ver == "dev",
-		"Install":   release.InstallCommand,
-		"PageCSS":   "settings.css",
+		"Title":   "About",
+		"Version": ver,
+		"Dev":     ver == "dev",
+		"PageCSS": "settings.css",
 	})
+}
+
+func displayVersion(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "dev"
+	}
+	return strings.TrimPrefix(v, "v")
 }
 
 func parseModelConfig(r *http.Request, providerField, modelField string) (conf.ModelConfig, string) {
