@@ -5,7 +5,7 @@ weight: 30
 draft: false
 ---
 
-Golem runs installed Python packages as subprocesses. Each child gets `GOLEM_URL` (the local server) and `GOLEM_TOKEN`. All `/v1` requests, in both directions, use `Authorization: Bearer <token>` and `Content-Type: application/json`. The Python client is [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) (source in [`sdk/`](../../sdk/)).
+Golem runs installed Python packages as subprocesses. Each child gets `GOLEM_URL` (the local server) and `GOLEM_TOKEN`. When a token is set, every `/v1` request in either direction sends `Authorization: Bearer <token>`. Requests with a JSON body also send `Content-Type: application/json`. The Python client is [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) (source in [`sdk/`](../../sdk/)).
 
 A process can be a channel, a provider, and a source of tools.
 
@@ -23,9 +23,9 @@ A process can be a channel, a provider, and a source of tools.
 {"channel": "telegram", "text": "hello"}
 ```
 
-`202` → `{"id": "<turn-id>"}`. `{id}` is the conversation id (a Telegram chat id, a Slack thread, etc.). It is unique across channels: the same id with a different `channel` returns `409`. Percent-encode the id so `/`, `?`, and `#` stay inside one path segment.
+`202` → `{"id": "<turn-id>"}`. `{id}` is the conversation id (a Telegram chat id, a Slack thread, etc.). It is unique across channels: the same id with a different `channel` returns `409`. Percent-encode the conversation id so `/`, `?`, and `#` stay inside one path segment.
 
-`GET /v1/turns/{id}` — SSE (`text/event-stream`). Events:
+`GET /v1/turns/{id}` — SSE (`text/event-stream`). Percent-encode the turn id the same way. Events:
 
 ```
 event: log
@@ -67,7 +67,7 @@ After binding a loopback HTTP server, register. Re-registering the same `name` r
 
 `providers`, `tools`, and `channels` are separate arrays. Omit an array when the extension does not advertise that kind. Empty arrays are omitted from `GET /v1/extensions`.
 
-A provider requires `id` (the name used in config `default_model.provider` or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. Golem calls `/v1/chat` only when `chat` is set, and `/v1/chat/structured` only when `structured` is set. `structured` does not count as chat. `chat` is optional for an embeddings-only or structured-only provider.
+A provider requires `id` (the name used in config `default_model.provider`, `fast_model.provider`, or `memory.embedding.provider`) and at least one of `chat`, `structured`, or `embed`. Golem calls `/v1/chat` only when `chat` is set, and `/v1/chat/structured` only when `structured` is set. `structured` does not count as chat. `chat` is optional for an embeddings-only or structured-only provider.
 
 Embeddings-only provider entry:
 
@@ -105,7 +105,7 @@ A `channels` entry requires `id`. The extension runs the loop itself. Golem list
 
 `200` → `{"ok": true}`. Registration expires **30 seconds** after the last successful register or heartbeat. Heartbeat must run on its own timer, not on the thread that handles a callback — a long call must not look like a dead process. Expiry, Remove on the extensions page, and stopping the process drop the extension, including its provider and its tools. A supervised process is removed when it exits. Heartbeat expiry is the backstop. After expiry, register again; heartbeat on an unknown name is `404`.
 
-`GET /v1/extensions` — live registrations (`name`, `callback_url`, `providers`, `tools`, `channels`).
+`GET /v1/extensions` — `{"extensions":[...]}`. Each live registration has `name`, `callback_url`, `providers`, `tools`, and `channels`.
 
 ## Callback API (Golem → extension)
 
@@ -182,7 +182,7 @@ Golem sends this when the model calls a tool from a live extension. The body is 
 {"city": "Lisbon"}
 ```
 
-`200` → `{"result": "sunny in Lisbon"}`. The result is text. A dict or list return value is JSON text, such as `{"result": "{\"temp\": 72}"}`. A raised exception is a non-200 error body. The tool is included at the start of each agent round and dropped when the extension expires.
+`200` → `{"result": "sunny in Lisbon"}`. The result is text. A dict or list return value is JSON text, such as `{"result": "{\"temp\": 72}"}`. Any other return value is its text form. A raised exception is HTTP 500 with an `error` object. The tool is included at the start of each agent round and dropped when the extension expires.
 
 ### Errors
 
