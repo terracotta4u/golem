@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -108,7 +107,7 @@ func TestSearchOmitsUnindexedAndWrongDimensions(t *testing.T) {
 
 func searchFixture(t *testing.T) (*Store, *Index) {
 	t.Helper()
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,10 +118,7 @@ func searchFixture(t *testing.T) (*Store, *Index) {
 		"User is building Golem.":               {1, 0},
 		query:                                   {1, 0},
 	}}
-	idx, err := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
-	if err != nil {
-		t.Fatal(err)
-	}
+	idx := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
 	return st, idx
 }
 

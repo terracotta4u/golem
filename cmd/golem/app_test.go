@@ -6,8 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/terracotta4u/golem/config"
+	"github.com/terracotta4u/golem/conversation"
+	"github.com/terracotta4u/golem/db"
+	"github.com/terracotta4u/golem/memory"
 	"github.com/terracotta4u/golem/provider"
 )
 
@@ -21,15 +25,16 @@ func TestLoadAppWiresMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, err := config.MemoriesDB()
+	defer app.Close()
+	dir, err := config.Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.Base(filepath.Dir(path)) != "memory" || filepath.Base(path) != "memories.db" {
-		t.Errorf("path = %q, want ~/.golem/memory/memories.db", path)
+	if _, err := os.Stat(filepath.Join(dir, db.FileName)); err != nil {
+		t.Fatalf("golem.db: %v", err)
 	}
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("memories.db: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "memory")); !os.IsNotExist(err) {
+		t.Fatalf("memory dir: %v", err)
 	}
 	if app.agent.Memories.Store == nil {
 		t.Fatal("Store is nil")
@@ -45,6 +50,47 @@ func TestLoadAppWiresMemory(t *testing.T) {
 	}
 	if app.agent.Memories.BudgetTokens != 800 {
 		t.Errorf("BudgetTokens = %d, want 800", app.agent.Memories.BudgetTokens)
+	}
+}
+
+func TestLoadAppSharesOneDatabase(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, _, err := config.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	app, err := loadApp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+
+	conv := conversation.New("cli")
+	conv.Title = "hello"
+	conv.UpdatedAt = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
+	conv.Messages = []provider.Message{{Role: "user", Content: "hi"}}
+	if err := app.conversations.Save(conv); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.agent.Memories.Store.Save(memory.Memory{
+		ID:             "mem-1",
+		Content:        "User prefers tea.",
+		ConversationID: conv.ID,
+		TurnID:         "turn-1",
+		CreatedAt:      conv.UpdatedAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var titles, contents int
+	if err := app.sqlDB.QueryRow(`SELECT COUNT(*) FROM conversations WHERE id = ?`, conv.ID).Scan(&titles); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.sqlDB.QueryRow(`SELECT COUNT(*) FROM memories WHERE id = 'mem-1'`).Scan(&contents); err != nil {
+		t.Fatal(err)
+	}
+	if titles != 1 || contents != 1 {
+		t.Fatalf("conversations = %d, memories = %d, want 1 and 1", titles, contents)
 	}
 }
 
@@ -93,15 +139,19 @@ func TestLoadAppSkipsDisabledMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer app.Close()
 	if app.agent.Memories.Store != nil || app.agent.Memories.Search != nil || app.agent.Memories.Index != nil {
 		t.Fatal("memory was attached while disabled")
 	}
-	path, err := config.MemoriesDB()
+	dir, err := config.Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("memories.db err = %v, want not exist", err)
+	if _, err := os.Stat(filepath.Join(dir, db.FileName)); err != nil {
+		t.Fatalf("golem.db: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "memories.db")); !os.IsNotExist(err) {
+		t.Fatalf("memories.db: %v", err)
 	}
 }
 

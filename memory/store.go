@@ -3,42 +3,38 @@ package memory
 import (
 	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
-	_ "modernc.org/sqlite"
+	"github.com/terracotta4u/golem/db"
 )
 
 type Store struct {
-	db *sql.DB
+	db    *sql.DB
+	owned bool
 }
 
-func Open(path string) (*Store, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return nil, fmt.Errorf("create %s: %w", filepath.Dir(path), err)
-	}
-
-	db, err := sql.Open("sqlite", path)
+// Open opens golem.db in dir. Close releases that connection.
+func Open(dir string) (*Store, error) {
+	sqlDB, err := db.Open(dir)
 	if err != nil {
-		return nil, fmt.Errorf("open memories: %w", err)
+		return nil, err
 	}
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS memories (
-			id TEXT PRIMARY KEY,
-			content TEXT NOT NULL,
-			conversation_id TEXT NOT NULL,
-			turn_id TEXT NOT NULL,
-			created_at TEXT NOT NULL
-		);
-	`); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create memories: %w", err)
+	return &Store{db: sqlDB, owned: true}, nil
+}
+
+// Share uses an open golem.db. The caller closes sqlDB.
+func Share(sqlDB *sql.DB) *Store {
+	return &Store{db: sqlDB}
+}
+
+func (s *Store) Close() error {
+	if !s.owned || s.db == nil {
+		return nil
 	}
-	return &Store{db: db}, nil
+	return s.db.Close()
 }
 
 func (s *Store) Save(m Memory) error {

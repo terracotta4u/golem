@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -259,7 +258,7 @@ func TestExtractedMemoryUsesTurnID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

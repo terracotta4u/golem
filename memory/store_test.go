@@ -2,13 +2,16 @@ package memory
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/terracotta4u/golem/db"
 )
 
 func TestSaveLoad(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +40,7 @@ func TestSaveLoad(t *testing.T) {
 }
 
 func TestLoadMissing(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +51,7 @@ func TestLoadMissing(t *testing.T) {
 }
 
 func TestSaveUpsert(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,7 @@ func TestSaveUpsert(t *testing.T) {
 }
 
 func TestListNewestFirst(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +123,8 @@ func TestListNewestFirst(t *testing.T) {
 }
 
 func TestReopenSameFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "memories.db")
-	st, err := Open(path)
+	dir := t.TempDir()
+	st, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +140,14 @@ func TestReopenSameFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	st2, err := Open(path)
+	if _, err := os.Stat(filepath.Join(dir, db.FileName)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "memories.db")); !os.IsNotExist(err) {
+		t.Fatalf("memories.db: %v", err)
+	}
+
+	st2, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

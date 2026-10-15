@@ -4,71 +4,35 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/terracotta4u/golem/db"
 	"github.com/terracotta4u/golem/provider"
-
-	_ "modernc.org/sqlite"
 )
 
 type DB struct {
-	db *sql.DB
+	db    *sql.DB
+	owned bool
 }
 
-func Open(golemDir string) (*DB, error) {
-	if err := os.MkdirAll(golemDir, 0o700); err != nil {
-		return nil, fmt.Errorf("create %s: %w", golemDir, err)
-	}
-
-	dsn := (&url.URL{
-		Scheme:   "file",
-		Path:     filepath.ToSlash(filepath.Join(golemDir, "conversations.db")),
-		RawQuery: "_foreign_keys=1&_busy_timeout=5000",
-	}).String()
-	db, err := sql.Open("sqlite", dsn)
+// Open opens golem.db in dir. Close releases that connection.
+func Open(dir string) (*DB, error) {
+	sqlDB, err := db.Open(dir)
 	if err != nil {
-		return nil, fmt.Errorf("open conversations: %w", err)
+		return nil, err
 	}
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS conversations (
-			id TEXT PRIMARY KEY,
-			channel TEXT NOT NULL,
-			title TEXT NOT NULL DEFAULT '',
-			updated_at TEXT NOT NULL
-		);
-		CREATE TABLE IF NOT EXISTS messages (
-			conversation_id TEXT NOT NULL,
-			seq INTEGER NOT NULL,
-			role TEXT NOT NULL,
-			content TEXT NOT NULL DEFAULT '',
-			tool_call_id TEXT NOT NULL DEFAULT '',
-			PRIMARY KEY (conversation_id, seq),
-			FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-		);
-		CREATE TABLE IF NOT EXISTS tool_calls (
-			conversation_id TEXT NOT NULL,
-			message_seq INTEGER NOT NULL,
-			call_seq INTEGER NOT NULL,
-			id TEXT NOT NULL,
-			type TEXT NOT NULL DEFAULT '',
-			name TEXT NOT NULL,
-			arguments TEXT NOT NULL DEFAULT '',
-			PRIMARY KEY (conversation_id, message_seq, call_seq),
-			FOREIGN KEY (conversation_id, message_seq)
-				REFERENCES messages(conversation_id, seq) ON DELETE CASCADE
-		);
-		CREATE INDEX IF NOT EXISTS conversations_by_updated ON conversations (updated_at DESC);
-	`); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create conversations: %w", err)
-	}
-	return &DB{db: db}, nil
+	return &DB{db: sqlDB, owned: true}, nil
+}
+
+// Share uses an open golem.db. The caller closes sqlDB.
+func Share(sqlDB *sql.DB) *DB {
+	return &DB{db: sqlDB}
 }
 
 func (s *DB) Close() error {
+	if !s.owned || s.db == nil {
+		return nil
+	}
 	return s.db.Close()
 }
 

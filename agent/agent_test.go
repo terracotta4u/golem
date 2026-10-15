@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -475,7 +474,7 @@ func TestSendExtractsUserAndFinalAssistant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,7 +541,7 @@ func TestSendExtractsWithFastProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -585,7 +584,7 @@ func TestSendReturnsBeforeExtractFinishes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -646,7 +645,7 @@ func TestRememberSavesWithoutSession(t *testing.T) {
 	p := &scriptedProvider{replies: []provider.Message{
 		{Role: "assistant", Content: `{"memories":["User prefers the Go standard library."]}`},
 	}}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -696,7 +695,7 @@ func TestSendBrokenExtractorStillReplies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -731,7 +730,7 @@ func TestSendBrokenIndexerStillSavesAndReplies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mem, err := memory.Open(filepath.Join(t.TempDir(), "memories.db"))
+	mem, err := memory.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

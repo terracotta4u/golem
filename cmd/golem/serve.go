@@ -42,7 +42,7 @@ func runServe(cmd *cobra.Command, addr, publicURL, token string) error {
 	if err != nil {
 		return err
 	}
-	defer app.conversations.Close()
+	defer app.Close()
 	return serve(cmd.Context(), app, addr, publicURL, token)
 }
 

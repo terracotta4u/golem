@@ -4,13 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestIndexWritesEmbedding(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,10 +25,7 @@ func TestIndexWritesEmbedding(t *testing.T) {
 	}
 
 	emb := &stubEmbedder{vecs: [][]float32{{0.25, 0.5, 0.75}}}
-	idx, err := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
-	if err != nil {
-		t.Fatal(err)
-	}
+	idx := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
 	if err := idx.Index(context.Background(), m); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +46,7 @@ func TestIndexWritesEmbedding(t *testing.T) {
 }
 
 func TestIndexEmbedErrorLeavesMemory(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,10 +61,7 @@ func TestIndexEmbedErrorLeavesMemory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	idx, err := NewIndex(st, &stubEmbedder{err: errString("timeout")}, "openrouter", "openai/text-embedding-3-small")
-	if err != nil {
-		t.Fatal(err)
-	}
+	idx := NewIndex(st, &stubEmbedder{err: errString("timeout")}, "openrouter", "openai/text-embedding-3-small")
 	if err := idx.Index(context.Background(), m); err == nil {
 		t.Fatal("want embed error")
 	}
@@ -86,7 +79,7 @@ func TestIndexEmbedErrorLeavesMemory(t *testing.T) {
 }
 
 func TestRebuildReindexesFromMemories(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,10 +105,7 @@ func TestRebuildReindexesFromMemories(t *testing.T) {
 	}
 
 	emb := &stubEmbedder{vecs: [][]float32{{0.25, 0.5}}}
-	idx, err := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
-	if err != nil {
-		t.Fatal(err)
-	}
+	idx := NewIndex(st, emb, "openrouter", "openai/text-embedding-3-small")
 	if err := idx.Index(context.Background(), one); err != nil {
 		t.Fatal(err)
 	}
@@ -145,14 +135,11 @@ func TestRebuildReindexesFromMemories(t *testing.T) {
 }
 
 func TestRebuildEmpty(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	idx, err := NewIndex(st, &stubEmbedder{vecs: [][]float32{{1}}}, "openrouter", "openai/text-embedding-3-small")
-	if err != nil {
-		t.Fatal(err)
-	}
+	idx := NewIndex(st, &stubEmbedder{vecs: [][]float32{{1}}}, "openrouter", "openai/text-embedding-3-small")
 	if err := idx.Rebuild(context.Background()); err != nil {
 		t.Fatal(err)
 	}

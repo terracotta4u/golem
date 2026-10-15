@@ -10,9 +10,8 @@ Golem keeps its state in `~/.golem`. The first `golem serve` creates it.
 | Path | Purpose |
 |---|---|
 | `~/.golem/config.json` | Models, memory settings, extension origins |
-| `~/.golem/conversations.db` | Chat history |
+| `~/.golem/golem.db` | Chat history and memory |
 | `~/.golem/extensions/` | Installed extension packages |
-| `~/.golem/memory/` | Memory database |
 | `~/.golem/runtime/` | Bundled `uv` and Python |
 
 ## Models
