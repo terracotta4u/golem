@@ -7,33 +7,20 @@ import (
 )
 
 func (u UV) SyncProject(dir string) error {
+	args := []string{"sync", "--no-dev", "--no-editable"}
+	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
+		args = []string{"sync", "--frozen", "--no-dev", "--no-editable"}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
 	version, err := projectPython(dir)
 	if err != nil {
 		return err
 	}
-	if err := u.installProjectPython(dir, version); err != nil {
-		return err
-	}
-	venv := filepath.Join(dir, ".venv")
-	venvArgs := []string{"venv"}
-	if version != "" {
-		venvArgs = append(venvArgs, "--python", version)
-	}
-	venvArgs = append(venvArgs, ".venv")
-	if err := u.run(u.projectCommand(dir, venv, venvArgs...)); err != nil {
-		return err
-	}
-	args := []string{"sync"}
 	if version != "" {
 		args = append(args, "--python", version)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
-		args = append(args, "--frozen")
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	args = append(args, "--no-dev", "--no-editable")
-	return u.run(u.projectCommand(dir, venv, args...))
+	return u.run(u.projectCommand(dir, filepath.Join(dir, ".venv"), args...))
 }
 
 // projectPython is DefaultPython when dir has no .python-version file.
@@ -47,23 +34,6 @@ func projectPython(dir string) (string, error) {
 		return DefaultPython, nil
 	}
 	return "", err
-}
-
-func (u UV) installProjectPython(dir, version string) error {
-	if version != "" {
-		return u.EnsurePython(version)
-	}
-	if err := os.MkdirAll(u.PythonDir, 0o700); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(u.CacheDir, 0o700); err != nil {
-		return err
-	}
-	cmd := Command(u.Bin, u.CacheDir, u.PythonDir, "python", "install")
-	cmd.Dir = dir
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	return u.run(cmd)
 }
 
 func (u UV) projectCommand(dir, venv string, args ...string) *exec.Cmd {

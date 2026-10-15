@@ -142,24 +142,16 @@ func TestInstallUsesPythonVersionFile(t *testing.T) {
 	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 {
-		t.Fatalf("uv runs = %d, want 3", len(got))
+	if len(got) != 1 {
+		t.Fatalf("uv runs = %d, want 1", len(got))
 	}
 	dest := filepath.Join(destRoot, "echo")
-	wantInstall := []string{bin, "python", "install"}
-	if strings.Join(got[0].Args, " ") != strings.Join(wantInstall, " ") {
-		t.Errorf("install = %q, want %q", got[0].Args, wantInstall)
+	wantSync := []string{bin, "sync", "--no-dev", "--no-editable"}
+	if strings.Join(got[0].Args, " ") != strings.Join(wantSync, " ") {
+		t.Errorf("sync = %q, want %q", got[0].Args, wantSync)
 	}
 	if got[0].Dir != dest {
-		t.Errorf("install Dir = %q, want %s", got[0].Dir, dest)
-	}
-	wantVenv := []string{bin, "venv", ".venv"}
-	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
-		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
-	}
-	wantSync := []string{bin, "sync", "--no-dev", "--no-editable"}
-	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
-		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
+		t.Errorf("sync Dir = %q, want %s", got[0].Dir, dest)
 	}
 
 	data, err := os.ReadFile(filepath.Join(dest, ".python-version"))
@@ -332,25 +324,21 @@ func TestInstallSyncsPyproject(t *testing.T) {
 	if _, err := Install(src, destRoot, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 {
-		t.Fatalf("uv runs = %d, want 3", len(got))
+	if len(got) != 1 {
+		t.Fatalf("uv runs = %d, want 1", len(got))
 	}
-	wantVenv := []string{bin, "venv", "--python", runtime.DefaultPython, ".venv"}
-	if strings.Join(got[1].Args, " ") != strings.Join(wantVenv, " ") {
-		t.Errorf("venv = %q, want %q", got[1].Args, wantVenv)
-	}
-	wantSync := []string{bin, "sync", "--python", runtime.DefaultPython, "--no-dev", "--no-editable"}
-	if strings.Join(got[2].Args, " ") != strings.Join(wantSync, " ") {
-		t.Errorf("sync = %q, want %q", got[2].Args, wantSync)
+	wantSync := []string{bin, "sync", "--no-dev", "--no-editable", "--python", runtime.DefaultPython}
+	if strings.Join(got[0].Args, " ") != strings.Join(wantSync, " ") {
+		t.Errorf("sync = %q, want %q", got[0].Args, wantSync)
 	}
 
 	dest := filepath.Join(destRoot, "echo")
-	venv := filepath.Join(got[1].Dir, ".venv")
-	if got[1].Dir != dest {
-		t.Errorf("uv Dir = %q, want dest %q", got[1].Dir, dest)
+	venv := filepath.Join(got[0].Dir, ".venv")
+	if got[0].Dir != dest {
+		t.Errorf("uv Dir = %q, want dest %q", got[0].Dir, dest)
 	}
 	env := map[string]string{}
-	for _, kv := range got[1].Env {
+	for _, kv := range got[0].Env {
 		k, v, ok := strings.Cut(kv, "=")
 		if ok {
 			env[k] = v
@@ -446,7 +434,6 @@ func TestInstallVenvUsesFinalPath(t *testing.T) {
 func writeVenvScript(t *testing.T, dir, name string) {
 	t.Helper()
 	if dir == "" {
-		// uv python install has no project Dir; do not write relative to the package.
 		return
 	}
 	path := venvScript(dir, name)
