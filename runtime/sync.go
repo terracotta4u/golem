@@ -7,16 +7,20 @@ import (
 )
 
 func (u UV) SyncProject(dir string) error {
-	if err := u.EnsurePython(DefaultPython); err != nil {
+	version, err := projectPython(dir)
+	if err != nil {
+		return err
+	}
+	if err := u.EnsurePython(version); err != nil {
 		return err
 	}
 	venv := filepath.Join(dir, ".venv")
-	if err := u.run(u.projectCommand(dir, venv, "venv", "--python", DefaultPython, ".venv")); err != nil {
+	if err := u.run(u.projectCommand(dir, venv, "venv", "--python", version, ".venv")); err != nil {
 		return err
 	}
-	args := []string{"sync", "--python", DefaultPython, "--no-dev", "--no-editable"}
+	args := []string{"sync", "--python", version, "--no-dev", "--no-editable"}
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
-		args = []string{"sync", "--python", DefaultPython, "--frozen", "--no-dev", "--no-editable"}
+		args = []string{"sync", "--python", version, "--frozen", "--no-dev", "--no-editable"}
 	} else if !os.IsNotExist(err) {
 		return err
 	}
