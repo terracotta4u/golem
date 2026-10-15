@@ -20,24 +20,13 @@ type Index struct {
 	model    string
 }
 
-func NewIndex(st *Store, embedder provider.Embedder, providerName, model string) (*Index, error) {
-	if _, err := st.db.Exec(`
-		CREATE TABLE IF NOT EXISTS embeddings (
-			memory_id TEXT PRIMARY KEY,
-			provider TEXT NOT NULL,
-			model TEXT NOT NULL,
-			dimensions INTEGER NOT NULL,
-			vector TEXT NOT NULL
-		);
-	`); err != nil {
-		return nil, fmt.Errorf("create embeddings: %w", err)
-	}
+func NewIndex(st *Store, embedder provider.Embedder, providerName, model string) *Index {
 	return &Index{
 		store:    st,
 		embedder: embedder,
 		provider: providerName,
 		model:    model,
-	}, nil
+	}
 }
 
 // Index embeds a memory and saves it to the database.

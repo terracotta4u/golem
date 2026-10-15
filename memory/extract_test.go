@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -183,7 +182,7 @@ func TestExtractThenSave(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +226,7 @@ func TestExtractThenSave(t *testing.T) {
 }
 
 func TestSaveExtractedEmpty(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "memories.db"))
+	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

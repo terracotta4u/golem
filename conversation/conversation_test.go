@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/terracotta4u/golem/db"
 	"github.com/terracotta4u/golem/provider"
 )
 
@@ -106,6 +107,31 @@ func TestListNewestFirstWithoutMessages(t *testing.T) {
 	}
 }
 
+func TestShareCloseLeavesConnectionOpen(t *testing.T) {
+	sqlDB, err := db.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+
+	st := Share(sqlDB)
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	c := New("cli")
+	c.UpdatedAt = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
+	if err := st.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Load(c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Channel != "cli" {
+		t.Errorf("channel = %q", got.Channel)
+	}
+}
+
 func TestClose(t *testing.T) {
 	st, err := Open(t.TempDir())
 	if err != nil {
@@ -196,7 +222,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "golem.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, db.FileName)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "conversations.db")); !os.IsNotExist(err) {

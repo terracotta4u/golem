@@ -11,18 +11,28 @@ import (
 )
 
 type DB struct {
-	db *sql.DB
+	db    *sql.DB
+	owned bool
 }
 
+// Open opens golem.db in dir. Close releases that connection.
 func Open(dir string) (*DB, error) {
 	sqlDB, err := db.Open(dir)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{db: sqlDB}, nil
+	return &DB{db: sqlDB, owned: true}, nil
+}
+
+// Share uses an open golem.db. The caller closes sqlDB.
+func Share(sqlDB *sql.DB) *DB {
+	return &DB{db: sqlDB}
 }
 
 func (s *DB) Close() error {
+	if !s.owned || s.db == nil {
+		return nil
+	}
 	return s.db.Close()
 }
 
