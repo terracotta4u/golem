@@ -1,14 +1,15 @@
 ---
 title: Extensions
-description: Install and run provider and channel extensions.
+description: Install and run provider, channel, and tool extensions.
 weight: 30
 draft: false
 ---
 
-An extension is a Python package Golem runs as a child process. There are two roles. One process can do both.
+An extension is a Python package Golem runs as a child process. There are three roles. One process can do any combination of them.
 
 - **Provider** — a model backend. Golem calls it for chat, structured output, and/or embeddings.
 - **Channel** — another way to send messages in (a chat app, a CLI, and so on).
+- **Tools** — functions the model can call. Golem posts the arguments to the extension.
 
 Packages live in `~/.golem/extensions/`. Golem takes the name from `pyproject.toml` and runs `python -m golem` with the provider, channel, or tools declared there.
 

@@ -9,7 +9,7 @@ An extension is a Python project with a `pyproject.toml`. `golem extension add` 
 
 ## pyproject.toml
 
-Golem requires `name`, `version`, and at least one of a provider, a channel, or `tools`. `name` is lowercase letters, digits, and hyphens (max 64 characters). That name is the install directory and the `golem extension remove` argument.
+Golem requires `name`, `version`, and at least one of a provider, a channel, or `tools`. A package may declare any combination of those. `name` is lowercase letters, digits, and hyphens (max 64 characters). That name is the install directory, the `--name` passed to `python -m golem`, and the `golem extension remove` argument.
 
 ```toml
 [project]
@@ -18,7 +18,7 @@ version = "0.1.0"
 description = "Example Golem extension"
 requires-python = ">=3.11"
 dependencies = [
-    "golem-agent-sdk>=0.1.1",
+    "golem-agent-sdk>=0.1.3",
 ]
 
 [tool.golem.provider]
@@ -26,7 +26,7 @@ id = "echo"
 entrypoint = "golem_echo:Echo"
 ```
 
-`description` shows up in **Settings → Extensions**. `id` is the name used in Golem config. `entrypoint` is `module:Class`. Depend on [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) unless you speak the [protocol](protocol.md) yourself.
+`description` shows up in **Settings → Extensions**. `id` is the name used in Golem config. `entrypoint` is `module:Class`. Golem constructs that class with no arguments. Depend on [`golem-agent-sdk`](https://pypi.org/project/golem-agent-sdk/) unless you speak the [protocol](protocol.md) yourself.
 
 A channel uses the same shape:
 
@@ -36,7 +36,7 @@ id = "cli"
 entrypoint = "golem_cli:CLI"
 ```
 
-Tools are one list of functions. The attribute is the list, or a single function:
+Tools point at a list of functions, or at one function. That object is the tool list:
 
 ```toml
 [tool.golem]
