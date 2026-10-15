@@ -165,7 +165,7 @@ class Provider(ABC):
         """Run one chat completion.
 
         Args:
-            model: Model id from Golem conf (for example ``openai/gpt-4o-mini``).
+            model: Model id from Golem config (for example ``openai/gpt-4o-mini``).
             messages: Conversation so far, including tool results.
             tools: Tools the model may call, or ``None`` if none are offered.
 
@@ -184,7 +184,7 @@ class Provider(ABC):
         """Return a JSON value that matches ``schema``.
 
         Args:
-            model: Model id from Golem conf.
+            model: Model id from Golem config.
             messages: Conversation so far.
             schema: Requested output shape.
 
@@ -201,7 +201,7 @@ class Provider(ABC):
         """Embed each string in ``texts``.
 
         Args:
-            model: Embedding model id from Golem conf.
+            model: Embedding model id from Golem config.
             texts: Inputs to embed, in order.
 
         Returns:

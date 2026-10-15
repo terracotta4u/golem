@@ -9,7 +9,7 @@ Golem keeps its state in `~/.golem`. The first `golem serve` creates it.
 
 | Path | Purpose |
 |---|---|
-| `~/.golem/conf.json` | Models, memory settings, extension origins |
+| `~/.golem/config.json` | Models, memory settings, extension origins |
 | `~/.golem/conversations.db` | Chat history |
 | `~/.golem/extensions/` | Installed extension packages |
 | `~/.golem/memory/` | Memory database |
@@ -17,22 +17,22 @@ Golem keeps its state in `~/.golem`. The first `golem serve` creates it.
 
 ## Models
 
-Defaults in `conf.json`:
+Defaults in `config.json`:
 
 - **Default model** — chat and other heavier work (`openrouter` / `openai/gpt-4o-mini`)
 - **Fast model** — lighter work such as memory extraction (`openrouter` / `openai/gpt-4o-mini`)
 
-Change them in the web UI under **Settings → General**, or by editing `conf.json`. `provider` must match a live provider extension id (for OpenRouter, `openrouter`).
+Change them in the web UI under **Settings → General**, or by editing `config.json`. `provider` must match a live provider extension id (for OpenRouter, `openrouter`).
 
 **Max tool rounds** caps how many tool loops a single turn can run. `0` means no cap.
 
 ## Extension keys
 
-API keys are not stored in `conf.json` by default. Export them in the shell that runs `golem serve` so child processes inherit them:
+API keys are not stored in `config.json` by default. Export them in the shell that runs `golem serve` so child processes inherit them:
 
 ```bash
 export OPENROUTER_API_KEY=...
 golem serve
 ```
 
-You can also put env vars on an extension entry in `conf.json` under `extensions.<name>.env`.
+You can also put env vars on an extension entry in `config.json` under `extensions.<name>.env`.

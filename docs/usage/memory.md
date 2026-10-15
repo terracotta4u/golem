@@ -9,7 +9,7 @@ After a turn, Golem asks the fast model to extract durable facts about you (pref
 
 On later turns, Golem searches that store and may add matching memories to the system prompt. They are treated as context, not as instructions. They can be wrong or stale.
 
-Settings live in `conf.json` under `memory`:
+Settings live in `config.json` under `memory`:
 
 | Field | Default | Meaning |
 |---|---|---|
