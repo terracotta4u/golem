@@ -5,7 +5,9 @@ weight: 10
 draft: false
 ---
 
-An extension is a Python project with a `pyproject.toml`. `golem extension add` copies it into `~/.golem/extensions/<name>/`, creates a venv with Python 3.12, and runs `uv sync`. Then `golem serve` starts `.venv/bin/python -m golem` with the provider, channel, or tools from `[tool.golem]`.
+An extension is a Python project with a `pyproject.toml`. `golem extension add` copies it into `~/.golem/extensions/<name>/`, creates a venv, and runs `uv sync`. Then `golem serve` starts `.venv/bin/python -m golem` with the provider, channel, or tools from `[tool.golem]`.
+
+If the project contains a `.python-version` file, Golem installs that Python and uses it for the venv. The first version line is the pin, for example `3.11`, `3.11.9`, or `cpython@3.12`. A `#` starts a comment. Without that file, Golem uses Python 3.12.
 
 ## pyproject.toml
 
